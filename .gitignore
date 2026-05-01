@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+frontend/dist/
+frontend/.astro/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# PocketBase data (NUNCA commitear — son los datos reales de prod/dev)
+pocketbase/pb_data/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Cloudflared (credenciales del túnel)
+cloudflared/*.json
+cloudflared/cert.pem

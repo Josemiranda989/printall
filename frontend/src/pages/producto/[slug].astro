@@ -1,0 +1,179 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import StockBadge from "../../components/StockBadge.astro";
+import WhatsAppButton from "../../components/WhatsAppButton.astro";
+import { getProductBySlug, getProductWhatsAppUrl } from "../../lib/pocketbase";
+
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect("/productos");
+const product = await getProductBySlug(slug);
+
+if (!product) {
+  return Astro.redirect("/productos");
+}
+
+const category = product.expand?.category;
+const whatsappUrl = getProductWhatsAppUrl(product);
+const mainImage = product.images?.[0]?.thumbnails?.["800x800"] ?? "/logo.png";
+const allImages = product.images?.length
+  ? product.images
+  : [];
+---
+
+<BaseLayout
+  title={product.name}
+  description={product.description?.replace(/<[^>]*>/g, "").slice(0, 160)}
+  ogImage={mainImage}
+>
+  <div class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 sm:py-12">
+    <!-- Breadcrumb -->
+    <nav class="flex items-center gap-2 text-sm text-brand/40 mb-6">
+      <a href="/" class="hover:text-accent transition-colors">Inicio</a>
+      <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+      </svg>
+      <a href="/productos" class="hover:text-accent transition-colors">Productos</a>
+      {category && (
+        <>
+          <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+          <a href={`/productos/${category.slug}`} class="hover:text-accent transition-colors">{category.name}</a>
+        </>
+      )}
+    </nav>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+      <!-- Galería de imágenes -->
+      <div>
+        <div class="aspect-square overflow-hidden rounded-2xl bg-surface border border-surface">
+          <img
+            id="main-image"
+            src={mainImage}
+            alt={product.name}
+            class="h-full w-full object-cover"
+            width="800"
+            height="800"
+          />
+        </div>
+
+        {
+          allImages.length > 1 && (
+            <div class="mt-4 grid grid-cols-4 gap-3">
+              {allImages.map((img, i) => (
+                <button
+                  type="button"
+                  class={`aspect-square overflow-hidden rounded-xl border-2 transition-all cursor-pointer ${
+                    i === 0 ? "border-accent" : "border-surface hover:border-accent/40"
+                  }`}
+                  data-image-url={img.thumbnails["800x800"]}
+                >
+                  <img
+                    src={img.thumbnails["120x120"]}
+                    alt={`${product.name} - ${i + 1}`}
+                    class="h-full w-full object-cover"
+                    width="120"
+                    height="120"
+                    loading="lazy"
+                  />
+                </button>
+              ))}
+            </div>
+          )
+        }
+      </div>
+
+      <!-- Info producto -->
+      <div class="flex flex-col">
+        <div class="flex items-start justify-between gap-3 mb-3">
+          <div>
+            {category && (
+              <a
+                href={`/productos/${category.slug}`}
+                class="text-sm font-medium text-accent hover:text-accent-hover transition-colors"
+              >
+                {category.icon} {category.name}
+              </a>
+            )}
+            <h1 class="font-display text-2xl sm:text-3xl text-brand mt-1 leading-tight">
+              {product.name}
+            </h1>
+          </div>
+          {product.featured && (
+            <span class="shrink-0 text-[10px] font-bold uppercase tracking-wider text-accent bg-accent-soft rounded-full px-3 py-1">
+              Destacado
+            </span>
+          )}
+        </div>
+
+        <!-- Stock -->
+        <StockBadge status={product.stock_status} class="w-fit" />
+
+        <!-- Precio -->
+        <div class="mt-6">
+          {product.price ? (
+            <div class="flex items-baseline gap-2">
+              <span class="font-display text-3xl text-brand">
+                ${product.price.toLocaleString("es-AR")}
+              </span>
+              {product.price_label && (
+                <span class="text-sm text-brand/40">{product.price_label}</span>
+              )}
+            </div>
+          ) : (
+            <span class="text-xl font-semibold text-brand/50">Consultar precio</span>
+          )}
+        </div>
+
+        <!-- Descripción -->
+        {product.description && (
+          <div class="mt-6 prose prose-sm max-w-none text-brand/60 leading-relaxed">
+            <Fragment set:html={product.description} />
+          </div>
+        )}
+
+        <!-- Atributos -->
+        {
+          product.attributes && Object.keys(product.attributes).length > 0 && (
+            <div class="mt-6 border-t border-surface pt-6">
+              <h3 class="text-sm font-semibold text-brand mb-3">Especificaciones</h3>
+              <dl class="grid grid-cols-2 gap-3">
+                {Object.entries(product.attributes).map(([key, value]) => (
+                  <div class="rounded-lg bg-surface px-3 py-2">
+                    <dt class="text-[10px] font-bold uppercase tracking-wider text-brand/30">{key}</dt>
+                    <dd class="text-sm font-medium text-brand mt-0.5">{String(value)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )
+        }
+
+        <!-- CTA -->
+        <div class="mt-8 border-t border-surface pt-6">
+          <WhatsAppButton href={whatsappUrl} />
+        </div>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  // Image gallery switcher
+  const thumbnails = document.querySelectorAll('[data-image-url]');
+  const mainImg = document.getElementById('main-image') as HTMLImageElement | null;
+
+  if (mainImg) {
+    thumbnails.forEach((thumb) => {
+      thumb.addEventListener('click', () => {
+        const url = (thumb as HTMLElement).dataset.imageUrl;
+        if (url) mainImg.src = url;
+
+        thumbnails.forEach((t) =>
+          t.classList.remove('border-accent')
+        );
+        thumb.classList.add('border-accent');
+      });
+    });
+  }
+</script>

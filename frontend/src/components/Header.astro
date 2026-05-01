@@ -1,0 +1,54 @@
+---
+const navLinks = [
+  { href: "/", label: "Inicio" },
+  { href: "/productos", label: "Productos" },
+  { href: "/contacto", label: "Contacto" },
+];
+
+const currentPath = Astro.url.pathname;
+---
+
+<header
+  class="bg-brand sticky top-0 z-50 border-b border-white/10 backdrop-blur-sm bg-brand/95"
+>
+  <nav class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+    <a href="/" class="flex items-center gap-3 group" aria-label="Print All — Inicio">
+      <img
+        src="/logo.png"
+        alt="Print All"
+        class="h-10 w-auto brightness-0 invert"
+        width="97"
+        height="96"
+      />
+      <span class="text-lg font-bold text-white tracking-tight hidden sm:inline">
+        Print All
+      </span>
+    </a>
+
+    <ul class="flex items-center gap-1">
+      {
+        navLinks.map((link) => {
+          const isActive =
+            link.href === "/"
+              ? currentPath === "/"
+              : currentPath.startsWith(link.href);
+
+          return (
+            <li>
+              <a
+                href={link.href}
+                class={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-accent text-white"
+                    : "text-white/70 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                {link.label}
+              </a>
+            </li>
+          );
+        })
+      }
+    </ul>
+  </nav>
+</header>

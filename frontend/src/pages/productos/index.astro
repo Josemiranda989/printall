@@ -1,0 +1,28 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import CategoryCard from "../../components/CategoryCard.astro";
+import { getCategories } from "../../lib/pocketbase";
+
+const categories = await getCategories();
+---
+
+<BaseLayout title="Productos">
+  <section class="bg-brand relative overflow-hidden">
+    <div class="absolute inset-0 opacity-5">
+      <div class="absolute -top-24 right-0 h-64 w-64 rounded-full bg-accent blur-3xl"></div>
+    </div>
+    <div class="relative mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8 sm:py-16">
+      <h1 class="font-display text-3xl sm:text-4xl text-white">
+        Nuestros productos
+      </h1>
+      <p class="mt-2 text-white/50">Elegí una categoría para ver lo que tenemos</p>
+    </div>
+    <div class="absolute bottom-0 left-0 right-0 h-6 bg-[#FAFAF9]" style="clip-path: ellipse(60% 100% at 50% 100%);"></div>
+  </section>
+
+  <section class="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      {categories.map((cat) => <CategoryCard category={cat} />)}
+    </div>
+  </section>
+</BaseLayout>

@@ -1,0 +1,42 @@
+services:
+  pocketbase:
+    image: ghcr.io/muchobien/pocketbase:latest
+    container_name: printall-pocketbase
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./pocketbase/pb_data:/pb_data
+      - ./pocketbase/pb_migrations:/pb_migrations
+      - ./pocketbase/pb_hooks:/pb_hooks
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:8090/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - printall
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: printall-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4321:4321"
+    environment:
+      POCKETBASE_URL: http://pocketbase:8090
+      PUBLIC_POCKETBASE_URL: ${PUBLIC_POCKETBASE_URL:-https://printall.jmlabs.app}
+      PUBLIC_WHATSAPP_NUMBER: ${PUBLIC_WHATSAPP_NUMBER:-5493816563940}
+      HOST: 0.0.0.0
+      PORT: "4321"
+    depends_on:
+      pocketbase:
+        condition: service_healthy
+    networks:
+      - printall
+
+networks:
+  printall:
+    driver: bridge
