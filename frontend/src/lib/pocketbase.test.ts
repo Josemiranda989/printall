@@ -48,7 +48,7 @@ describe("getFileUrl", () => {
   it("construye URL con thumbnail", () => {
     const url = getFileUrl(col, rec, file, "400x400");
     expect(url).toBe(
-      `http://localhost:8090/api/files/${col}/${rec}/thumb_${file}/400x400_${file}`
+      `http://localhost:8090/api/files/${col}/${rec}/${file}?thumb=400x400`
     );
   });
 

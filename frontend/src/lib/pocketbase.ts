@@ -31,11 +31,11 @@ export function getFileUrl(
   fileName: string,
   thumb?: string,
 ): string {
-  const base = `${PB_IMAGE_URL}/api/files/${collectionId}/${recordId}`;
+  const base = `${PB_IMAGE_URL}/api/files/${collectionId}/${recordId}/${fileName}`;
   if (thumb) {
-    return `${base}/thumb_${fileName}/${thumb}_${fileName}`;
+    return `${base}?thumb=${thumb}`;
   }
-  return `${base}/${fileName}`;
+  return base;
 }
 
 /** Convierte imágenes crudas de PocketBase a ProductImage[] con thumbnails */
@@ -43,24 +43,21 @@ function expandProductImages(
   _pbUrl: string,
   product: Record<string, unknown>,
 ): Product {
-  const rawImages = (product._images_meta ?? []) as Record<string, unknown>[];
+  const rawImages = (product.images ?? []) as string[];
   const collectionId = (product.collectionId as string) ?? "";
   const recordId = (product.id as string) ?? "";
 
-  const images = rawImages.map((img) => {
-    const fileName = (img.fileName ?? "") as string;
-    return {
-      id: (img.id ?? "") as string,
-      collectionId,
-      fileName,
-      url: getFileUrl(collectionId, recordId, fileName),
-      thumbnails: {
-        "120x120": getFileUrl(collectionId, recordId, fileName, "120x120"),
-        "400x400": getFileUrl(collectionId, recordId, fileName, "400x400"),
-        "800x800": getFileUrl(collectionId, recordId, fileName, "800x800"),
-      },
-    };
-  });
+  const images = rawImages.map((fileName) => ({
+    id: fileName,
+    collectionId,
+    fileName,
+    url: getFileUrl(collectionId, recordId, fileName),
+    thumbnails: {
+      "120x120": getFileUrl(collectionId, recordId, fileName, "120x120"),
+      "400x400": getFileUrl(collectionId, recordId, fileName, "400x400"),
+      "800x800": getFileUrl(collectionId, recordId, fileName, "800x800"),
+    },
+  }));
 
   return {
     ...(product as unknown as Product),
@@ -120,7 +117,7 @@ export async function getProducts(
     filter,
     sort: "-featured,-created",
     expand: "category",
-    fields: "*,images.*",
+    fields: "*",
   });
 
   return records.map((r) =>
@@ -138,7 +135,7 @@ export async function getProductBySlug(
       .collection("products")
       .getFirstListItem(`slug = "${safeSlug}" && active = true`, {
         expand: "category",
-        fields: "*,images.*",
+        fields: "*",
       });
 
     return mapToProductWithCategory(record as Record<string, unknown>);
@@ -153,7 +150,7 @@ export async function getFeaturedProducts(): Promise<ProductWithCategory[]> {
     filter: "featured = true && active = true",
     sort: "-created",
     expand: "category",
-    fields: "*,images.*",
+    fields: "*",
   });
 
   return records.map((r) =>
