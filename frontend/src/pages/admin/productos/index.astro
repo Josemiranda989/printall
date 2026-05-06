@@ -1,0 +1,139 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import { getFileUrl } from "../../../lib/pocketbase";
+import type { Category, StockStatus } from "../../../lib/types";
+import { STOCK_LABELS } from "../../../lib/types";
+
+const pb = Astro.locals.adminPB!;
+
+type AdminProductRecord = {
+  id: string;
+  collectionId: string;
+  name: string;
+  slug: string;
+  price: number;
+  price_label: string;
+  stock_status: StockStatus;
+  featured: boolean;
+  published: boolean;
+  images: string[];
+  updated: string;
+  expand?: { category?: Category };
+};
+
+const records = await pb.collection("products").getFullList({
+  sort: "-updated",
+  expand: "category",
+});
+const products = records as unknown as AdminProductRecord[];
+
+function thumbFor(p: AdminProductRecord): string | null {
+  const first = p.images?.[0];
+  if (!first) return null;
+  return getFileUrl(p.collectionId, p.id, first, "120x120");
+}
+---
+
+<AdminLayout title="Productos">
+  <div class="flex items-center justify-between gap-4 mb-6">
+    <div>
+      <h1 class="font-display text-3xl">Productos</h1>
+      <p class="text-sm text-gray-600 mt-1">
+        {products.length} {products.length === 1 ? "producto" : "productos"} en total
+      </p>
+    </div>
+    <a
+      href="/admin/productos/nuevo"
+      class="bg-accent text-white font-medium px-4 py-2 rounded-md hover:bg-accent-hover transition-colors text-sm"
+    >
+      + Nuevo producto
+    </a>
+  </div>
+
+  {products.length === 0 ? (
+    <div class="border-2 border-dashed border-brand/30 rounded-lg p-12 text-center bg-white">
+      <p class="text-gray-600 mb-4">Todavía no hay productos cargados.</p>
+      <a href="/admin/productos/nuevo" class="text-accent hover:underline font-medium">
+        Crear el primero →
+      </a>
+    </div>
+  ) : (
+    <div class="bg-white border-2 border-brand rounded-lg overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-surface border-b-2 border-brand">
+          <tr>
+            <th class="text-left px-4 py-3 font-medium w-16"></th>
+            <th class="text-left px-4 py-3 font-medium">Producto</th>
+            <th class="text-left px-4 py-3 font-medium hidden md:table-cell">Categoría</th>
+            <th class="text-left px-4 py-3 font-medium hidden md:table-cell">Precio</th>
+            <th class="text-left px-4 py-3 font-medium">Estado</th>
+            <th class="text-right px-4 py-3 font-medium">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {products.map((p) => {
+            const thumb = thumbFor(p);
+            const category = p.expand?.category;
+            return (
+              <tr class="border-b border-brand/10 hover:bg-surface/50 transition-colors">
+                <td class="px-4 py-3">
+                  {thumb ? (
+                    <img
+                      src={thumb}
+                      alt=""
+                      width="40"
+                      height="40"
+                      class="w-10 h-10 rounded border border-brand/20 object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div class="w-10 h-10 rounded border-2 border-dashed border-brand/30 bg-surface" />
+                  )}
+                </td>
+                <td class="px-4 py-3">
+                  <div class="font-medium">{p.name}</div>
+                  <div class="text-xs text-gray-500 font-mono">/{p.slug}</div>
+                </td>
+                <td class="px-4 py-3 hidden md:table-cell text-gray-700">
+                  {category?.name ?? <span class="text-gray-400">—</span>}
+                </td>
+                <td class="px-4 py-3 hidden md:table-cell text-gray-700">
+                  {p.price_label || (p.price > 0 ? `$${p.price.toLocaleString("es-AR")}` : "—")}
+                </td>
+                <td class="px-4 py-3">
+                  <div class="flex flex-wrap gap-1">
+                    <span
+                      class={`inline-block text-xs px-2 py-0.5 rounded ${
+                        p.published
+                          ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                          : "bg-gray-100 text-gray-600 border border-gray-300"
+                      }`}
+                    >
+                      {p.published ? "Publicado" : "Borrador"}
+                    </span>
+                    {p.featured && (
+                      <span class="inline-block text-xs px-2 py-0.5 rounded bg-accent-soft text-accent-strong border border-accent/30">
+                        ★ Destacado
+                      </span>
+                    )}
+                    <span class="inline-block text-xs px-2 py-0.5 rounded bg-surface text-gray-700 border border-brand/20">
+                      {STOCK_LABELS[p.stock_status] ?? p.stock_status}
+                    </span>
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <a
+                    href={`/admin/productos/${p.id}`}
+                    class="inline-block px-3 py-1 border-2 border-brand rounded hover:bg-brand hover:text-white transition-colors text-xs font-medium"
+                  >
+                    Editar
+                  </a>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  )}
+</AdminLayout>

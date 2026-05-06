@@ -14,24 +14,18 @@ function slugify(text) {
     .substring(0, 120);
 }
 
-// === CREATE: auto-slug + defaults ===
+// === CREATE: auto-slug + safe defaults ===
+// El admin custom (Astro) manda `published` explícito, así que no lo seteamos
+// acá para no pisar `false` con `true` (bug latente del operador `!`).
 onRecordCreateRequest((e) => {
-  // Auto-slug desde el nombre si no se provee
   const name = e.record.get("name");
   const currentSlug = e.record.get("slug");
   if (name && (!currentSlug || String(currentSlug).trim() === "")) {
     e.record.set("slug", slugify(name));
   }
 
-  // Default: stock_status = "in_stock" (solo afecta requests vía API; en admin form es required)
   if (!e.record.get("stock_status")) {
     e.record.set("stock_status", "in_stock");
-  }
-
-  // Default: published = true (los productos cargados se publican por defecto;
-  // editá y desmarcá published para ocultar)
-  if (!e.record.get("published")) {
-    e.record.set("published", true);
   }
 
   e.next();

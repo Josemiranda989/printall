@@ -1,0 +1,109 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import ProductForm from "../../../components/admin/ProductForm.astro";
+import { extractProductFromForm } from "../../../lib/admin-products";
+import type { Category } from "../../../lib/types";
+import type { ProductFormData } from "../../../lib/admin-products";
+
+const pb = Astro.locals.adminPB!;
+const { id } = Astro.params;
+if (!id) return Astro.redirect("/admin/productos");
+
+let record;
+try {
+  record = await pb.collection("products").getOne(id);
+} catch {
+  return new Response("Producto no encontrado", { status: 404 });
+}
+
+const categoriesRaw = await pb.collection("categories").getFullList({ sort: "order" });
+const categories = categoriesRaw as unknown as Category[];
+
+let values: Partial<ProductFormData> = {
+  name: record.name,
+  slug: record.slug,
+  category: record.category,
+  description: record.description,
+  price: record.price,
+  price_label: record.price_label,
+  stock_status: record.stock_status,
+  featured: record.featured,
+  published: record.published,
+};
+let errors: Record<string, string> = {};
+let flash: string | null = null;
+
+const okParam = new URL(Astro.request.url).searchParams.get("ok");
+if (okParam === "created") flash = "Producto creado.";
+if (okParam === "saved") flash = "Cambios guardados.";
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const action = String(form.get("action") ?? "save");
+
+  if (action === "delete") {
+    try {
+      await pb.collection("products").delete(id);
+      return Astro.redirect("/admin/productos");
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      errors._global = e.message ?? "No se pudo eliminar el producto.";
+    }
+  } else {
+    const result = extractProductFromForm(form);
+    values = result.data;
+    errors = result.errors;
+
+    if (Object.keys(errors).length === 0) {
+      try {
+        await pb.collection("products").update(id, result.data);
+        return Astro.redirect(`/admin/productos/${id}?ok=saved`);
+      } catch (err: unknown) {
+        const e = err as { message?: string; response?: { data?: Record<string, { message?: string }> } };
+        const fieldErrors = e.response?.data ?? {};
+        for (const [field, info] of Object.entries(fieldErrors)) {
+          if (info?.message) errors[field] = info.message;
+        }
+        if (Object.keys(errors).length === 0) {
+          errors._global = e.message ?? "No se pudo guardar el producto.";
+        }
+      }
+    }
+  }
+}
+---
+
+<AdminLayout title={`Editar: ${record.name}`}>
+  <div class="mb-6 flex items-start justify-between gap-4">
+    <div>
+      <h1 class="font-display text-3xl">{record.name}</h1>
+      <p class="text-sm text-gray-600 mt-1 font-mono">id: {id}</p>
+    </div>
+    <a
+      href={`/productos/${record.slug}`}
+      target="_blank"
+      rel="noopener"
+      class="text-sm text-accent hover:underline whitespace-nowrap"
+    >
+      Ver en el sitio ↗
+    </a>
+  </div>
+
+  {flash && (
+    <div class="border-2 border-emerald-600 bg-emerald-50 text-emerald-800 px-3 py-2 rounded-md text-sm mb-4">
+      {flash}
+    </div>
+  )}
+
+  <ProductForm
+    categories={categories}
+    values={values}
+    errors={errors}
+    mode="edit"
+    productId={id}
+  />
+
+  <div class="mt-8 text-xs text-gray-500">
+    <p>Imágenes y atributos se editan desde el admin de PocketBase. Próximamente acá.</p>
+  </div>
+</AdminLayout>

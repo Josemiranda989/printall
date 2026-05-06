@@ -1,0 +1,68 @@
+---
+import "@fontsource/archivo-black/400.css";
+import "@fontsource/dm-sans/400.css";
+import "@fontsource/dm-sans/500.css";
+import "@fontsource/dm-sans/600.css";
+import "@fontsource/dm-sans/700.css";
+
+export interface Props {
+  title: string;
+}
+const { title } = Astro.props;
+const admin = Astro.locals.admin;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>{title} | Admin Print All</title>
+    <link rel="icon" type="image/png" href="/logo.png" />
+  </head>
+  <body class="min-h-screen bg-surface text-text font-sans antialiased">
+    {admin && (
+      <header class="sticky top-0 z-30 border-b-2 border-brand bg-white">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+          <a href="/admin/productos" class="flex items-center gap-2 font-display text-lg">
+            <span class="inline-block w-2 h-2 rounded-full bg-accent"></span>
+            Admin · Print All
+          </a>
+          <nav class="flex items-center gap-4 text-sm">
+            <a href="/admin/productos" class="hover:text-accent transition-colors">Productos</a>
+            <span class="hidden sm:inline text-gray-400">|</span>
+            <span class="hidden sm:inline text-gray-600">{admin.email}</span>
+            <form method="POST" action="/admin/logout">
+              <button
+                type="submit"
+                class="px-3 py-1.5 border-2 border-brand rounded-md hover:bg-brand hover:text-white transition-colors text-sm font-medium"
+              >
+                Salir
+              </button>
+            </form>
+          </nav>
+        </div>
+      </header>
+    )}
+    <main class="max-w-6xl mx-auto px-4 py-8">
+      <slot />
+    </main>
+  </body>
+</html>
+
+<style is:global>
+  @import "../assets/styles/global.css";
+
+  @theme {
+    --font-display: "Archivo Black", sans-serif;
+    --font-sans: "DM Sans", sans-serif;
+    --color-brand: #1f1f2b;
+    --color-surface: #f3f0eb;
+    --color-accent: #ea580c;
+    --color-accent-hover: #c2410c;
+    --color-accent-strong: #9a3412;
+    --color-accent-soft: #fff7ed;
+    --color-text: #17171e;
+  }
+</style>

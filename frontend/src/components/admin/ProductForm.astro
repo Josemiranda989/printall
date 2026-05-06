@@ -1,0 +1,215 @@
+---
+import type { Category, StockStatus } from "../../lib/types";
+import { STOCK_LABELS } from "../../lib/types";
+import type { ProductFormData } from "../../lib/admin-products";
+
+export interface Props {
+  categories: Category[];
+  values: Partial<ProductFormData>;
+  errors?: Record<string, string>;
+  mode: "create" | "edit";
+  productId?: string;
+}
+
+const { categories, values, errors = {}, mode, productId } = Astro.props;
+
+const stockOptions: StockStatus[] = [
+  "in_stock",
+  "low_stock",
+  "out_of_stock",
+  "made_to_order",
+];
+
+const fieldClass =
+  "mt-1 block w-full border-2 border-brand rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent disabled:bg-gray-100";
+
+function errorMsg(field: string) {
+  return errors[field];
+}
+---
+
+<form method="POST" class="space-y-5">
+  {errors._global && (
+    <div class="border-2 border-red-500 bg-red-50 text-red-800 px-3 py-2 rounded-md text-sm">
+      {errors._global}
+    </div>
+  )}
+
+  <div class="bg-white border-2 border-brand rounded-lg p-5 space-y-5 shadow-[4px_4px_0_var(--color-brand)]">
+    <label class="block">
+      <span class="text-sm font-medium">Nombre *</span>
+      <input
+        type="text"
+        name="name"
+        required
+        value={values.name ?? ""}
+        data-product-name
+        class={fieldClass}
+      />
+      {errorMsg("name") && <p class="text-xs text-red-600 mt-1">{errorMsg("name")}</p>}
+    </label>
+
+    <label class="block">
+      <span class="text-sm font-medium">Slug</span>
+      <input
+        type="text"
+        name="slug"
+        value={values.slug ?? ""}
+        placeholder="se genera del nombre si lo dejás vacío"
+        data-product-slug
+        class={fieldClass + " font-mono text-sm"}
+      />
+      <p class="text-xs text-gray-500 mt-1">URL del producto: <code>/productos/<span data-slug-preview>{values.slug || "—"}</span></code></p>
+      {errorMsg("slug") && <p class="text-xs text-red-600 mt-1">{errorMsg("slug")}</p>}
+    </label>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <label class="block">
+        <span class="text-sm font-medium">Categoría *</span>
+        <select name="category" required class={fieldClass}>
+          <option value="">— Elegí una —</option>
+          {categories.map((c) => (
+            <option value={c.id} selected={values.category === c.id}>{c.name}</option>
+          ))}
+        </select>
+        {errorMsg("category") && <p class="text-xs text-red-600 mt-1">{errorMsg("category")}</p>}
+      </label>
+
+      <label class="block">
+        <span class="text-sm font-medium">Estado de stock *</span>
+        <select name="stock_status" required class={fieldClass}>
+          {stockOptions.map((s) => (
+            <option value={s} selected={values.stock_status === s}>{STOCK_LABELS[s]}</option>
+          ))}
+        </select>
+        {errorMsg("stock_status") && <p class="text-xs text-red-600 mt-1">{errorMsg("stock_status")}</p>}
+      </label>
+    </div>
+
+    <label class="block">
+      <span class="text-sm font-medium">Descripción</span>
+      <textarea
+        name="description"
+        rows="4"
+        class={fieldClass}
+      >{values.description ?? ""}</textarea>
+    </label>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <label class="block">
+        <span class="text-sm font-medium">Precio (ARS)</span>
+        <input
+          type="number"
+          name="price"
+          min="0"
+          step="0.01"
+          value={values.price ?? 0}
+          class={fieldClass}
+        />
+        {errorMsg("price") && <p class="text-xs text-red-600 mt-1">{errorMsg("price")}</p>}
+      </label>
+
+      <label class="block">
+        <span class="text-sm font-medium">Etiqueta de precio</span>
+        <input
+          type="text"
+          name="price_label"
+          value={values.price_label ?? ""}
+          placeholder="Ej: $12.500 / Consultar"
+          class={fieldClass}
+        />
+        <p class="text-xs text-gray-500 mt-1">Si lo dejás vacío se muestra el precio numérico.</p>
+      </label>
+    </div>
+
+    <div class="flex flex-wrap gap-6 pt-2">
+      <label class="inline-flex items-center gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          name="published"
+          checked={values.published ?? true}
+          class="w-4 h-4 accent-accent"
+        />
+        <span class="text-sm font-medium">Publicado</span>
+      </label>
+
+      <label class="inline-flex items-center gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          name="featured"
+          checked={values.featured ?? false}
+          class="w-4 h-4 accent-accent"
+        />
+        <span class="text-sm font-medium">Destacado</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <a
+      href="/admin/productos"
+      class="text-sm text-gray-600 hover:text-brand underline-offset-4 hover:underline"
+    >
+      ← Volver al listado
+    </a>
+
+    <div class="flex items-center gap-3">
+      {mode === "edit" && productId && (
+        <button
+          type="submit"
+          name="action"
+          value="delete"
+          formnovalidate
+          data-confirm="¿Seguro que querés borrar este producto? Esta acción no se puede deshacer."
+          class="px-4 py-2 border-2 border-red-600 text-red-600 rounded-md hover:bg-red-600 hover:text-white transition-colors text-sm font-medium"
+        >
+          Eliminar
+        </button>
+      )}
+      <button
+        type="submit"
+        name="action"
+        value="save"
+        class="px-5 py-2.5 bg-accent text-white rounded-md hover:bg-accent-hover transition-colors font-medium"
+      >
+        {mode === "create" ? "Crear producto" : "Guardar cambios"}
+      </button>
+    </div>
+  </div>
+</form>
+
+<script>
+  const nameEl = document.querySelector<HTMLInputElement>("[data-product-name]");
+  const slugEl = document.querySelector<HTMLInputElement>("[data-product-slug]");
+  const previewEl = document.querySelector<HTMLElement>("[data-slug-preview]");
+
+  function clientSlug(text: string): string {
+    return text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .substring(0, 120);
+  }
+
+  let slugTouched = !!slugEl?.value;
+  slugEl?.addEventListener("input", () => {
+    slugTouched = !!slugEl.value;
+    if (previewEl) previewEl.textContent = slugEl.value || "—";
+  });
+
+  nameEl?.addEventListener("input", () => {
+    if (slugTouched || !slugEl) return;
+    const generated = clientSlug(nameEl.value);
+    slugEl.placeholder = generated || "se genera del nombre si lo dejás vacío";
+    if (previewEl) previewEl.textContent = generated || "—";
+  });
+
+  document.querySelectorAll<HTMLButtonElement>("[data-confirm]").forEach((btn) => {
+    btn.addEventListener("click", (ev) => {
+      const msg = btn.dataset.confirm ?? "¿Confirmás?";
+      if (!confirm(msg)) ev.preventDefault();
+    });
+  });
+</script>

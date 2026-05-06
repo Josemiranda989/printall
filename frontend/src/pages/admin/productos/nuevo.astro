@@ -1,0 +1,54 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import ProductForm from "../../../components/admin/ProductForm.astro";
+import { extractProductFromForm } from "../../../lib/admin-products";
+import type { Category } from "../../../lib/types";
+import type { ProductFormData } from "../../../lib/admin-products";
+
+const pb = Astro.locals.adminPB!;
+
+const categoriesRaw = await pb.collection("categories").getFullList({ sort: "order" });
+const categories = categoriesRaw as unknown as Category[];
+
+let values: Partial<ProductFormData> = {
+  published: true,
+  featured: false,
+  stock_status: "in_stock",
+  price: 0,
+};
+let errors: Record<string, string> = {};
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const result = extractProductFromForm(form);
+  values = result.data;
+  errors = result.errors;
+
+  if (Object.keys(errors).length === 0) {
+    try {
+      const created = await pb.collection("products").create(result.data);
+      return Astro.redirect("/admin/productos/" + created.id + "?ok=created");
+    } catch (err: unknown) {
+      const e = err as { message?: string; response?: { data?: Record<string, { message?: string }> } };
+      const fieldErrors = e.response?.data ?? {};
+      for (const [field, info] of Object.entries(fieldErrors)) {
+        if (info?.message) errors[field] = info.message;
+      }
+      if (Object.keys(errors).length === 0) {
+        errors._global = e.message ?? "No se pudo crear el producto.";
+      }
+    }
+  }
+}
+---
+
+<AdminLayout title="Nuevo producto">
+  <div class="mb-6">
+    <h1 class="font-display text-3xl">Nuevo producto</h1>
+    <p class="text-sm text-gray-600 mt-1">
+      Por ahora podés cargar los datos básicos. Las imágenes y los atributos se editan después.
+    </p>
+  </div>
+
+  <ProductForm categories={categories} values={values} errors={errors} mode="create" />
+</AdminLayout>

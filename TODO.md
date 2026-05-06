@@ -15,16 +15,33 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 
 ### Nivel 3 — admin custom
 
-- [ ] Crear `/admin/productos` en Astro consumiendo la API de PocketBase, con login admin:
-  - Placeholders y help text reales
-  - Drag-and-drop de imágenes con preview
-  - Slug auto-visible mientras tipeás el nombre
-  - Attributes como filas key/value editables
-  - Reordenar imágenes con drag
+**Sprint 1 (branch `feat/admin-custom`)** — base de auth y CRUD básico de productos:
+
+- ✅ `lib/admin-auth.ts` — login con `_superusers`, cookie httpOnly `pb_admin_token`, `verifyAdminToken` con `authRefresh`
+- ✅ `middleware.ts` — guarda `/admin/*`, inyecta `Astro.locals.adminPB` y `Astro.locals.admin`
+- ✅ `layouts/AdminLayout.astro` — header sobrio con email + logout
+- ✅ `pages/admin/login.astro` + `logout.ts` + `index.astro` (redirect)
+- ✅ `pages/admin/productos/index.astro` — listado con thumb, badges, link a editar
+- ✅ `components/admin/ProductForm.astro` — form reutilizable, slug en vivo (JS browser), validación client/server
+- ✅ `lib/admin-products.ts` — extractor + validador desde `FormData` (11 tests)
+- ✅ `lib/slug.ts` — slugify compartido frontend/PB-hook (7 tests)
+- ✅ `pages/admin/productos/nuevo.astro` — crear producto
+- ✅ `pages/admin/productos/[id].astro` — editar + borrar (con confirm)
+- ✅ Hook `products.pb.js`: removí default de `published` para que el form pueda mandar `false` explícito sin que el hook lo pise a `true`
+
+**Pendientes Nivel 3 (próximas sesiones, multi-sprint)**:
+
+- [ ] Drag-and-drop de imágenes con preview (multipart upload, sortable)
+- [ ] Reordenar imágenes con drag
+- [ ] Attributes como filas key/value editables (CRUD de `product_attributes`)
+- [ ] Gestión de categorías (`/admin/categorias` — CRUD básico)
+- [ ] Vista de producto en preview interno (sin tener que abrir el sitio público)
+- [ ] Search/filter en el listado cuando haya >20 productos
+- [ ] Manejo de errores PB con mensajes amigables (hoy se muestra `e.message` directo)
 
 ## 🐛 Conocidos / aceptados
 
-- **Checkbox `active` arranca desmarcado en el admin form.** Es una **limitación de PB 0.37** (los bool fields no tienen `default` configurable, ver `pocketbase-037-quirks.md` en memoria). El hook `onRecordCreateRequest` setea `active = true` antes de persistir, así que el producto queda publicado al guardar — solo es cosmético. Bug latente del hook: si alguien crea via API con `active: false` explícito, el hook lo pisa a `true`. Hoy no afecta porque solo se carga desde el admin. Solución definitiva: Nivel 3 (admin custom).
+- **Productos creados desde el admin de PocketBase quedan como borrador (`published=false`).** Es por design: el hook `products.pb.js` ya no setea `published=true` por default (tenía un bug que pisaba `false` explícito). Los productos creados desde el admin custom (`/admin/productos/nuevo`) usan el form que manda `published=true` por default — el checkbox arranca marcado.
 
 ## 💡 Ideas futuras (no urgentes)
 
