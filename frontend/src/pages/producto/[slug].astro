@@ -1,9 +1,11 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import ProductCard from "../../components/ProductCard.astro";
 import WhatsAppButton from "../../components/WhatsAppButton.astro";
 import {
   getProductBySlug,
   getProductWhatsAppUrl,
+  getRelatedProducts,
 } from "../../lib/pocketbase";
 import { STOCK_LABELS, STOCK_COLORS } from "../../lib/types";
 
@@ -19,6 +21,10 @@ const category = product.expand?.category;
 const whatsappUrl = getProductWhatsAppUrl(product);
 const allImages = product.images?.length ? product.images : [];
 const firstThumb = allImages[0]?.thumbnails?.["800x800"] ?? "/placeholder.svg";
+
+const relatedProducts = category?.slug
+  ? await getRelatedProducts(category.slug, product.id, 4)
+  : [];
 
 const stockColor = STOCK_COLORS[product.stock_status] ?? "bg-gray-400";
 const stockLabel = STOCK_LABELS[product.stock_status] ?? product.stock_status;
@@ -213,6 +219,26 @@ const isInStock = product.stock_status === "in_stock";
       </div>
     </div>
   </div>
+
+  {relatedProducts.length > 0 && (
+    <section class="mx-auto max-w-6xl px-4 pb-16 sm:px-6 lg:px-8 sm:pb-20">
+      <div class="border-t-2 border-dashed border-brand/10 mb-10 sm:mb-12"></div>
+
+      <div class="mb-7 sm:mb-9">
+        <span class="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-accent mb-2">
+          <span class="h-px w-4 bg-accent"></span>
+          Te puede interesar
+        </span>
+        <h2 class="font-display text-2xl sm:text-3xl text-brand leading-tight">
+          {category ? `Más de ${category.name}` : "Más productos"}
+        </h2>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+        {relatedProducts.map((p) => <ProductCard product={p} />)}
+      </div>
+    </section>
+  )}
 
   <!-- Lightbox overlay -->
   <div

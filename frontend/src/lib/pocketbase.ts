@@ -144,6 +144,33 @@ export async function getProductBySlug(
   }
 }
 
+export async function getRelatedProducts(
+  categorySlug: string,
+  excludeId: string,
+  limit = 4,
+): Promise<ProductWithCategory[]> {
+  if (!categorySlug || !excludeId) return [];
+  const pb = getClient();
+  const safeSlug = sanitizeSlug(categorySlug);
+  const safeId = excludeId.replace(/[^a-zA-Z0-9]/g, "");
+  const filter = `category.slug = "${safeSlug}" && active = true && id != "${safeId}"`;
+
+  try {
+    const result = await pb.collection("products").getList(1, limit, {
+      filter,
+      sort: "-featured,-created",
+      expand: "category",
+      fields: "*",
+    });
+
+    return result.items.map((r) =>
+      mapToProductWithCategory(r as unknown as Record<string, unknown>),
+    );
+  } catch {
+    return [];
+  }
+}
+
 export async function getFeaturedProducts(): Promise<ProductWithCategory[]> {
   const pb = getClient();
   const records = await pb.collection("products").getFullList({
