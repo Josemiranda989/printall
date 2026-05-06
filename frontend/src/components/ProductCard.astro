@@ -29,6 +29,12 @@ const whatsappUrl = getProductWhatsAppUrl(product);
 
         <img
           src={imageSrc}
+          srcset={firstImage
+            ? `${firstImage.thumbnails["120x120"]} 120w, ${firstImage.thumbnails["400x400"]} 400w, ${firstImage.thumbnails["800x800"]} 800w`
+            : undefined}
+          sizes={firstImage
+            ? "(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+            : undefined}
           alt={product.name}
           loading="lazy"
           decoding="async"
