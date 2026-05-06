@@ -9,8 +9,8 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 
 ### Nivel 2 — cambios de schema
 
-- [ ] Migrar `attributes` (JSON crudo en admin) → collection separada `product_attributes` con relación al producto y campos `key` + `value`. El admin pasa a tener formulario real con "+ Add row" en vez de pedirte tipear `{"color":"negro"}`.
-- [ ] Renombrar `active` → `published` para que no se confunda con `featured`.
+- ~~Migrar `attributes` (JSON crudo en admin) → collection separada `product_attributes`~~ ✅ **Hecho** (commits `2913ba6` + `f6c7d24`). Cada attribute ahora es un record con `product`, `key`, `value`, `order`. El detalle del producto los renderiza vía back-relation expand (`product_attributes_via_product`). Ojo: el bug del []byte-en-JSVM dejó como aprendizaje el patrón correcto de parsing — ver `pocketbase-037-quirks.md`.
+- ~~Renombrar `active` → `published` para que no se confunda con `featured`~~ ✅ **Hecho** (commit `1e99796`). Migration que renombra field, listRule/viewRule e indexes; hook + types + lib + tests actualizados.
 - ~~Migration nueva para setear `default: true` en el campo `active`~~. **WONTFIX (limitación de PB 0.37).** El struct `BoolField` no tiene propiedad `Default` — la migration se aplica sin error pero PB la ignora. La única solución limpia para que el admin form arranque marcado es el Nivel 3 (admin custom). Por ahora el hook `onRecordCreateRequest` cubre el comportamiento correcto al guardar.
 
 ### Nivel 3 — admin custom
