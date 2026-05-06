@@ -1,6 +1,6 @@
 # Pendientes — Print All
 
-> Última actualización: 2026-05-06
+> Última actualización: 2026-05-06 (perf HOME 100/100/100/100)
 
 ## 🧪 Mejoras de carga de productos (admin) — pendientes nivel 2 y 3
 
@@ -30,7 +30,6 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 
 - [ ] Newsletter / suscripción de novedades
 - [ ] Blog / sección "novedades" para mostrar trabajos recientes
-- [ ] **Llevar Performance HOME de 90 → 100** optimizando las imágenes que sirve PocketBase. Hoy PB devuelve thumbnails como PNG/JPG sin re-encoding moderno. La imagen más pesada del catálogo pesa 217KB. Opciones: (a) Cloudflare Image Resizing (paid plan, conversión auto a WebP/AVIF + responsive), (b) Imgix u otro CDN de imágenes, (c) proxy propio en Astro/Cloudflare Workers que reescriba las URLs `?thumb=` y devuelva WebP. La opción (a) es la más simple si el budget lo permite; (c) es DIY pero gratis si ya estás en Cloudflare.
 
 ## ✅ Lo que ya está cerrado
 
@@ -57,7 +56,8 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 - ✅ Reorden de imágenes: verificado que el drag-and-drop nativo del admin de PB 0.37 funciona y el frontend respeta el orden — no hace falta código custom
 - ✅ Campo `whatsapp_message` borrado del schema y del código (siempre se llenaba con el template default; el fallback en `getProductWhatsAppUrl` ya cubría todos los casos)
 - ✅ Warning `ts(6133)` en `productos/[slug].astro` silenciado (refactor del frontmatter para evitar el falso positivo del plugin Astro check)
-- ✅ **Lighthouse mobile**: HOME `perf 90 / a11y 100 / bp 100 / seo 100` · DETAIL `perf 97 / a11y 100 / bp 100 / seo 100`. Mejoras hechas: PNG→WebP (mascot −74%, logo −72%), preload del LCP, fonts self-hosted vía `@fontsource`, contraste WCAG AA (token nuevo `--color-accent-strong: #9a3412`), heading order corregido, WhatsApp button usa `accent-hover`. **Perf 100 en home** está bloqueado por las imágenes PNG que sirve PocketBase sin conversión (217KB la más pesada) — para llegar ahí hay que migrar el thumbnail layer (Cloudflare Image Resizing o equivalent).
+- ✅ **Lighthouse mobile HOME 100/100/100/100** (commit `6813d48`). Tras enrutar los thumbnails de productos vía Cloudflare Image Resizing (`/cdn-cgi/image/format=auto,...`), el browser negocia AVIF/WebP y todas las auditorías de imágenes pasan. Ejemplo medido: thumb 400x400 cae de 53 KB JPEG → 25 KB AVIF (−52%). LCP 1.9 s, CLS 0, TBT 0 ms, FCP 1.0 s, SI 1.6 s. Cambio mínimo: rewrite de `getFileUrl()` en `frontend/src/lib/pocketbase.ts` + nueva env var `PUBLIC_SITE_URL` + 3 tests nuevos (suite 41 passing). Requiere Image Transformations habilitado en la zona de Cloudflare (`same-zone`).
+- ✅ **Lighthouse mobile** anterior (pre-CDN): HOME `perf 90 / a11y 100 / bp 100 / seo 100` · DETAIL `perf 97 / a11y 100 / bp 100 / seo 100`. Mejoras de esa fase: PNG→WebP (mascot −74%, logo −72%), preload del LCP, fonts self-hosted vía `@fontsource`, contraste WCAG AA (token nuevo `--color-accent-strong: #9a3412`), heading order corregido, WhatsApp button usa `accent-hover`.
 
 ## 📂 Referencia rápida — dónde vive cada cosa
 
