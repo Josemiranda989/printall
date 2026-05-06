@@ -42,7 +42,7 @@ export interface Product {
   featured: boolean;
   attributes: ProductAttributes | null;
   images: ProductImage[];
-  active: boolean;
+  published: boolean;
   created: string;
   updated: string;
 }

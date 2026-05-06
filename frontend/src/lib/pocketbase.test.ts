@@ -112,7 +112,7 @@ const makeProduct = (overrides: Partial<ProductWithCategory> = {}): ProductWithC
   featured: false,
   attributes: null,
   images: [],
-  active: true,
+  published: true,
   created: "2025-01-01",
   updated: "2025-01-01",
   expand: { category: { id: "cat1", name: "Mates", slug: "mates", icon: "☕", description: "", order: 1, active: true } },
@@ -160,7 +160,7 @@ describe("getRelatedProducts", () => {
     await getRelatedProducts("filamentos", "RECORD123", 5);
     expect(mockGetList).toHaveBeenCalledWith(1, 5, {
       filter:
-        'category.slug = "filamentos" && active = true && id != "RECORD123"',
+        'category.slug = "filamentos" && published = true && id != "RECORD123"',
       sort: "-featured,-created",
       expand: "category",
       fields: "*",
@@ -178,7 +178,7 @@ describe("getRelatedProducts", () => {
     await getRelatedProducts("'; DROP TABLE--", "abc", 4);
     const callArgs = mockGetList.mock.calls[0];
     expect(callArgs?.[2]?.filter).toBe(
-      'category.slug = "DROPTABLE--" && active = true && id != "abc"',
+      'category.slug = "DROPTABLE--" && published = true && id != "abc"',
     );
   });
 
@@ -187,7 +187,7 @@ describe("getRelatedProducts", () => {
     await getRelatedProducts("filamentos", "abc-123_xyz; DROP", 4);
     const callArgs = mockGetList.mock.calls[0];
     expect(callArgs?.[2]?.filter).toBe(
-      'category.slug = "filamentos" && active = true && id != "abc123xyzDROP"',
+      'category.slug = "filamentos" && published = true && id != "abc123xyzDROP"',
     );
   });
 
@@ -206,7 +206,7 @@ describe("getRelatedProducts", () => {
           featured: false,
           attributes: null,
           images: ["foto.jpg"],
-          active: true,
+          published: true,
           created: "2026-01-01",
           updated: "2026-01-01",
           collectionId: "products_xxx",
@@ -297,11 +297,11 @@ describe("getProducts", () => {
     mockGetFullList.mockReset();
   });
 
-  it("sin categorySlug usa filter 'active = true' y sort por featured + created", async () => {
+  it("sin categorySlug usa filter 'published = true' y sort por featured + created", async () => {
     mockGetFullList.mockResolvedValue([]);
     await getProducts();
     expect(mockGetFullList).toHaveBeenCalledWith({
-      filter: "active = true",
+      filter: "published = true",
       sort: "-featured,-created",
       expand: "category",
       fields: "*",
@@ -312,7 +312,7 @@ describe("getProducts", () => {
     mockGetFullList.mockResolvedValue([]);
     await getProducts("filamentos");
     expect(mockGetFullList).toHaveBeenCalledWith({
-      filter: 'category.slug = "filamentos" && active = true',
+      filter: 'category.slug = "filamentos" && published = true',
       sort: "-featured,-created",
       expand: "category",
       fields: "*",
@@ -324,7 +324,7 @@ describe("getProducts", () => {
     await getProducts("'; DROP TABLE--");
     const callArgs = mockGetFullList.mock.calls[0]?.[0];
     expect(callArgs?.filter).toBe(
-      'category.slug = "DROPTABLE--" && active = true',
+      'category.slug = "DROPTABLE--" && published = true',
     );
   });
 
@@ -342,7 +342,7 @@ describe("getProducts", () => {
         featured: true,
         attributes: null,
         images: ["a.jpg", "b.jpg"],
-        active: true,
+        published: true,
         created: "2026-01-01",
         updated: "2026-01-01",
         collectionId: "products_xxx",

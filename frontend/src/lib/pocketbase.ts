@@ -110,8 +110,8 @@ export async function getProducts(
   const pb = getClient();
   const safeSlug = categorySlug ? sanitizeSlug(categorySlug) : "";
   const filter = safeSlug
-    ? `category.slug = "${safeSlug}" && active = true`
-    : "active = true";
+    ? `category.slug = "${safeSlug}" && published = true`
+    : "published = true";
 
   const records = await pb.collection("products").getFullList({
     filter,
@@ -133,7 +133,7 @@ export async function getProductBySlug(
     const safeSlug = sanitizeSlug(slug);
     const record = await pb
       .collection("products")
-      .getFirstListItem(`slug = "${safeSlug}" && active = true`, {
+      .getFirstListItem(`slug = "${safeSlug}" && published = true`, {
         expand: "category",
         fields: "*",
       });
@@ -153,7 +153,7 @@ export async function getRelatedProducts(
   const pb = getClient();
   const safeSlug = sanitizeSlug(categorySlug);
   const safeId = excludeId.replace(/[^a-zA-Z0-9]/g, "");
-  const filter = `category.slug = "${safeSlug}" && active = true && id != "${safeId}"`;
+  const filter = `category.slug = "${safeSlug}" && published = true && id != "${safeId}"`;
 
   try {
     const result = await pb.collection("products").getList(1, limit, {
@@ -174,7 +174,7 @@ export async function getRelatedProducts(
 export async function getFeaturedProducts(): Promise<ProductWithCategory[]> {
   const pb = getClient();
   const records = await pb.collection("products").getFullList({
-    filter: "featured = true && active = true",
+    filter: "featured = true && published = true",
     sort: "-created",
     expand: "category",
     fields: "*",

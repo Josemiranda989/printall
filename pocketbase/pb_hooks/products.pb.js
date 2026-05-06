@@ -28,10 +28,10 @@ onRecordCreateRequest((e) => {
     e.record.set("stock_status", "in_stock");
   }
 
-  // Default: active = true (los productos cargados se publican por defecto;
-  // editá y desmarcá active para ocultar)
-  if (!e.record.get("active")) {
-    e.record.set("active", true);
+  // Default: published = true (los productos cargados se publican por defecto;
+  // editá y desmarcá published para ocultar)
+  if (!e.record.get("published")) {
+    e.record.set("published", true);
   }
 
   e.next();

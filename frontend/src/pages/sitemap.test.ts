@@ -26,7 +26,7 @@ function makeProduct(
     featured: false,
     attributes: null,
     images: [],
-    active: true,
+    published: true,
     created: "2026-01-01 00:00:00.000Z",
     updated: "2026-05-06 02:09:43.736Z",
     expand: {
