@@ -97,7 +97,7 @@ const isInStock = product.stock_status === "in_stock";
           <!-- Featured stamp -->
           {product.featured && (
             <div class="absolute top-3 right-3 select-none pointer-events-none rotate-[6deg]">
-              <div class="bg-accent text-white text-[10px] font-display uppercase tracking-[0.18em] px-2.5 py-1 rounded-md shadow-md">
+              <div class="bg-accent-hover text-white text-[10px] font-display uppercase tracking-[0.18em] px-2.5 py-1 rounded-md shadow-md">
                 ★ Destacado
               </div>
             </div>
@@ -159,7 +159,7 @@ const isInStock = product.stock_status === "in_stock";
         {category && (
           <a
             href={`/?categoria=${category.slug}`}
-            class="group inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-accent w-fit"
+            class="group inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-accent-hover w-fit"
           >
             <span class="text-base leading-none">{category.icon}</span>
             <span>{category.name}</span>
@@ -174,7 +174,7 @@ const isInStock = product.stock_status === "in_stock";
         <!-- Card de precio -->
         <div class="mt-7 rounded-2xl border-2 border-brand/[0.08] bg-surface px-5 py-4 flex items-center justify-between gap-4">
           <div class="flex flex-col">
-            <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand/60">Precio</span>
+            <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand/75">Precio</span>
             {product.price ? (
               <span class="font-display text-3xl text-brand mt-0.5 leading-none">
                 ${product.price.toLocaleString("es-AR")}
@@ -203,14 +203,14 @@ const isInStock = product.stock_status === "in_stock";
 
         {product.attributes && Object.keys(product.attributes).length > 0 && (
           <div class="mt-7">
-            <h2 class="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-accent mb-3">
+            <h2 class="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-accent-hover mb-3">
               <span class="h-px w-4 bg-accent"></span>
               Especificaciones
             </h2>
             <dl class="grid grid-cols-2 gap-2.5">
               {Object.entries(product.attributes).map(([key, value]) => (
                 <div class="rounded-xl border-2 border-dashed border-brand/10 bg-surface/40 px-3 py-2.5">
-                  <dt class="text-[9px] font-bold uppercase tracking-[0.18em] text-brand/60">{key}</dt>
+                  <dt class="text-[9px] font-bold uppercase tracking-[0.18em] text-brand/75">{key}</dt>
                   <dd class="font-display text-sm text-brand mt-1 leading-tight">{String(value)}</dd>
                 </div>
               ))}
@@ -233,7 +233,7 @@ const isInStock = product.stock_status === "in_stock";
       <div class="border-t-2 border-dashed border-brand/10 mb-10 sm:mb-12"></div>
 
       <div class="mb-7 sm:mb-9">
-        <span class="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-accent mb-2">
+        <span class="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-accent-hover mb-2">
           <span class="h-px w-4 bg-accent"></span>
           Te puede interesar
         </span>

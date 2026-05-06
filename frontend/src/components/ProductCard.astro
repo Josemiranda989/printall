@@ -54,7 +54,7 @@ const whatsappUrl = getProductWhatsAppUrl(product);
     <!-- Featured: sello rotado -->
     {product.featured && (
       <div class="pcard-stamp absolute top-3 right-3 select-none pointer-events-none">
-        <div class="bg-accent text-white text-[10px] font-display uppercase tracking-[0.18em] px-2.5 py-1 rounded-md shadow-md">
+        <div class="bg-accent-hover text-white text-[10px] font-display uppercase tracking-[0.18em] px-2.5 py-1 rounded-md shadow-md">
           ★ Destacado
         </div>
       </div>
@@ -78,7 +78,7 @@ const whatsappUrl = getProductWhatsAppUrl(product);
   <!-- Info -->
   <a href={`/producto/${product.slug}`} class="block px-4 pt-3.5 pb-4">
     {category && (
-      <p class="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-brand/60 mb-1.5">
+      <p class="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-brand/75 mb-1.5">
         <span class="text-sm leading-none">{category.icon}</span>
         <span>{category.name}</span>
       </p>
