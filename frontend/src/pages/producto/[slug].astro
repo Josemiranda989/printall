@@ -1,8 +1,11 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import StockBadge from "../../components/StockBadge.astro";
 import WhatsAppButton from "../../components/WhatsAppButton.astro";
-import { getProductBySlug, getProductWhatsAppUrl } from "../../lib/pocketbase";
+import {
+  getProductBySlug,
+  getProductWhatsAppUrl,
+} from "../../lib/pocketbase";
+import { STOCK_LABELS, STOCK_COLORS } from "../../lib/types";
 
 const { slug } = Astro.params;
 if (!slug) return Astro.redirect("/productos");
@@ -16,6 +19,10 @@ const category = product.expand?.category;
 const whatsappUrl = getProductWhatsAppUrl(product);
 const allImages = product.images?.length ? product.images : [];
 const firstThumb = allImages[0]?.thumbnails?.["800x800"] ?? "/logo.png";
+
+const stockColor = STOCK_COLORS[product.stock_status] ?? "bg-gray-400";
+const stockLabel = STOCK_LABELS[product.stock_status] ?? product.stock_status;
+const isInStock = product.stock_status === "in_stock";
 ---
 
 <BaseLayout
@@ -25,40 +32,78 @@ const firstThumb = allImages[0]?.thumbnails?.["800x800"] ?? "/logo.png";
 >
   <div class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 sm:py-12">
     <!-- Breadcrumb -->
-    <nav class="flex items-center gap-2 text-sm text-brand/40 mb-6">
-      <a href="/" class="hover:text-accent transition-colors">Inicio</a>
-      <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-      </svg>
-      <a href="/productos" class="hover:text-accent transition-colors">Productos</a>
+    <nav class="flex items-center gap-2 mb-7 text-[11px] font-bold uppercase tracking-[0.16em]">
+      <a href="/" class="inline-flex items-center gap-1.5 text-brand/45 hover:text-accent transition-colors group">
+        <svg class="h-3.5 w-3.5 transition-transform duration-200 group-hover:-translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+        </svg>
+        Inicio
+      </a>
       {category && (
         <>
-          <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <svg class="h-3 w-3 text-brand/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
           </svg>
-          <a href={`/productos/${category.slug}`} class="hover:text-accent transition-colors">{category.name}</a>
+          <a href={`/?categoria=${category.slug}`} class="inline-flex items-center gap-1 text-brand/45 hover:text-accent transition-colors">
+            <span>{category.icon}</span>
+            <span>{category.name}</span>
+          </a>
         </>
       )}
     </nav>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-      <!-- Galería -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14">
+      <!-- ===================== Galería ===================== -->
       <div>
         <div
           id="main-image-wrapper"
-          class="aspect-square overflow-hidden rounded-2xl bg-surface border border-surface cursor-pointer relative group/image"
+          class="detail-img-main relative aspect-square overflow-hidden rounded-2xl border-2 border-brand/[0.08] cursor-pointer group/image"
         >
+          <!-- Patrón de puntos sutil -->
+          <div class="absolute inset-0 detail-dotgrid opacity-40 pointer-events-none"></div>
+
           <img
             id="main-image"
             src={firstThumb}
             alt={product.name}
-            class="h-full w-full object-cover transition-transform duration-500 group-hover/image:scale-105"
+            class="relative h-full w-full object-cover transition-transform duration-500 ease-out group-hover/image:scale-[1.04]"
             width="800"
             height="800"
           />
-          <!-- Lupa overlay -->
-          <div class="absolute inset-0 bg-black/0 group-hover/image:bg-black/5 transition-all duration-300 flex items-center justify-center">
-            <div class="opacity-0 group-hover/image:opacity-100 transition-all duration-300 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 text-xs font-semibold text-brand flex items-center gap-1.5 shadow-lg">
+
+          <!-- Stock pill (sticker) -->
+          <div class="absolute top-3 left-3 flex items-center gap-1.5 rounded-full bg-white/95 backdrop-blur-sm px-2.5 py-1 shadow-sm ring-1 ring-brand/5">
+            <span class="relative flex h-2 w-2">
+              <span class={`absolute inline-flex h-full w-full rounded-full opacity-50 ${stockColor} ${isInStock ? "animate-ping" : ""}`}></span>
+              <span class={`relative inline-flex h-2 w-2 rounded-full ${stockColor}`}></span>
+            </span>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-brand/70">{stockLabel}</span>
+          </div>
+
+          <!-- Featured stamp -->
+          {product.featured && (
+            <div class="absolute top-3 right-3 select-none pointer-events-none rotate-[6deg]">
+              <div class="bg-accent text-white text-[10px] font-display uppercase tracking-[0.18em] px-2.5 py-1 rounded-md shadow-md">
+                ★ Destacado
+              </div>
+            </div>
+          )}
+
+          <!-- Image counter -->
+          {allImages.length > 1 && (
+            <div
+              id="image-counter"
+              class="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-full bg-black/55 backdrop-blur-sm text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1"
+            >
+              <span data-counter-current>1</span>
+              <span class="opacity-50">/</span>
+              <span>{allImages.length}</span>
+            </div>
+          )}
+
+          <!-- Hover zoom hint -->
+          <div class="absolute inset-0 bg-black/0 group-hover/image:bg-black/[0.06] transition-all duration-300 flex items-center justify-center pointer-events-none">
+            <div class="opacity-0 group-hover/image:opacity-100 transition-all duration-300 bg-white/95 backdrop-blur-sm rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-brand flex items-center gap-1.5 shadow-lg">
               <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" />
               </svg>
@@ -68,18 +113,17 @@ const firstThumb = allImages[0]?.thumbnails?.["800x800"] ?? "/logo.png";
         </div>
 
         {allImages.length > 1 && (
-          <div class="mt-4 grid grid-cols-4 gap-3" id="thumbnail-grid">
+          <div class="mt-3 grid grid-cols-5 sm:grid-cols-6 gap-2.5" id="thumbnail-grid">
             {allImages.map((img, i) => (
               <button
                 type="button"
-                class={`aspect-square overflow-hidden rounded-xl border-2 transition-all cursor-pointer ${
-                  i === 0
-                    ? "border-accent"
-                    : "border-surface hover:border-accent/40"
+                class={`thumb-btn aspect-square overflow-hidden rounded-xl border-2 transition-all cursor-pointer ${
+                  i === 0 ? "border-accent thumb-active" : "border-brand/[0.08] hover:border-accent/40"
                 }`}
                 data-thumb-url={img.thumbnails["800x800"]}
                 data-full-url={img.url}
                 data-index={i}
+                aria-label={`Ver imagen ${i + 1}`}
               >
                 <img
                   src={img.thumbnails["120x120"]}
@@ -95,68 +139,76 @@ const firstThumb = allImages[0]?.thumbnails?.["800x800"] ?? "/logo.png";
         )}
       </div>
 
-      <!-- Info -->
+      <!-- ===================== Info column ===================== -->
       <div class="flex flex-col">
-        <div class="flex items-start justify-between gap-3 mb-3">
-          <div>
-            {category && (
-              <a
-                href={`/productos/${category.slug}`}
-                class="text-sm font-medium text-accent hover:text-accent-hover transition-colors"
-              >
-                {category.icon} {category.name}
-              </a>
-            )}
-            <h1 class="font-display text-2xl sm:text-3xl text-brand mt-1 leading-tight">
-              {product.name}
-            </h1>
-          </div>
-          {product.featured && (
-            <span class="shrink-0 text-[10px] font-bold uppercase tracking-wider text-accent bg-accent-soft rounded-full px-3 py-1">
-              Destacado
-            </span>
-          )}
-        </div>
+        <!-- Categoría eyebrow -->
+        {category && (
+          <a
+            href={`/?categoria=${category.slug}`}
+            class="group inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-accent w-fit"
+          >
+            <span class="text-base leading-none">{category.icon}</span>
+            <span>{category.name}</span>
+            <svg class="h-3 w-3 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+          </a>
+        )}
 
-        <StockBadge status={product.stock_status} class="w-fit" />
+        <h1 class="font-display text-3xl sm:text-4xl lg:text-5xl text-brand mt-2 leading-[0.95] tracking-tight">
+          {product.name}
+        </h1>
 
-        <div class="mt-6">
-          {product.price ? (
-            <div class="flex items-baseline gap-2">
-              <span class="font-display text-3xl text-brand">
+        <!-- Card de precio -->
+        <div class="mt-7 rounded-2xl border-2 border-brand/[0.08] bg-surface px-5 py-4 flex items-center justify-between gap-4">
+          <div class="flex flex-col">
+            <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand/40">Precio</span>
+            {product.price ? (
+              <span class="font-display text-3xl text-brand mt-0.5 leading-none">
                 ${product.price.toLocaleString("es-AR")}
               </span>
-              {product.price_label && (
-                <span class="text-sm text-brand/40">{product.price_label}</span>
-              )}
-            </div>
-          ) : (
-            <span class="text-xl font-semibold text-brand/50">Consultar precio</span>
-          )}
+            ) : (
+              <span class="font-display text-2xl text-brand/60 mt-0.5 leading-none">
+                Consultar
+              </span>
+            )}
+            {product.price_label && (
+              <span class="text-xs text-brand/45 mt-1.5">{product.price_label}</span>
+            )}
+          </div>
+          <div class="hidden sm:grid place-items-center h-12 w-12 rounded-full bg-accent-soft text-accent">
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
+            </svg>
+          </div>
         </div>
 
         {product.description && (
-          <div class="mt-6 prose prose-sm max-w-none text-brand/60 leading-relaxed">
+          <div class="prose prose-sm max-w-none text-brand/65 leading-relaxed mt-7 detail-prose">
             <Fragment set:html={product.description} />
           </div>
         )}
 
         {product.attributes && Object.keys(product.attributes).length > 0 && (
-          <div class="mt-6 border-t border-surface pt-6">
-            <h3 class="text-sm font-semibold text-brand mb-3">Especificaciones</h3>
-            <dl class="grid grid-cols-2 gap-3">
+          <div class="mt-7">
+            <h3 class="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-accent mb-3">
+              <span class="h-px w-4 bg-accent"></span>
+              Especificaciones
+            </h3>
+            <dl class="grid grid-cols-2 gap-2.5">
               {Object.entries(product.attributes).map(([key, value]) => (
-                <div class="rounded-lg bg-surface px-3 py-2">
-                  <dt class="text-[10px] font-bold uppercase tracking-wider text-brand/30">{key}</dt>
-                  <dd class="text-sm font-medium text-brand mt-0.5">{String(value)}</dd>
+                <div class="rounded-xl border-2 border-dashed border-brand/10 bg-surface/40 px-3 py-2.5">
+                  <dt class="text-[9px] font-bold uppercase tracking-[0.18em] text-brand/40">{key}</dt>
+                  <dd class="font-display text-sm text-brand mt-1 leading-tight">{String(value)}</dd>
                 </div>
               ))}
             </dl>
           </div>
         )}
 
-        <div class="mt-8 border-t border-surface pt-6">
-          <WhatsAppButton href={whatsappUrl} />
+        <div class="mt-8 pt-7 border-t border-dashed border-brand/10">
+          <WhatsAppButton href={whatsappUrl} size="lg" label="Consultar por WhatsApp" class="w-full sm:w-auto" />
+          <p class="mt-3 text-xs text-brand/40 leading-relaxed">
+            Te respondemos en minutos. Aceptamos pedidos personalizados.
+          </p>
         </div>
       </div>
     </div>
@@ -173,34 +225,30 @@ const firstThumb = allImages[0]?.thumbnails?.["800x800"] ?? "/logo.png";
       thumb: img.thumbnails?.["800x800"] ?? img.url
     })))}
   >
-    <!-- Close button -->
     <button
       type="button"
       id="lightbox-close"
-      class="absolute top-4 right-4 z-10 text-white/60 hover:text-white transition-colors p-2"
+      class="absolute top-4 right-4 z-10 grid place-items-center h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 text-white/90 transition-colors"
       aria-label="Cerrar"
     >
-      <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
       </svg>
     </button>
 
-    <!-- Counter -->
-    <div class="absolute top-4 left-4 text-white/40 text-sm font-medium" id="lightbox-counter"></div>
+    <div class="absolute top-4 left-4 text-white/60 text-xs font-bold uppercase tracking-[0.18em]" id="lightbox-counter"></div>
 
-    <!-- Prev -->
     <button
       type="button"
       id="lightbox-prev"
-      class="absolute left-4 top-1/2 -translate-y-1/2 text-white/60 hover:text-white transition-colors p-2"
+      class="absolute left-4 top-1/2 -translate-y-1/2 grid place-items-center h-12 w-12 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
       aria-label="Anterior"
     >
-      <svg class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+      <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
       </svg>
     </button>
 
-    <!-- Image -->
     <img
       id="lightbox-image"
       src=""
@@ -208,14 +256,13 @@ const firstThumb = allImages[0]?.thumbnails?.["800x800"] ?? "/logo.png";
       class="max-h-[90vh] max-w-[90vw] object-contain rounded-lg"
     />
 
-    <!-- Next -->
     <button
       type="button"
       id="lightbox-next"
-      class="absolute right-4 top-1/2 -translate-y-1/2 text-white/60 hover:text-white transition-colors p-2"
+      class="absolute right-4 top-1/2 -translate-y-1/2 grid place-items-center h-12 w-12 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
       aria-label="Siguiente"
     >
-      <svg class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+      <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
       </svg>
     </button>
@@ -223,22 +270,34 @@ const firstThumb = allImages[0]?.thumbnails?.["800x800"] ?? "/logo.png";
 </BaseLayout>
 
 <style is:global>
-  #lightbox {
-    transition: opacity 0.25s ease;
+  /* Detail: dot pattern bg para imagen */
+  .detail-dotgrid {
+    background-image: radial-gradient(rgba(31, 31, 43, 0.10) 1px, transparent 1px);
+    background-size: 14px 14px;
   }
-  #lightbox:not(.hidden) {
-    opacity: 1;
+  .detail-img-main {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 4%, var(--color-surface)) 0%, var(--color-surface) 100%);
   }
-  #lightbox.hidden {
-    opacity: 0;
-    pointer-events: none;
+
+  /* Thumb activo: scale sutil */
+  .thumb-btn.thumb-active {
+    transform: scale(1.04);
+    box-shadow: 0 6px 14px -4px rgba(234, 88, 12, 0.3);
   }
-  #lightbox-image {
-    transition: opacity 0.2s ease;
-  }
-  #lightbox-image.loading {
-    opacity: 0;
-  }
+
+  /* Prose tweaks para descripción */
+  .detail-prose p { margin: 0.5rem 0; }
+  .detail-prose strong { color: var(--color-brand); font-weight: 600; }
+  .detail-prose a { color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px; }
+  .detail-prose ul { padding-left: 1.25rem; list-style: disc; }
+  .detail-prose li { margin: 0.2rem 0; }
+
+  /* Lightbox */
+  #lightbox { transition: opacity 0.25s ease; }
+  #lightbox:not(.hidden) { opacity: 1; }
+  #lightbox.hidden { opacity: 0; pointer-events: none; }
+  #lightbox-image { transition: opacity 0.2s ease; }
+  #lightbox-image.loading { opacity: 0; }
 </style>
 
 <script>
@@ -248,6 +307,7 @@ const firstThumb = allImages[0]?.thumbnails?.["800x800"] ?? "/logo.png";
   const lightboxPrev = document.getElementById("lightbox-prev");
   const lightboxNext = document.getElementById("lightbox-next");
   const lightboxCounter = document.getElementById("lightbox-counter");
+  const counterCurrent = document.querySelector("[data-counter-current]");
 
   const productName = lightbox.dataset.productName ?? "";
   const rawImages = lightbox.dataset.images;
@@ -257,7 +317,6 @@ const firstThumb = allImages[0]?.thumbnails?.["800x800"] ?? "/logo.png";
 
   let currentIndex = 0;
 
-  // If no images array from data, build from thumbnails as fallback
   const mainImage = document.getElementById("main-image") as HTMLImageElement | null;
   const mainWrapper = document.getElementById("main-image-wrapper");
   const thumbGrid = document.getElementById("thumbnail-grid");
@@ -266,10 +325,30 @@ const firstThumb = allImages[0]?.thumbnails?.["800x800"] ?? "/logo.png";
     images.push({ thumb: mainImage.src, full: mainImage.src });
   }
 
+  function setActiveThumb(index: number) {
+    if (!thumbGrid) return;
+    const thumbs = thumbGrid.querySelectorAll<HTMLElement>("[data-index]");
+    thumbs.forEach((t, i) => {
+      const active = i === index;
+      t.classList.toggle("border-accent", active);
+      t.classList.toggle("thumb-active", active);
+      t.classList.toggle("border-brand/[0.08]", !active);
+    });
+  }
+
+  function setMainImage(index: number) {
+    const img = images[index];
+    if (!img) return;
+    if (mainImage && img.thumb) mainImage.src = img.thumb;
+    if (counterCurrent) counterCurrent.textContent = String(index + 1);
+    currentIndex = index;
+    setActiveThumb(index);
+  }
+
   function openLightbox(index: number) {
     if (images.length === 0) return;
     currentIndex = index;
-    showImage(currentIndex);
+    showLightboxImage(currentIndex);
     lightbox.classList.remove("hidden");
     lightbox.classList.add("flex");
     document.body.style.overflow = "hidden";
@@ -281,7 +360,7 @@ const firstThumb = allImages[0]?.thumbnails?.["800x800"] ?? "/logo.png";
     document.body.style.overflow = "";
   }
 
-  function showImage(index: number) {
+  function showLightboxImage(index: number) {
     if (!lightboxImg || images.length === 0) return;
     const img = images[index];
     if (!img) return;
@@ -294,19 +373,7 @@ const firstThumb = allImages[0]?.thumbnails?.["800x800"] ?? "/logo.png";
       lightboxCounter.textContent = `${index + 1} / ${images.length}`;
     }
 
-    // Highlight active thumbnail
-    if (thumbGrid) {
-      const thumbs = thumbGrid.querySelectorAll("[data-index]");
-      thumbs.forEach((t, i) => {
-        t.classList.toggle("border-accent", i === index);
-        t.classList.toggle("border-surface", i !== index);
-      });
-    }
-
-    // Sync main image
-    if (mainImage && img.thumb) {
-      mainImage.src = img.thumb;
-    }
+    setMainImage(index);
   }
 
   if (lightboxImg) {
@@ -318,42 +385,25 @@ const firstThumb = allImages[0]?.thumbnails?.["800x800"] ?? "/logo.png";
   function prevImage() {
     if (images.length === 0) return;
     currentIndex = (currentIndex - 1 + images.length) % images.length;
-    showImage(currentIndex);
+    showLightboxImage(currentIndex);
   }
 
   function nextImage() {
     if (images.length === 0) return;
     currentIndex = (currentIndex + 1) % images.length;
-    showImage(currentIndex);
+    showLightboxImage(currentIndex);
   }
 
   // --- Eventos ---
-
-  mainWrapper?.addEventListener("click", () => {
-    const activeThumb = thumbGrid?.querySelector("[data-index].border-accent");
-    const idx = activeThumb
-      ? parseInt((activeThumb as HTMLElement).dataset.index ?? "0")
-      : 0;
-    openLightbox(idx);
-  });
+  mainWrapper?.addEventListener("click", () => openLightbox(currentIndex));
 
   if (thumbGrid) {
     thumbGrid.addEventListener("click", (e: Event) => {
       const target = e.target as HTMLElement;
-      const btn = target.closest("[data-thumb-url]") as HTMLElement | null;
+      const btn = target.closest("[data-index]") as HTMLElement | null;
       if (!btn) return;
-
-      const url = btn.dataset.thumbUrl;
-      if (mainImage && url) {
-        mainImage.src = url;
-      }
-
-      thumbGrid.querySelectorAll("[data-index]").forEach((t) => {
-        t.classList.remove("border-accent");
-        t.classList.add("border-surface");
-      });
-      btn.classList.remove("border-surface");
-      btn.classList.add("border-accent");
+      const idx = parseInt(btn.dataset.index ?? "0");
+      setMainImage(idx);
     });
   }
 
