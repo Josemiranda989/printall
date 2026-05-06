@@ -13,6 +13,14 @@ frontend/.astro/
 
 # PocketBase data (NUNCA commitear — son los datos reales de prod/dev)
 pocketbase/pb_data/
+pocketbase/pb_migrations_backup/
+
+# Defensa contra contaminación de pb_migrations (PB ejecuta TODOS los archivos del dir;
+# solo deben commitearse los .js de migrations, ver pocketbase-037-quirks en memoria)
+pocketbase/pb_migrations/*.db
+pocketbase/pb_migrations/*.db-shm
+pocketbase/pb_migrations/*.db-wal
+pocketbase/pb_migrations/*.d.ts
 
 # Logs
 *.log
