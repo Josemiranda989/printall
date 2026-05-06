@@ -1,12 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockGetList = vi.fn();
+const mockGetFullList = vi.fn();
+const mockGetFirstListItem = vi.fn();
 
 vi.mock("pocketbase", () => ({
   default: class MockPocketBase {
     beforeSend: unknown = undefined;
     collection() {
-      return { getList: mockGetList };
+      return {
+        getList: mockGetList,
+        getFullList: mockGetFullList,
+        getFirstListItem: mockGetFirstListItem,
+      };
     }
   },
 }));
@@ -17,6 +23,8 @@ import {
   getWhatsAppUrl,
   getProductWhatsAppUrl,
   getRelatedProducts,
+  getProducts,
+  getCategories,
 } from "./pocketbase";
 import type { ProductWithCategory } from "./types";
 
@@ -230,5 +238,139 @@ describe("getRelatedProducts", () => {
     mockGetList.mockRejectedValue(new Error("PB unreachable"));
     const result = await getRelatedProducts("filamentos", "abc", 4);
     expect(result).toEqual([]);
+  });
+});
+
+// ── getCategories ────────────────────────────────────────────────────────────
+
+describe("getCategories", () => {
+  beforeEach(() => {
+    mockGetFullList.mockReset();
+  });
+
+  it("filtra por active=true y ordena por field 'order'", async () => {
+    mockGetFullList.mockResolvedValue([]);
+    await getCategories();
+    expect(mockGetFullList).toHaveBeenCalledWith({
+      sort: "order",
+      filter: "active = true",
+    });
+  });
+
+  it("mapea raw records a Category[]", async () => {
+    mockGetFullList.mockResolvedValue([
+      {
+        id: "c1",
+        name: "Filamentos",
+        slug: "filamentos",
+        icon: "🧵",
+        description: "PLA y otros",
+        order: 10,
+        active: true,
+      },
+      {
+        id: "c2",
+        name: "Mates",
+        slug: "mates",
+        icon: "🧉",
+        description: "",
+        order: 20,
+        active: true,
+      },
+    ]);
+    const result = await getCategories();
+    expect(result).toHaveLength(2);
+    expect(result[0].slug).toBe("filamentos");
+    expect(result[1].name).toBe("Mates");
+  });
+
+  it("propaga errores de PB (sin try/catch)", async () => {
+    mockGetFullList.mockRejectedValue(new Error("PB down"));
+    await expect(getCategories()).rejects.toThrow("PB down");
+  });
+});
+
+// ── getProducts ──────────────────────────────────────────────────────────────
+
+describe("getProducts", () => {
+  beforeEach(() => {
+    mockGetFullList.mockReset();
+  });
+
+  it("sin categorySlug usa filter 'active = true' y sort por featured + created", async () => {
+    mockGetFullList.mockResolvedValue([]);
+    await getProducts();
+    expect(mockGetFullList).toHaveBeenCalledWith({
+      filter: "active = true",
+      sort: "-featured,-created",
+      expand: "category",
+      fields: "*",
+    });
+  });
+
+  it("con categorySlug agrega category.slug al filter", async () => {
+    mockGetFullList.mockResolvedValue([]);
+    await getProducts("filamentos");
+    expect(mockGetFullList).toHaveBeenCalledWith({
+      filter: 'category.slug = "filamentos" && active = true',
+      sort: "-featured,-created",
+      expand: "category",
+      fields: "*",
+    });
+  });
+
+  it("sanitiza el categorySlug antes de meterlo al filter", async () => {
+    mockGetFullList.mockResolvedValue([]);
+    await getProducts("'; DROP TABLE--");
+    const callArgs = mockGetFullList.mock.calls[0]?.[0];
+    expect(callArgs?.filter).toBe(
+      'category.slug = "DROPTABLE--" && active = true',
+    );
+  });
+
+  it("mapea items a ProductWithCategory con images expandidas", async () => {
+    mockGetFullList.mockResolvedValue([
+      {
+        id: "p1",
+        name: "Filamento PLA",
+        slug: "filamento-pla",
+        category: "cat1",
+        description: "",
+        price: 5000,
+        price_label: "",
+        stock_status: "in_stock",
+        featured: true,
+        attributes: null,
+        images: ["a.jpg", "b.jpg"],
+        active: true,
+        created: "2026-01-01",
+        updated: "2026-01-01",
+        collectionId: "products_xxx",
+        expand: {
+          category: {
+            id: "cat1",
+            name: "Filamentos",
+            slug: "filamentos",
+            icon: "🧵",
+            description: "",
+            order: 1,
+            active: true,
+          },
+        },
+      },
+    ]);
+    const result = await getProducts();
+    expect(result).toHaveLength(1);
+    expect(result[0].slug).toBe("filamento-pla");
+    expect(result[0].images).toHaveLength(2);
+    expect(result[0].images[0].thumbnails["400x400"]).toContain(
+      "?thumb=400x400",
+    );
+    expect(result[0].expand.category.slug).toBe("filamentos");
+  });
+
+  it("propaga errores de PB (sin try/catch)", async () => {
+    mockGetFullList.mockRejectedValue(new Error("PB down"));
+    await expect(getProducts()).rejects.toThrow("PB down");
   });
 });

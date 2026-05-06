@@ -34,7 +34,7 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 ## ✅ Lo que ya está cerrado
 
 - ✅ Cloudflare Tunnel: `printall.jmlabs.app` (público) + `printall-api.jmlabs.app` (PocketBase con CF Access en `/_/`)
-- ✅ Tests unitarios con vitest (22 passing — funciones puras + `getRelatedProducts` mockeando el cliente)
+- ✅ Tests unitarios con vitest (38 passing — funciones puras + `getRelatedProducts`/`getCategories`/`getProducts` con mock del cliente PB + endpoint `/sitemap.xml`)
 - ✅ Bug de imágenes resuelto (`expandProductImages` y `getFileUrl` corregidos para PB 0.23+)
 - ✅ Rediseño visual completo bajo el lenguaje **retro-industrial playful**:
   - Hero (mascota + noise + dot grid + marquee de categorías)
