@@ -1,0 +1,180 @@
+---
+import type { CategoryFormData } from "../../lib/admin-categories";
+
+export interface Props {
+  values: Partial<CategoryFormData>;
+  errors?: Record<string, string>;
+  mode: "create" | "edit";
+  categoryId?: string;
+}
+
+const { values, errors = {}, mode, categoryId } = Astro.props;
+
+const fieldClass =
+  "mt-1 block w-full border-2 border-brand rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent disabled:bg-gray-100";
+
+function errorMsg(field: string) {
+  return errors[field];
+}
+---
+
+<form method="POST" class="space-y-5">
+  {errors._global && (
+    <div class="border-2 border-red-500 bg-red-50 text-red-800 px-3 py-2 rounded-md text-sm">
+      {errors._global}
+    </div>
+  )}
+
+  <div class="bg-white border-2 border-brand rounded-lg p-5 space-y-5 shadow-[4px_4px_0_var(--color-brand)]">
+    <label class="block">
+      <span class="text-sm font-medium">Nombre *</span>
+      <input
+        type="text"
+        name="name"
+        required
+        value={values.name ?? ""}
+        data-category-name
+        class={fieldClass}
+      />
+      {errorMsg("name") && <p class="text-xs text-red-600 mt-1">{errorMsg("name")}</p>}
+    </label>
+
+    <label class="block">
+      <span class="text-sm font-medium">Slug</span>
+      <input
+        type="text"
+        name="slug"
+        value={values.slug ?? ""}
+        placeholder="se genera del nombre si lo dejás vacío"
+        data-category-slug
+        class={fieldClass + " font-mono text-sm"}
+      />
+      <p class="text-xs text-gray-500 mt-1">
+        URL de la categoría: <code>/productos/<span data-slug-preview>{values.slug || "—"}</span></code>
+      </p>
+      {errorMsg("slug") && <p class="text-xs text-red-600 mt-1">{errorMsg("slug")}</p>}
+    </label>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <label class="block">
+        <span class="text-sm font-medium">Icono</span>
+        <input
+          type="text"
+          name="icon"
+          value={values.icon ?? ""}
+          placeholder="🧵"
+          maxlength="8"
+          class={fieldClass}
+        />
+        <p class="text-xs text-gray-500 mt-1">Emoji o carácter corto (máx 8).</p>
+        {errorMsg("icon") && <p class="text-xs text-red-600 mt-1">{errorMsg("icon")}</p>}
+      </label>
+
+      <label class="block">
+        <span class="text-sm font-medium">Orden</span>
+        <input
+          type="number"
+          name="order"
+          step="10"
+          value={values.order ?? 0}
+          class={fieldClass}
+        />
+        <p class="text-xs text-gray-500 mt-1">Número para ordenar en el listado (menor = primero).</p>
+        {errorMsg("order") && <p class="text-xs text-red-600 mt-1">{errorMsg("order")}</p>}
+      </label>
+    </div>
+
+    <label class="block">
+      <span class="text-sm font-medium">Descripción</span>
+      <textarea
+        name="description"
+        rows="3"
+        maxlength="240"
+        class={fieldClass}
+      >{values.description ?? ""}</textarea>
+      <p class="text-xs text-gray-500 mt-1">Máx 240 caracteres.</p>
+      {errorMsg("description") && <p class="text-xs text-red-600 mt-1">{errorMsg("description")}</p>}
+    </label>
+
+    <div class="pt-2">
+      <label class="inline-flex items-center gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          name="active"
+          checked={values.active ?? true}
+          class="w-4 h-4 accent-accent"
+        />
+        <span class="text-sm font-medium">Activa</span>
+      </label>
+      <p class="text-xs text-gray-500 mt-1">Las categorías inactivas no se muestran en el sitio.</p>
+    </div>
+  </div>
+
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <a
+      href="/admin/categorias"
+      class="text-sm text-gray-600 hover:text-brand underline-offset-4 hover:underline"
+    >
+      ← Volver al listado
+    </a>
+
+    <div class="flex items-center gap-3">
+      {mode === "edit" && categoryId && (
+        <button
+          type="submit"
+          name="action"
+          value="delete"
+          formnovalidate
+          data-confirm="¿Seguro que querés borrar esta categoría? Los productos asociados van a quedar sin categoría asignada."
+          class="px-4 py-2 border-2 border-red-600 text-red-600 rounded-md hover:bg-red-600 hover:text-white transition-colors text-sm font-medium"
+        >
+          Eliminar
+        </button>
+      )}
+      <button
+        type="submit"
+        name="action"
+        value="save"
+        class="px-5 py-2.5 bg-accent text-white rounded-md hover:bg-accent-hover transition-colors font-medium"
+      >
+        {mode === "create" ? "Crear categoría" : "Guardar cambios"}
+      </button>
+    </div>
+  </div>
+</form>
+
+<script>
+  const nameEl = document.querySelector<HTMLInputElement>("[data-category-name]");
+  const slugEl = document.querySelector<HTMLInputElement>("[data-category-slug]");
+  const previewEl = document.querySelector<HTMLElement>("[data-slug-preview]");
+
+  function clientSlug(text: string): string {
+    return text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .substring(0, 120);
+  }
+
+  let slugTouched = !!slugEl?.value;
+  slugEl?.addEventListener("input", () => {
+    slugTouched = !!slugEl.value;
+    if (previewEl) previewEl.textContent = slugEl.value || "—";
+  });
+
+  nameEl?.addEventListener("input", () => {
+    if (slugTouched || !slugEl) return;
+    const generated = clientSlug(nameEl.value);
+    slugEl.placeholder = generated || "se genera del nombre si lo dejás vacío";
+    if (previewEl) previewEl.textContent = generated || "—";
+  });
+
+  document.querySelectorAll<HTMLButtonElement>("[data-confirm]").forEach((btn) => {
+    btn.addEventListener("click", (ev) => {
+      const msg = btn.dataset.confirm ?? "¿Confirmás?";
+      if (!confirm(msg)) ev.preventDefault();
+    });
+  });
+</script>

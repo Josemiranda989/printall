@@ -31,6 +31,7 @@ const admin = Astro.locals.admin;
           </a>
           <nav class="flex items-center gap-4 text-sm">
             <a href="/admin/productos" class="hover:text-accent transition-colors">Productos</a>
+            <a href="/admin/categorias" class="hover:text-accent transition-colors">Categorías</a>
             <span class="hidden sm:inline text-gray-400">|</span>
             <span class="hidden sm:inline text-gray-600">{admin.email}</span>
             <form method="POST" action="/admin/logout">

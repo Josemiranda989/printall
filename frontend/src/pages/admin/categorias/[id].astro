@@ -1,0 +1,120 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import CategoryForm from "../../../components/admin/CategoryForm.astro";
+import { extractCategoryFromForm } from "../../../lib/admin-categories";
+import type { CategoryFormData } from "../../../lib/admin-categories";
+
+const pb = Astro.locals.adminPB!;
+const { id } = Astro.params;
+if (!id) return Astro.redirect("/admin/categorias");
+
+let record: Record<string, unknown>;
+try {
+  record = await pb.collection("categories").getOne(id) as unknown as Record<string, unknown>;
+} catch {
+  return new Response("Categoría no encontrada", { status: 404 });
+}
+
+// Pre-count de productos asociados (en el GET inicial)
+// Usamos getList con page 1, perPage 1 para obtener totalItems eficientemente
+const productsPage = await pb.collection("products").getList(1, 1, {
+  filter: `category = "${id}"`,
+});
+const productCount = productsPage.totalItems;
+
+let values: Partial<CategoryFormData> = {
+  name: record.name as string,
+  slug: record.slug as string,
+  icon: record.icon as string,
+  description: record.description as string,
+  order: record.order as number,
+  active: record.active as boolean,
+};
+let errors: Record<string, string> = {};
+let flash: string | null = null;
+
+const url = new URL(Astro.request.url);
+const okParam = url.searchParams.get("ok");
+if (okParam === "saved") flash = "Cambios guardados.";
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const action = String(form.get("action") ?? "save");
+
+  if (action === "delete") {
+    try {
+      await pb.collection("categories").delete(id);
+      return Astro.redirect("/admin/categorias?ok=deleted");
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      errors._global = e.message ?? "No se pudo eliminar la categoría.";
+    }
+  } else {
+    const result = extractCategoryFromForm(form);
+    values = result.data;
+    errors = result.errors;
+
+    if (Object.keys(errors).length === 0) {
+      try {
+        await pb.collection("categories").update(id, {
+          name: result.data.name,
+          slug: result.data.slug,
+          icon: result.data.icon,
+          description: result.data.description,
+          order: result.data.order,
+          active: result.data.active,
+        });
+        return Astro.redirect(`/admin/categorias/${id}?ok=saved`);
+      } catch (err: unknown) {
+        const e = err as {
+          message?: string;
+          response?: { data?: Record<string, { message?: string }> };
+        };
+        const fieldErrors = e.response?.data ?? {};
+
+        // Slug duplicado
+        if (fieldErrors.slug?.message) {
+          errors.slug = "Ese slug ya existe. Elegí uno diferente.";
+        }
+
+        for (const [field, info] of Object.entries(fieldErrors)) {
+          if (field !== "slug" && info?.message) {
+            errors[field] = info.message;
+          }
+        }
+
+        if (Object.keys(errors).length === 0) {
+          errors._global = e.message ?? "No se pudo guardar la categoría.";
+        }
+      }
+    }
+  }
+}
+---
+
+<AdminLayout title={`Editar: ${record.name}`}>
+  <div class="mb-6 flex items-start justify-between gap-4">
+    <div>
+      <h1 class="font-display text-3xl">{record.icon} {record.name}</h1>
+      <p class="text-sm text-gray-600 mt-1 font-mono">id: {id}</p>
+    </div>
+  </div>
+
+  {flash && (
+    <div class="border-2 border-emerald-600 bg-emerald-50 text-emerald-800 px-3 py-2 rounded-md text-sm mb-4">
+      {flash}
+    </div>
+  )}
+
+  {productCount > 0 && (
+    <div class="border-2 border-amber-500 bg-amber-50 text-amber-800 px-4 py-3 rounded-md text-sm mb-4 flex items-start gap-2">
+      <span class="text-lg leading-tight">⚠️</span>
+      <p>
+        Esta categoría tiene <strong>{productCount} {productCount === 1 ? "producto" : "productos"}</strong> asociado{productCount === 1 ? "" : "s"}.
+        Si la borrás, esos productos van a quedar sin categoría asignada.
+      </p>
+    </div>
+  )}
+
+  <CategoryForm values={values} errors={errors} mode="edit" categoryId={id} />
+</AdminLayout>
