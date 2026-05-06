@@ -6,10 +6,10 @@ node_modules/
 frontend/dist/
 frontend/.astro/
 
-# Env
+# Env (solo .env.example se commitea)
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
 # PocketBase data (NUNCA commitear — son los datos reales de prod/dev)
 pocketbase/pb_data/
@@ -29,3 +29,7 @@ Thumbs.db
 # Cloudflared (credenciales del túnel)
 cloudflared/*.json
 cloudflared/cert.pem
+
+# Autoskills (skills-lock.json SI se commitea)
+frontend/.agents/
+frontend/.claude/
