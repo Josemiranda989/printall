@@ -1,7 +1,9 @@
 ---
 import AdminLayout from "../../../layouts/AdminLayout.astro";
 import ProductForm from "../../../components/admin/ProductForm.astro";
+import ImagesEditor from "../../../components/admin/ImagesEditor.astro";
 import { extractProductFromForm } from "../../../lib/admin-products";
+import { getFileUrl, PUBLIC_PB_URL } from "../../../lib/pocketbase";
 import type { Category } from "../../../lib/types";
 import type { ProductFormData } from "../../../lib/admin-products";
 
@@ -18,6 +20,13 @@ try {
 
 const categoriesRaw = await pb.collection("categories").getFullList({ sort: "order" });
 const categories = categoriesRaw as unknown as Category[];
+
+// Construir initialImages para el editor de imágenes
+const rawImageFilenames = (record.images ?? []) as string[];
+const initialImages = rawImageFilenames.map((filename: string) => ({
+  filename,
+  thumbUrl: getFileUrl(record.collectionId as string, id, filename, "120x120"),
+}));
 
 let values: Partial<ProductFormData> = {
   name: record.name,
@@ -95,6 +104,13 @@ if (Astro.request.method === "POST") {
     </div>
   )}
 
+  <ImagesEditor
+    productId={id}
+    collectionId={record.collectionId as string}
+    initialImages={initialImages}
+    pbUrl={PUBLIC_PB_URL}
+  />
+
   <ProductForm
     categories={categories}
     values={values}
@@ -104,6 +120,6 @@ if (Astro.request.method === "POST") {
   />
 
   <div class="mt-8 text-xs text-gray-500">
-    <p>Imágenes y atributos se editan desde el admin de PocketBase. Próximamente acá.</p>
+    <p>TODO (Sprint 2.3): editor de atributos del producto.</p>
   </div>
 </AdminLayout>

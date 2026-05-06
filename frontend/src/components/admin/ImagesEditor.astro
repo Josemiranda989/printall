@@ -1,0 +1,413 @@
+---
+export interface Props {
+  productId: string;
+  collectionId: string;
+  initialImages: { filename: string; thumbUrl: string }[];
+  pbUrl: string; // PUBLIC_POCKETBASE_URL para construir URLs en client-side
+}
+
+const { productId, collectionId, initialImages, pbUrl } = Astro.props;
+const total = initialImages.length;
+const maxCount = 8;
+---
+
+<div class="bg-white border-2 border-brand rounded-lg p-5 shadow-[4px_4px_0_var(--color-brand)] mb-6" id="images-editor">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="font-display text-lg">Imágenes</h2>
+    <span class="text-sm font-mono text-gray-500" id="images-counter">
+      {total}/{maxCount}
+    </span>
+  </div>
+
+  <!-- Error global -->
+  <div
+    id="images-error"
+    class="hidden border-2 border-red-500 bg-red-50 text-red-800 px-3 py-2 rounded-md text-sm mb-3"
+    role="alert"
+  ></div>
+
+  <!-- Grid de thumbnails (sortable) -->
+  <div
+    id="images-grid"
+    class="flex flex-wrap gap-3 mb-4 min-h-[80px]"
+    data-product-id={productId}
+    data-collection-id={collectionId}
+    data-pb-url={pbUrl}
+    data-max={maxCount}
+  >
+    {initialImages.map(({ filename, thumbUrl }) => (
+      <div
+        class="relative group w-[120px] h-[120px] border-2 border-brand rounded-md overflow-hidden cursor-grab bg-gray-100 flex-shrink-0"
+        data-filename={filename}
+      >
+        <img
+          src={thumbUrl}
+          alt={filename}
+          class="w-full h-full object-cover"
+          loading="lazy"
+          draggable="false"
+        />
+        <!-- Overlay de estado -->
+        <div class="images-overlay hidden absolute inset-0 bg-black/50 flex items-center justify-center">
+          <svg class="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+        </div>
+        <!-- Botón delete -->
+        <button
+          type="button"
+          class="images-delete-btn absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-sm text-xs font-bold leading-none opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10 hover:bg-red-700"
+          data-filename={filename}
+          title="Eliminar imagen"
+          aria-label={`Eliminar ${filename}`}
+        >
+          ×
+        </button>
+      </div>
+    ))}
+  </div>
+
+  <!-- Drop zone / file input -->
+  <div
+    id="images-dropzone"
+    class="border-2 border-dashed border-brand rounded-md p-4 text-center text-sm text-gray-600 hover:border-accent hover:text-accent transition-colors cursor-pointer"
+    role="button"
+    aria-label="Subir imágenes"
+  >
+    <svg class="mx-auto mb-1 w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+    </svg>
+    <p>Arrastrá imágenes acá o <span class="font-medium text-accent underline cursor-pointer">hacé click para seleccionar</span></p>
+    <p class="text-xs text-gray-400 mt-1">JPEG, PNG, WebP — máx 5MB por imagen</p>
+    <input
+      type="file"
+      id="images-file-input"
+      multiple
+      accept="image/jpeg,image/png,image/webp"
+      class="sr-only"
+      aria-label="Seleccionar imágenes"
+    />
+  </div>
+</div>
+
+<script>
+  import Sortable from "sortablejs";
+
+  // ── Constants (duplicadas del server para validación cliente) ──────────────
+  // maxCount viene del data-attribute para mantener una sola fuente de verdad server-side
+  const IMAGES_MAX_SIZE = 5 * 1024 * 1024;
+  const IMAGES_ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+  // ── DOM refs ──────────────────────────────────────────────────────────────
+  const grid = document.getElementById("images-grid")!;
+  const errorEl = document.getElementById("images-error")!;
+  const counter = document.getElementById("images-counter")!;
+  const dropzone = document.getElementById("images-dropzone")!;
+  const fileInput = document.getElementById("images-file-input") as HTMLInputElement;
+
+  const productId = grid.dataset.productId!;
+  const collectionId = grid.dataset.collectionId!;
+  const pbUrl = grid.dataset.pbUrl!;
+  const maxCount = Number(grid.dataset.max ?? 8);
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function showError(msg: string) {
+    errorEl.textContent = msg;
+    errorEl.classList.remove("hidden");
+  }
+
+  function clearError() {
+    errorEl.textContent = "";
+    errorEl.classList.add("hidden");
+  }
+
+  function updateCounter() {
+    const items = grid.querySelectorAll("[data-filename]:not([data-pending])");
+    counter.textContent = `${items.length}/${maxCount}`;
+  }
+
+  /** Construye la URL CDN de un thumbnail de PocketBase */
+  function buildThumbUrl(filename: string): string {
+    return `${pbUrl}/api/files/${collectionId}/${productId}/${filename}?thumb=120x120`;
+  }
+
+  function setItemOverlay(item: Element, visible: boolean) {
+    const overlay = item.querySelector(".images-overlay");
+    if (overlay) {
+      if (visible) overlay.classList.remove("hidden");
+      else overlay.classList.add("hidden");
+    }
+  }
+
+  function setItemError(item: Element, hasError: boolean) {
+    if (hasError) {
+      item.classList.add("border-red-500");
+      item.classList.remove("border-brand");
+    } else {
+      item.classList.remove("border-red-500");
+      item.classList.add("border-brand");
+    }
+  }
+
+  // ── Sortable ──────────────────────────────────────────────────────────────
+  new Sortable(grid, {
+    animation: 150,
+    ghostClass: "opacity-50",
+    filter: ".images-delete-btn",
+    preventOnFilter: false,
+    onEnd: () => {
+      persistOrder();
+    },
+  });
+
+  async function persistOrder() {
+    // Solo filenames reales (no pending)
+    const items = grid.querySelectorAll("[data-filename]:not([data-pending])");
+    const order = [...items].map((el) => (el as HTMLElement).dataset.filename!);
+
+    if (order.length === 0) return;
+
+    try {
+      const res = await fetch(`/admin/api/products/${productId}/images`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json() as { error?: string };
+        showError(data.error ?? "Error al guardar el orden.");
+      } else {
+        clearError();
+      }
+    } catch {
+      showError("Error de red al guardar el orden. Recargá la página.");
+    }
+  }
+
+  // ── Upload ────────────────────────────────────────────────────────────────
+  async function handleFiles(fileList: FileList | File[]) {
+    clearError();
+    const files = Array.from(fileList);
+    if (files.length === 0) return;
+
+    // Validación cliente
+    const currentCount = grid.querySelectorAll("[data-filename]:not([data-pending])").length;
+    const pendingCount = grid.querySelectorAll("[data-pending]").length;
+    const totalBefore = currentCount + pendingCount;
+
+    if (totalBefore + files.length > maxCount) {
+      showError(`Superás el máximo de ${maxCount} imágenes. Tenés ${totalBefore} y querés agregar ${files.length}.`);
+      return;
+    }
+
+    const validFiles: File[] = [];
+    const clientErrors: string[] = [];
+
+    for (const file of files) {
+      if (!IMAGES_ALLOWED_TYPES.includes(file.type)) {
+        clientErrors.push(`'${file.name}' tiene un formato no permitido. Usá jpeg, png o webp.`);
+        continue;
+      }
+      if (file.size > IMAGES_MAX_SIZE) {
+        clientErrors.push(`'${file.name}' supera el tamaño máximo de 5MB.`);
+        continue;
+      }
+      validFiles.push(file);
+    }
+
+    if (clientErrors.length > 0) {
+      showError(clientErrors.join(" "));
+      return;
+    }
+
+    // Por cada archivo, crear preview y subir
+    for (const file of validFiles) {
+      await uploadFile(file);
+    }
+  }
+
+  async function uploadFile(file: File) {
+    const objectUrl = URL.createObjectURL(file);
+    const pendingId = `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    // Crear item con preview local
+    const item = document.createElement("div");
+    item.className = "relative group w-[120px] h-[120px] border-2 border-brand rounded-md overflow-hidden cursor-grab bg-gray-100 flex-shrink-0";
+    item.dataset.pending = pendingId;
+    item.dataset.filename = pendingId; // temporal
+
+    const img = document.createElement("img");
+    img.src = objectUrl;
+    img.alt = file.name;
+    img.className = "w-full h-full object-cover";
+    img.draggable = false;
+
+    const overlay = document.createElement("div");
+    overlay.className = "images-overlay absolute inset-0 bg-black/50 flex items-center justify-center";
+    overlay.innerHTML = `<svg class="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+    </svg>`;
+
+    item.appendChild(img);
+    item.appendChild(overlay);
+    grid.appendChild(item);
+    updateCounter();
+
+    // Subir al endpoint
+    const formData = new FormData();
+    formData.append("images", file);
+
+    try {
+      const res = await fetch(`/admin/api/products/${productId}/images`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json() as {
+        ok: boolean;
+        added?: string[];
+        images?: string[];
+        errors?: string[];
+        error?: string;
+      };
+
+      if (!res.ok || !data.ok) {
+        const errMsg = data.errors?.join(" ") ?? data.error ?? "Error al subir imagen.";
+        showError(errMsg);
+        setItemError(item, true);
+        setItemOverlay(item, false);
+        // Agregar botón para quitar el item fallido del DOM
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-sm text-xs font-bold leading-none flex items-center justify-center z-10";
+        removeBtn.textContent = "×";
+        removeBtn.title = "Quitar";
+        removeBtn.addEventListener("click", () => {
+          item.remove();
+          URL.revokeObjectURL(objectUrl);
+          updateCounter();
+          clearError();
+        });
+        item.appendChild(removeBtn);
+        return;
+      }
+
+      // Upload exitoso: swap pending por filename real
+      const addedFilename = data.added?.[0];
+      if (!addedFilename) {
+        showError("No se pudo obtener el filename de la imagen subida.");
+        item.remove();
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
+
+      // Swap object URL por CDN URL
+      const cdnUrl = buildThumbUrl(addedFilename);
+      img.src = cdnUrl;
+      URL.revokeObjectURL(objectUrl);
+
+      // Actualizar datos del item
+      item.dataset.filename = addedFilename;
+      delete item.dataset.pending;
+
+      // Agregar botón delete real
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "images-delete-btn absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-sm text-xs font-bold leading-none opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10 hover:bg-red-700";
+      deleteBtn.dataset.filename = addedFilename;
+      deleteBtn.title = "Eliminar imagen";
+      deleteBtn.setAttribute("aria-label", `Eliminar ${addedFilename}`);
+      deleteBtn.textContent = "×";
+      deleteBtn.addEventListener("click", () => handleDelete(addedFilename, item));
+      item.appendChild(deleteBtn);
+
+      // Quitar overlay
+      setItemOverlay(item, false);
+      clearError();
+
+    } catch {
+      showError("Error de red al subir la imagen.");
+      setItemError(item, true);
+      setItemOverlay(item, false);
+    }
+
+    updateCounter();
+  }
+
+  // ── Delete ────────────────────────────────────────────────────────────────
+  async function handleDelete(filename: string, item: Element) {
+    if (!confirm("¿Borrar imagen? Esta acción no se puede deshacer.")) return;
+
+    clearError();
+    setItemOverlay(item, true);
+
+    try {
+      const res = await fetch(
+        `/admin/api/products/${productId}/images?filename=${encodeURIComponent(filename)}`,
+        { method: "DELETE" },
+      );
+
+      const data = await res.json() as { ok: boolean; error?: string };
+
+      if (!res.ok || !data.ok) {
+        showError(data.error ?? "Error al borrar la imagen.");
+        setItemOverlay(item, false);
+        return;
+      }
+
+      item.remove();
+      updateCounter();
+      clearError();
+    } catch {
+      showError("Error de red al borrar la imagen.");
+      setItemOverlay(item, false);
+    }
+  }
+
+  // ── Event Listeners ───────────────────────────────────────────────────────
+
+  // Botones delete de items renderizados server-side
+  grid.querySelectorAll<HTMLButtonElement>(".images-delete-btn").forEach((btn) => {
+    const filename = btn.dataset.filename!;
+    const item = btn.closest("[data-filename]")!;
+    btn.addEventListener("click", () => handleDelete(filename, item));
+  });
+
+  // File input click / change
+  dropzone.addEventListener("click", (e) => {
+    // Evitar doble trigger si se hace click en el input directamente
+    if ((e.target as Element).tagName !== "INPUT") {
+      fileInput.click();
+    }
+  });
+
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files?.length) {
+      handleFiles(fileInput.files);
+      fileInput.value = ""; // reset para poder subir el mismo archivo de vuelta
+    }
+  });
+
+  // Drag and drop en la dropzone
+  dropzone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropzone.classList.add("border-accent", "bg-accent/5");
+  });
+
+  dropzone.addEventListener("dragleave", () => {
+    dropzone.classList.remove("border-accent", "bg-accent/5");
+  });
+
+  dropzone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropzone.classList.remove("border-accent", "bg-accent/5");
+    const files = e.dataTransfer?.files;
+    if (files?.length) handleFiles(files);
+  });
+
+  // Inicializar counter
+  updateCounter();
+</script>

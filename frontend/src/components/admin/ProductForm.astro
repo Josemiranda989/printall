@@ -28,7 +28,7 @@ function errorMsg(field: string) {
 }
 ---
 
-<form method="POST" class="space-y-5">
+<form method="POST" enctype="multipart/form-data" class="space-y-5">
   {errors._global && (
     <div class="border-2 border-red-500 bg-red-50 text-red-800 px-3 py-2 rounded-md text-sm">
       {errors._global}
@@ -143,6 +143,26 @@ function errorMsg(field: string) {
         <span class="text-sm font-medium">Destacado</span>
       </label>
     </div>
+
+    {mode === "create" && (
+      <fieldset class="border-t-2 border-brand pt-4 space-y-2">
+        <legend class="text-sm font-medium sr-only">Imágenes</legend>
+        <label class="block">
+          <span class="text-sm font-medium">Imágenes <span class="font-normal text-gray-500">(máx 8, 5MB cada una, jpeg / png / webp)</span></span>
+          <input
+            type="file"
+            name="images"
+            multiple
+            accept="image/jpeg,image/png,image/webp"
+            class="mt-1 block w-full text-sm text-gray-700 file:mr-3 file:py-1.5 file:px-3 file:border-2 file:border-brand file:rounded file:bg-white file:text-sm file:font-medium file:cursor-pointer hover:file:bg-brand hover:file:text-white file:transition-colors"
+          />
+          {errors.images && <p class="text-xs text-red-600 mt-1">{errors.images}</p>}
+        </label>
+        <p class="text-xs text-gray-500">
+          Podés agregar hasta 8 imágenes ahora. Para reordenarlas o editarlas, entrá al detalle del producto después de crearlo.
+        </p>
+      </fieldset>
+    )}
   </div>
 
   <div class="flex flex-wrap items-center justify-between gap-3">

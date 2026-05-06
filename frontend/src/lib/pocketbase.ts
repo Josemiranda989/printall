@@ -11,6 +11,9 @@ const PB_URL =
   import.meta.env.PUBLIC_POCKETBASE_URL ||
   "http://localhost:8090";
 const PB_IMAGE_URL = import.meta.env.PUBLIC_POCKETBASE_URL || PB_URL;
+
+/** URL pública de PocketBase para construir file URLs en cliente */
+export const PUBLIC_PB_URL = PB_IMAGE_URL;
 const SITE_URL =
   import.meta.env.PUBLIC_SITE_URL || "https://printall.jmlabs.app";
 const REQUEST_TIMEOUT_MS = 5000;

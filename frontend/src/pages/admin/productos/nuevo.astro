@@ -1,7 +1,7 @@
 ---
 import AdminLayout from "../../../layouts/AdminLayout.astro";
 import ProductForm from "../../../components/admin/ProductForm.astro";
-import { extractProductFromForm } from "../../../lib/admin-products";
+import { extractProductFromForm, extractImagesFromForm } from "../../../lib/admin-products";
 import type { Category } from "../../../lib/types";
 import type { ProductFormData } from "../../../lib/admin-products";
 
@@ -20,13 +20,42 @@ let errors: Record<string, string> = {};
 
 if (Astro.request.method === "POST") {
   const form = await Astro.request.formData();
-  const result = extractProductFromForm(form);
-  values = result.data;
-  errors = result.errors;
+
+  const productResult = extractProductFromForm(form);
+  const imagesResult = extractImagesFromForm(form);
+
+  values = productResult.data;
+  errors = productResult.errors;
+
+  if (!imagesResult.ok) {
+    errors.images = imagesResult.errors.join(" ");
+  }
 
   if (Object.keys(errors).length === 0) {
+    // Build a FormData combining sanitized product fields + validated image files.
+    // extractProductFromForm returns trimmed/coerced values; we pass those explicitly
+    // rather than forwarding the raw form to avoid stale or untrusted data reaching PB.
+    const payload = new FormData();
+    const d = productResult.data;
+    payload.set("name", d.name);
+    payload.set("slug", d.slug);
+    payload.set("category", d.category);
+    payload.set("description", d.description);
+    payload.set("price", String(d.price));
+    payload.set("price_label", d.price_label);
+    payload.set("stock_status", d.stock_status);
+    payload.set("featured", d.featured ? "true" : "false");
+    payload.set("published", d.published ? "true" : "false");
+
+    // Append each validated image file (imagesResult.ok is true here)
+    if (imagesResult.ok) {
+      for (const file of imagesResult.files) {
+        payload.append("images", file);
+      }
+    }
+
     try {
-      const created = await pb.collection("products").create(result.data);
+      const created = await pb.collection("products").create(payload);
       return Astro.redirect("/admin/productos/" + created.id + "?ok=created");
     } catch (err: unknown) {
       const e = err as { message?: string; response?: { data?: Record<string, { message?: string }> } };
@@ -46,7 +75,7 @@ if (Astro.request.method === "POST") {
   <div class="mb-6">
     <h1 class="font-display text-3xl">Nuevo producto</h1>
     <p class="text-sm text-gray-600 mt-1">
-      Por ahora podés cargar los datos básicos. Las imágenes y los atributos se editan después.
+      Cargá los datos básicos y subí hasta 8 imágenes. Los atributos se editan después en el detalle del producto.
     </p>
   </div>
 
