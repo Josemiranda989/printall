@@ -2,18 +2,6 @@
 
 > Última actualización: 2026-05-06
 
-## 🚀 Deploy / infra
-
-- [ ] **Crear repo remoto y configurar `origin`.** Hay 4 commits locales sin pushear:
-  - `5a6a781` feat(admin): auto-slug, create defaults, and product image placeholder
-  - `a8abe46` feat(ui): retro-industrial playful redesign across all surfaces
-  - `bf9daf7` fix(catalog): product images now render correctly
-  - `dd28d1e` chore: adopt .env.example pattern and exclude autoskills artifacts
-- [ ] En cualquier nuevo deployment, recrear manualmente:
-  - `frontend/.env.production` desde `frontend/.env.example`
-  - root `.env` desde `.env.example`
-- [ ] Sin CI/CD configurado. Deploy actual: build manual de Docker en homelab via `docker compose build --no-cache frontend && docker compose up -d --force-recreate frontend`.
-
 ## 🧪 Mejoras de carga de productos (admin) — pendientes nivel 2 y 3
 
 Hicimos el **nivel 1**: auto-slug + defaults (`active=true`, `stock_status=in_stock`) + placeholder de imagen.
@@ -67,6 +55,7 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 - ✅ Autoskills instalado en `frontend/.agents/` y `frontend/.claude/` (lockfile commiteado, dirs gitignored)
 - ✅ Patrón `.env.example` adoptado
 - ✅ Logo nuevo (transparente, sin fondo) + mascota recoloreada al brand orange
+- ✅ Repo sincronizado con `origin` (todos los commits en GitHub)
 
 ## 📂 Referencia rápida — dónde vive cada cosa
 
@@ -83,3 +72,17 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 | Vars build-time (frontend) | `frontend/.env.production` (gitignored) |
 | Vars docker-compose | `.env` (root, gitignored) |
 | Skills locales | `frontend/.claude/skills/` (gitignored, lockfile en `frontend/skills-lock.json`) |
+
+## 📌 Operations / runbook
+
+- **Deploy frontend** (manual, no CI/CD):
+  ```
+  ssh homelab "cd /d D:\Development\printall && docker compose build --no-cache frontend && docker compose up -d --force-recreate frontend"
+  ```
+- **Restart PocketBase** (después de editar `pb_hooks/`):
+  ```
+  ssh homelab "cd /d D:\Development\printall && docker compose restart pocketbase"
+  ```
+- En cualquier deployment nuevo, recrear manualmente:
+  - `frontend/.env.production` desde `frontend/.env.example`
+  - root `.env` desde `.env.example`
