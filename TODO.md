@@ -56,6 +56,7 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 - ✅ Reorden de imágenes: verificado que el drag-and-drop nativo del admin de PB 0.37 funciona y el frontend respeta el orden — no hace falta código custom
 - ✅ Campo `whatsapp_message` borrado del schema y del código (siempre se llenaba con el template default; el fallback en `getProductWhatsAppUrl` ya cubría todos los casos)
 - ✅ Warning `ts(6133)` en `productos/[slug].astro` silenciado (refactor del frontmatter para evitar el falso positivo del plugin Astro check)
+- ✅ **Lighthouse mobile**: HOME `perf 90 / a11y 100 / bp 100 / seo 100` · DETAIL `perf 97 / a11y 100 / bp 100 / seo 100`. Mejoras hechas: PNG→WebP (mascot −74%, logo −72%), preload del LCP, fonts self-hosted vía `@fontsource`, contraste WCAG AA (token nuevo `--color-accent-strong: #9a3412`), heading order corregido, WhatsApp button usa `accent-hover`. **Perf 100 en home** está bloqueado por las imágenes PNG que sirve PocketBase sin conversión (217KB la más pesada) — para llegar ahí hay que migrar el thumbnail layer (Cloudflare Image Resizing o equivalent).
 
 ## 📂 Referencia rápida — dónde vive cada cosa
 
