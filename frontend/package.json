@@ -13,8 +13,12 @@
   "dependencies": {
     "@astrojs/check": "^0.9.4",
     "@astrojs/node": "^9.2.0",
+    "@fontsource/archivo-black": "^5.2.8",
+    "@fontsource/dm-sans": "^5.2.8",
+    "@resvg/resvg-js": "^2.6.2",
     "astro": "^5.6.1",
     "pocketbase": "^0.25.1",
+    "satori": "^0.26.0",
     "typescript": "^5.7.3"
   },
   "devDependencies": {

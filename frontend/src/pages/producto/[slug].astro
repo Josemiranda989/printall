@@ -26,6 +26,14 @@ const relatedProducts = category?.slug
   ? await getRelatedProducts(category.slug, product.id, 4)
   : [];
 
+const updatedTs = product.updated
+  ? new Date(product.updated).getTime() || ""
+  : "";
+const ogImageUrl = new URL(
+  `og/producto/${product.slug}.png?v=${updatedTs}`,
+  Astro.site,
+).toString();
+
 const stockColor = STOCK_COLORS[product.stock_status] ?? "bg-gray-400";
 const stockLabel = STOCK_LABELS[product.stock_status] ?? product.stock_status;
 const isInStock = product.stock_status === "in_stock";
@@ -34,7 +42,7 @@ const isInStock = product.stock_status === "in_stock";
 <BaseLayout
   title={product.name}
   description={product.description?.replace(/<[^>]*>/g, "").slice(0, 160)}
-  ogImage={firstThumb}
+  ogImage={ogImageUrl}
 >
   <div class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 sm:py-12">
     <!-- Breadcrumb -->
