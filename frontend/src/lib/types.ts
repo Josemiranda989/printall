@@ -41,7 +41,6 @@ export interface Product {
   stock_status: StockStatus;
   featured: boolean;
   attributes: ProductAttributes | null;
-  whatsapp_message: string;
   images: ProductImage[];
   active: boolean;
   created: string;

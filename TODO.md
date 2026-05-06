@@ -11,7 +11,6 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 
 - [ ] Migrar `attributes` (JSON crudo en admin) → collection separada `product_attributes` con relación al producto y campos `key` + `value`. El admin pasa a tener formulario real con "+ Add row" en vez de pedirte tipear `{"color":"negro"}`.
 - [ ] Renombrar `active` → `published` para que no se confunda con `featured`.
-- [ ] Considerar borrar `whatsapp_message` (siempre se llena con el template default — el fallback en código ya lo cubre y nadie lo personaliza).
 - ~~Migration nueva para setear `default: true` en el campo `active`~~. **WONTFIX (limitación de PB 0.37).** El struct `BoolField` no tiene propiedad `Default` — la migration se aplica sin error pero PB la ignora. La única solución limpia para que el admin form arranque marcado es el Nivel 3 (admin custom). Por ahora el hook `onRecordCreateRequest` cubre el comportamiento correcto al guardar.
 
 ### Nivel 3 — admin custom
@@ -26,7 +25,6 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 ## 🐛 Conocidos / aceptados
 
 - **Checkbox `active` arranca desmarcado en el admin form.** Es una **limitación de PB 0.37** (los bool fields no tienen `default` configurable, ver `pocketbase-037-quirks.md` en memoria). El hook `onRecordCreateRequest` setea `active = true` antes de persistir, así que el producto queda publicado al guardar — solo es cosmético. Bug latente del hook: si alguien crea via API con `active: false` explícito, el hook lo pisa a `true`. Hoy no afecta porque solo se carga desde el admin. Solución definitiva: Nivel 3 (admin custom).
-- **Warning `ts(6133)` en `frontend/src/pages/productos/[slug].astro:2`.** Dice "'slug' is declared but its value is never read" pero la variable sí se usa en el `Astro.redirect`. Parece falso positivo del plugin de Astro. Si molesta, agregarle `// @ts-expect-error` o reordenar.
 
 ## 💡 Ideas futuras (no urgentes)
 
@@ -36,7 +34,7 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 ## ✅ Lo que ya está cerrado
 
 - ✅ Cloudflare Tunnel: `printall.jmlabs.app` (público) + `printall-api.jmlabs.app` (PocketBase con CF Access en `/_/`)
-- ✅ Tests unitarios con vitest (14 passing)
+- ✅ Tests unitarios con vitest (22 passing — funciones puras + `getRelatedProducts` mockeando el cliente)
 - ✅ Bug de imágenes resuelto (`expandProductImages` y `getFileUrl` corregidos para PB 0.23+)
 - ✅ Rediseño visual completo bajo el lenguaje **retro-industrial playful**:
   - Hero (mascota + noise + dot grid + marquee de categorías)
@@ -56,6 +54,8 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 - ✅ Sección "Te puede interesar" al final del detalle (3-4 productos de la misma categoría, no aparece si no hay relacionados)
 - ✅ Open Graph image dinámica por producto: endpoint `/og/producto/[slug].png` con Satori + @resvg/resvg-js (1200×630, branding completo, fonts via @fontsource, cache 1d cliente / 30d Cloudflare, query `?v=updated_ts` para invalidar redes sociales al editar)
 - ✅ Reorden de imágenes: verificado que el drag-and-drop nativo del admin de PB 0.37 funciona y el frontend respeta el orden — no hace falta código custom
+- ✅ Campo `whatsapp_message` borrado del schema y del código (siempre se llenaba con el template default; el fallback en `getProductWhatsAppUrl` ya cubría todos los casos)
+- ✅ Warning `ts(6133)` en `productos/[slug].astro` silenciado (refactor del frontmatter para evitar el falso positivo del plugin Astro check)
 
 ## 📂 Referencia rápida — dónde vive cada cosa
 

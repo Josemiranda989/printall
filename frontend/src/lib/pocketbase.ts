@@ -196,8 +196,7 @@ export function getProductWhatsAppUrl(
   product: ProductWithCategory,
 ): string {
   const phone = import.meta.env.PUBLIC_WHATSAPP_NUMBER || "5493816563940";
-  const message =
-    product.whatsapp_message ||
-    `¡Hola! 👋 Me interesa *${product.name}* (${product.expand?.category?.name ?? ""})%0A%0A¿Está disponible?`;
+  const categoryName = product.expand?.category?.name ?? "";
+  const message = `¡Hola! 👋 Me interesa *${product.name}* (${categoryName})%0A%0A¿Está disponible?`;
   return getWhatsAppUrl(phone, message);
 }

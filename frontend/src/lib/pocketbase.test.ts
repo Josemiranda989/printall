@@ -103,7 +103,6 @@ const makeProduct = (overrides: Partial<ProductWithCategory> = {}): ProductWithC
   stock_status: "in_stock",
   featured: false,
   attributes: null,
-  whatsapp_message: "",
   images: [],
   active: true,
   created: "2025-01-01",
@@ -113,16 +112,14 @@ const makeProduct = (overrides: Partial<ProductWithCategory> = {}): ProductWithC
 });
 
 describe("getProductWhatsAppUrl", () => {
-  it("usa whatsapp_message personalizado si está definido", () => {
-    const product = makeProduct({ whatsapp_message: "Quiero este!" });
-    const url = getProductWhatsAppUrl(product);
-    expect(url).toContain(encodeURIComponent("Quiero este!"));
+  it("incluye el nombre del producto en el mensaje", () => {
+    const url = getProductWhatsAppUrl(makeProduct({ name: "Mate con Pico" }));
+    expect(url).toContain(encodeURIComponent("Mate con Pico"));
   });
 
-  it("usa mensaje por defecto con nombre del producto si no hay mensaje", () => {
-    const product = makeProduct({ whatsapp_message: "" });
-    const url = getProductWhatsAppUrl(product);
-    expect(url).toContain(encodeURIComponent("Mate con Pico"));
+  it("incluye la categoría del producto en el mensaje", () => {
+    const url = getProductWhatsAppUrl(makeProduct());
+    expect(url).toContain(encodeURIComponent("Mates"));
   });
 
   it("la URL apunta a wa.me", () => {
@@ -200,7 +197,6 @@ describe("getRelatedProducts", () => {
           stock_status: "in_stock",
           featured: false,
           attributes: null,
-          whatsapp_message: "",
           images: ["foto.jpg"],
           active: true,
           created: "2026-01-01",
