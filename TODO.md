@@ -12,7 +12,7 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 - [ ] Migrar `attributes` (JSON crudo en admin) → collection separada `product_attributes` con relación al producto y campos `key` + `value`. El admin pasa a tener formulario real con "+ Add row" en vez de pedirte tipear `{"color":"negro"}`.
 - [ ] Renombrar `active` → `published` para que no se confunda con `featured`.
 - [ ] Considerar borrar `whatsapp_message` (siempre se llena con el template default — el fallback en código ya lo cubre y nadie lo personaliza).
-- [ ] Migration nueva para setear `default: true` en el campo `active` a nivel schema (así el checkbox del admin form arranca marcado y la UX es coherente con el hook).
+- ~~Migration nueva para setear `default: true` en el campo `active`~~. **WONTFIX (limitación de PB 0.37).** El struct `BoolField` no tiene propiedad `Default` — la migration se aplica sin error pero PB la ignora. La única solución limpia para que el admin form arranque marcado es el Nivel 3 (admin custom). Por ahora el hook `onRecordCreateRequest` cubre el comportamiento correcto al guardar.
 
 ### Nivel 3 — admin custom
 
@@ -25,7 +25,7 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 
 ## 🐛 Conocidos / aceptados
 
-- **Default `active=true` solo aplica desde API.** En el admin form de PocketBase el checkbox arranca desmarcado, pero el hook `onRecordCreateRequest` después lo fuerza a `true`. Visualmente raro pero el producto SÍ queda publicado al guardar. Solución limpia: ver pendiente nivel 2 (migration con `default: true`).
+- **Checkbox `active` arranca desmarcado en el admin form.** Es una **limitación de PB 0.37** (los bool fields no tienen `default` configurable, ver `pocketbase-037-quirks.md` en memoria). El hook `onRecordCreateRequest` setea `active = true` antes de persistir, así que el producto queda publicado al guardar — solo es cosmético. Bug latente del hook: si alguien crea via API con `active: false` explícito, el hook lo pisa a `true`. Hoy no afecta porque solo se carga desde el admin. Solución definitiva: Nivel 3 (admin custom).
 - **Warning `ts(6133)` en `frontend/src/pages/productos/[slug].astro:2`.** Dice "'slug' is declared but its value is never read" pero la variable sí se usa en el `Astro.redirect`. Parece falso positivo del plugin de Astro. Si molesta, agregarle `// @ts-expect-error` o reordenar.
 
 ## 💡 Ideas futuras (no urgentes)
@@ -37,7 +37,7 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 
 - ✅ Cloudflare Tunnel: `printall.jmlabs.app` (público) + `printall-api.jmlabs.app` (PocketBase con CF Access en `/_/`)
 - ✅ Tests unitarios con vitest (14 passing)
-- ✅ Bug de imágenes resuelto (`expandProductImages` y `getFileUrl` corregidos para PB 0.25)
+- ✅ Bug de imágenes resuelto (`expandProductImages` y `getFileUrl` corregidos para PB 0.23+)
 - ✅ Rediseño visual completo bajo el lenguaje **retro-industrial playful**:
   - Hero (mascota + noise + dot grid + marquee de categorías)
   - Header (mobile menu, WhatsApp pill, sticky shadow)
@@ -55,7 +55,7 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 - ✅ Página `/contacto` rediseñada en el lenguaje retro-industrial (hero con noise/dot grid, card con sello rotado, info en cards dashed)
 - ✅ Sección "Te puede interesar" al final del detalle (3-4 productos de la misma categoría, no aparece si no hay relacionados)
 - ✅ Open Graph image dinámica por producto: endpoint `/og/producto/[slug].png` con Satori + @resvg/resvg-js (1200×630, branding completo, fonts via @fontsource, cache 1d cliente / 30d Cloudflare, query `?v=updated_ts` para invalidar redes sociales al editar)
-- ✅ Reorden de imágenes: verificado que el drag-and-drop nativo del admin de PB 0.25 funciona y el frontend respeta el orden — no hace falta código custom
+- ✅ Reorden de imágenes: verificado que el drag-and-drop nativo del admin de PB 0.37 funciona y el frontend respeta el orden — no hace falta código custom
 
 ## 📂 Referencia rápida — dónde vive cada cosa
 
@@ -86,3 +86,5 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 - En cualquier deployment nuevo, recrear manualmente:
   - `frontend/.env.production` desde `frontend/.env.example`
   - root `.env` desde `.env.example`
+- **PB version**: confirmar con `ssh homelab "docker exec printall-pocketbase /usr/local/bin/pocketbase --version"`. Hoy: 0.37.4. La imagen `latest` puede actualizarse al recrear el container.
+- **`pb_migrations/` debe contener SOLO archivos `.js`** — PB 0.37 ejecuta TODOS los archivos del dir. Si hay `.db`, `.d.ts`, etc., PB hace panic al startup. En el homelab hay un backup en `pb_migrations_backup/` con archivos contaminantes pre-existentes.
