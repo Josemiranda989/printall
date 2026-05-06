@@ -18,7 +18,7 @@ if (!product) {
 const category = product.expand?.category;
 const whatsappUrl = getProductWhatsAppUrl(product);
 const allImages = product.images?.length ? product.images : [];
-const firstThumb = allImages[0]?.thumbnails?.["800x800"] ?? "/logo.png";
+const firstThumb = allImages[0]?.thumbnails?.["800x800"] ?? "/placeholder.svg";
 
 const stockColor = STOCK_COLORS[product.stock_status] ?? "bg-gray-400";
 const stockLabel = STOCK_LABELS[product.stock_status] ?? product.stock_status;

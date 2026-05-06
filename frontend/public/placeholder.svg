@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet">
+  <defs>
+    <linearGradient id="ph-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff7ed"/>
+      <stop offset="100%" stop-color="#f3f0eb"/>
+    </linearGradient>
+    <pattern id="ph-dots" width="14" height="14" patternUnits="userSpaceOnUse">
+      <circle cx="7" cy="7" r="1" fill="#1f1f2b" opacity="0.10"/>
+    </pattern>
+  </defs>
+  <rect width="400" height="400" fill="url(#ph-bg)"/>
+  <rect width="400" height="400" fill="url(#ph-dots)"/>
+  <g transform="translate(150 110) scale(4.2)" stroke="#1f1f2b" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.22">
+    <path d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"/>
+  </g>
+  <circle cx="270" cy="135" r="5" fill="#ea580c" opacity="0.55"/>
+  <text x="200" y="270" text-anchor="middle" font-family="'Archivo Black', Impact, sans-serif" font-size="13" letter-spacing="2.5" fill="#1f1f2b" opacity="0.5">FOTO EN CAMINO</text>
+</svg>
