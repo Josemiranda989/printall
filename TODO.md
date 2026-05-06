@@ -30,6 +30,7 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 
 - [ ] Newsletter / suscripción de novedades
 - [ ] Blog / sección "novedades" para mostrar trabajos recientes
+- [ ] **Llevar Performance HOME de 90 → 100** optimizando las imágenes que sirve PocketBase. Hoy PB devuelve thumbnails como PNG/JPG sin re-encoding moderno. La imagen más pesada del catálogo pesa 217KB. Opciones: (a) Cloudflare Image Resizing (paid plan, conversión auto a WebP/AVIF + responsive), (b) Imgix u otro CDN de imágenes, (c) proxy propio en Astro/Cloudflare Workers que reescriba las URLs `?thumb=` y devuelva WebP. La opción (a) es la más simple si el budget lo permite; (c) es DIY pero gratis si ya estás en Cloudflare.
 
 ## ✅ Lo que ya está cerrado
 
