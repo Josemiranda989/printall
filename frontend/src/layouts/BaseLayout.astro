@@ -1,4 +1,10 @@
 ---
+import "@fontsource/archivo-black/400.css";
+import "@fontsource/dm-sans/400.css";
+import "@fontsource/dm-sans/500.css";
+import "@fontsource/dm-sans/600.css";
+import "@fontsource/dm-sans/700.css";
+
 import Footer from "../components/Footer.astro";
 import Header from "../components/Header.astro";
 
@@ -6,8 +12,9 @@ export interface Props {
   title: string;
   description?: string;
   ogImage?: string;
+  preloadImage?: string;
 }
-const { title, description, ogImage } = Astro.props;
+const { title, description, ogImage, preloadImage } = Astro.props;
 const fullTitle = `${title} | Print All`;
 ---
 
@@ -23,13 +30,7 @@ const fullTitle = `${title} | Print All`;
     <meta property="og:description" content={description || "Impresión 3D en Aguilares, Tucumán."} />
     <meta property="og:type" content="website" />
     {ogImage && <meta property="og:image" content={ogImage} />}
-
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap"
-      rel="stylesheet"
-    />
+    {preloadImage && <link rel="preload" as="image" href={preloadImage} fetchpriority="high" />}
 
     <link rel="icon" type="image/png" href="/logo.png" />
   </head>

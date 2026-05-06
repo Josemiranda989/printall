@@ -68,7 +68,7 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 | PB Migrations | `pocketbase/pb_migrations/*` |
 | Datos PB (NO commitear) | `pocketbase/pb_data/` |
 | Cloudflare Tunnel config | `C:\ProgramData\Cloudflare\cloudflared\config.yml` (en homelab) |
-| Logo / mascota | `frontend/public/{logo.png, mascot.png, placeholder.svg}` |
+| Logo / mascota | `frontend/public/{logo.webp, mascot.webp, placeholder.svg}` (logo.png se conserva como favicon) |
 | Vars build-time (frontend) | `frontend/.env.production` (gitignored) |
 | Vars docker-compose | `.env` (root, gitignored) |
 | Skills locales | `frontend/.claude/skills/` (gitignored, lockfile en `frontend/skills-lock.json`) |
