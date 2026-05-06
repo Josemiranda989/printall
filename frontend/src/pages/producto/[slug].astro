@@ -159,7 +159,7 @@ const isInStock = product.stock_status === "in_stock";
         {category && (
           <a
             href={`/?categoria=${category.slug}`}
-            class="group inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-accent-hover w-fit"
+            class="group inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-accent-strong w-fit"
           >
             <span class="text-base leading-none">{category.icon}</span>
             <span>{category.name}</span>
@@ -203,7 +203,7 @@ const isInStock = product.stock_status === "in_stock";
 
         {product.attributes && Object.keys(product.attributes).length > 0 && (
           <div class="mt-7">
-            <h2 class="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-accent-hover mb-3">
+            <h2 class="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-accent-strong mb-3">
               <span class="h-px w-4 bg-accent"></span>
               Especificaciones
             </h2>
@@ -233,7 +233,7 @@ const isInStock = product.stock_status === "in_stock";
       <div class="border-t-2 border-dashed border-brand/10 mb-10 sm:mb-12"></div>
 
       <div class="mb-7 sm:mb-9">
-        <span class="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-accent-hover mb-2">
+        <span class="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-accent-strong mb-2">
           <span class="h-px w-4 bg-accent"></span>
           Te puede interesar
         </span>
