@@ -1,0 +1,530 @@
+---
+import { ATTR_KEY_MAX, ATTR_VALUE_MAX } from "../../lib/admin-attributes";
+
+export interface Props {
+  productId: string;
+  initialAttributes: { id: string; key: string; value: string; order: number }[];
+}
+
+const { productId, initialAttributes } = Astro.props;
+const total = initialAttributes.length;
+---
+
+<div
+  class="bg-white border-2 border-brand rounded-lg p-5 shadow-[4px_4px_0_var(--color-brand)] mb-6"
+  id="attrs-editor"
+>
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="font-display text-lg">Atributos</h2>
+    <span class="text-sm font-mono text-gray-500" id="attrs-counter">({total})</span>
+  </div>
+
+  <!-- Error global -->
+  <div
+    id="attrs-error"
+    class="hidden border-2 border-red-500 bg-red-50 text-red-800 px-3 py-2 rounded-md text-sm mb-3"
+    role="alert"
+  ></div>
+
+  <!-- Mensaje vacío -->
+  {
+    initialAttributes.length === 0 && (
+      <p
+        id="attrs-empty"
+        class="text-sm text-gray-500 italic mb-3"
+      >
+        Sin atributos. Agregá el primero con el botón ↓
+      </p>
+    )
+  }
+  {
+    initialAttributes.length > 0 && (
+      <p id="attrs-empty" class="hidden text-sm text-gray-500 italic mb-3">
+        Sin atributos. Agregá el primero con el botón ↓
+      </p>
+    )
+  }
+
+  <!-- Grid sortable de atributos -->
+  <div
+    id="attrs-list"
+    class="space-y-2 mb-4"
+    data-product-id={productId}
+    data-key-max={ATTR_KEY_MAX}
+    data-value-max={ATTR_VALUE_MAX}
+  >
+    {
+      initialAttributes.map((attr) => (
+        <div
+          class="attrs-row flex items-center gap-2 border-2 border-brand rounded-md px-3 py-2 bg-white relative"
+          data-attr-id={attr.id}
+        >
+          <!-- Drag handle -->
+          <button
+            type="button"
+            class="attr-drag-handle cursor-grab text-gray-400 hover:text-gray-600 shrink-0 select-none"
+            title="Arrastrar para reordenar"
+            aria-label="Reordenar atributo"
+          >
+            ≡
+          </button>
+
+          <!-- Input key -->
+          <input
+            type="text"
+            name="key"
+            value={attr.key}
+            placeholder="Nombre"
+            maxlength={ATTR_KEY_MAX}
+            class="attr-key-input flex-1 min-w-0 text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-brand font-mono"
+            aria-label="Nombre del atributo"
+          />
+
+          <!-- Input value -->
+          <input
+            type="text"
+            name="value"
+            value={attr.value}
+            placeholder="Valor"
+            maxlength={ATTR_VALUE_MAX}
+            class="attr-value-input flex-[2] min-w-0 text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-brand"
+            aria-label="Valor del atributo"
+          />
+
+          <!-- Botón delete -->
+          <button
+            type="button"
+            class="attr-delete-btn shrink-0 w-7 h-7 bg-red-600 text-white rounded-sm text-sm font-bold leading-none hover:bg-red-700 flex items-center justify-center transition-colors"
+            title="Eliminar atributo"
+            aria-label="Eliminar atributo"
+          >
+            ×
+          </button>
+
+          <!-- Overlay saving -->
+          <div class="attr-overlay hidden absolute inset-0 bg-white/70 rounded-md flex items-center justify-center">
+            <span class="text-xs text-gray-600 font-mono">Guardando...</span>
+          </div>
+
+          <!-- Tooltip error de fila -->
+          <div class="attr-row-error hidden absolute -bottom-6 left-0 right-0 bg-red-600 text-white text-xs px-2 py-1 rounded-b-md z-10">
+          </div>
+        </div>
+      ))
+    }
+  </div>
+
+  <!-- Botón agregar -->
+  <button
+    type="button"
+    id="attrs-add-btn"
+    class="inline-flex items-center gap-2 text-sm font-medium border-2 border-brand rounded-md px-3 py-1.5 hover:bg-brand hover:text-white transition-colors"
+  >
+    <span>+</span>
+    <span>Agregar atributo</span>
+  </button>
+</div>
+
+<script>
+  import Sortable from "sortablejs";
+
+  // ── Constants (duplicadas del server para validación cliente rápida) ──────
+  const KEY_MAX = Number(
+    (document.getElementById("attrs-list") as HTMLElement).dataset.keyMax ?? 80,
+  );
+  const VALUE_MAX = Number(
+    (document.getElementById("attrs-list") as HTMLElement).dataset.valueMax ?? 500,
+  );
+
+  // ── DOM refs ──────────────────────────────────────────────────────────────
+  const list = document.getElementById("attrs-list") as HTMLElement;
+  const errorEl = document.getElementById("attrs-error") as HTMLElement;
+  const counter = document.getElementById("attrs-counter") as HTMLElement;
+  const emptyMsg = document.getElementById("attrs-empty") as HTMLElement;
+  const addBtn = document.getElementById("attrs-add-btn") as HTMLButtonElement;
+
+  const productId = list.dataset.productId!;
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function showGlobalError(msg: string) {
+    errorEl.textContent = msg;
+    errorEl.classList.remove("hidden");
+  }
+
+  function clearGlobalError() {
+    errorEl.textContent = "";
+    errorEl.classList.add("hidden");
+  }
+
+  function updateCounter() {
+    const count = list.querySelectorAll(".attrs-row").length;
+    counter.textContent = `(${count})`;
+  }
+
+  function updateEmpty() {
+    const count = list.querySelectorAll(".attrs-row").length;
+    if (count === 0) {
+      emptyMsg.classList.remove("hidden");
+    } else {
+      emptyMsg.classList.add("hidden");
+    }
+  }
+
+  function setRowOverlay(row: HTMLElement, visible: boolean) {
+    const overlay = row.querySelector(".attr-overlay") as HTMLElement | null;
+    if (!overlay) return;
+    if (visible) overlay.classList.remove("hidden");
+    else overlay.classList.add("hidden");
+  }
+
+  function setRowError(row: HTMLElement, msg: string | null) {
+    const tooltip = row.querySelector(".attr-row-error") as HTMLElement | null;
+    if (!tooltip) return;
+
+    const inputs = row.querySelectorAll<HTMLInputElement>("input");
+
+    if (msg) {
+      tooltip.textContent = msg;
+      tooltip.classList.remove("hidden");
+      inputs.forEach((inp) => {
+        inp.classList.add("border-red-500");
+        inp.classList.remove("border-gray-300");
+      });
+      // Aseguramos espacio para el tooltip posicionado absolute
+      row.classList.add("mb-7");
+    } else {
+      tooltip.textContent = "";
+      tooltip.classList.add("hidden");
+      inputs.forEach((inp) => {
+        inp.classList.remove("border-red-500");
+        inp.classList.add("border-gray-300");
+      });
+      row.classList.remove("mb-7");
+    }
+  }
+
+  // ── Sortable ──────────────────────────────────────────────────────────────
+  new Sortable(list, {
+    animation: 150,
+    ghostClass: "opacity-50",
+    handle: ".attr-drag-handle",
+    filter: ".attr-delete-btn",
+    preventOnFilter: false,
+    onEnd: () => {
+      persistOrder();
+    },
+  });
+
+  async function persistOrder() {
+    // Solo attrs con ID real (no pending)
+    const rows = list.querySelectorAll<HTMLElement>(".attrs-row:not([data-pending])");
+    const order = [...rows].map((row) => row.dataset.attrId!).filter(Boolean);
+
+    if (order.length === 0) return;
+
+    try {
+      const res = await fetch(`/admin/api/products/${productId}/attributes`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order }),
+      });
+
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: string };
+        showGlobalError(data.error ?? "Error al guardar el orden.");
+      } else {
+        clearGlobalError();
+      }
+    } catch {
+      showGlobalError("Error de red. Reintentá.");
+    }
+  }
+
+  // ── Create (POST) ─────────────────────────────────────────────────────────
+  async function createAttr(row: HTMLElement) {
+    const keyInput = row.querySelector<HTMLInputElement>(".attr-key-input")!;
+    const valueInput = row.querySelector<HTMLInputElement>(".attr-value-input")!;
+
+    const key = keyInput.value.trim();
+    const value = valueInput.value.trim();
+
+    // Validación client-side rápida
+    const errors: string[] = [];
+    if (!key) errors.push("El nombre es obligatorio.");
+    else if (key.length > KEY_MAX) errors.push(`El nombre no puede superar ${KEY_MAX} caracteres.`);
+    if (!value) errors.push("El valor es obligatorio.");
+    else if (value.length > VALUE_MAX)
+      errors.push(`El valor no puede superar ${VALUE_MAX} caracteres.`);
+
+    if (errors.length > 0) {
+      setRowError(row, errors.join(" "));
+      return;
+    }
+
+    setRowOverlay(row, true);
+    setRowError(row, null);
+
+    try {
+      const res = await fetch(`/admin/api/products/${productId}/attributes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, value }),
+      });
+
+      const data = (await res.json()) as {
+        ok: boolean;
+        attribute?: { id: string; key: string; value: string; order: number };
+        errors?: string[];
+        error?: string;
+      };
+
+      setRowOverlay(row, false);
+
+      if (!res.ok || !data.ok) {
+        const errMsg =
+          data.errors?.join(" ") ?? data.error ?? "Error al crear el atributo.";
+
+        if (res.status === 404) {
+          showGlobalError("Atributo no encontrado, refrescá la página.");
+        } else {
+          setRowError(row, errMsg);
+        }
+        return;
+      }
+
+      // Asignar ID real y quitar estado pending
+      const attr = data.attribute!;
+      row.dataset.attrId = attr.id;
+      delete row.dataset.pending;
+      clearGlobalError();
+      setRowError(row, null);
+    } catch {
+      setRowOverlay(row, false);
+      setRowError(row, "Error de red. Reintentá.");
+    }
+  }
+
+  // ── Update (PATCH) ────────────────────────────────────────────────────────
+  async function updateAttr(row: HTMLElement) {
+    const attrId = row.dataset.attrId!;
+    const keyInput = row.querySelector<HTMLInputElement>(".attr-key-input")!;
+    const valueInput = row.querySelector<HTMLInputElement>(".attr-value-input")!;
+
+    const key = keyInput.value.trim();
+    const value = valueInput.value.trim();
+
+    // Validación client-side rápida
+    const errors: string[] = [];
+    if (!key) errors.push("El nombre es obligatorio.");
+    else if (key.length > KEY_MAX) errors.push(`El nombre no puede superar ${KEY_MAX} caracteres.`);
+    if (!value) errors.push("El valor es obligatorio.");
+    else if (value.length > VALUE_MAX)
+      errors.push(`El valor no puede superar ${VALUE_MAX} caracteres.`);
+
+    if (errors.length > 0) {
+      setRowError(row, errors.join(" "));
+      return;
+    }
+
+    setRowOverlay(row, true);
+    setRowError(row, null);
+
+    try {
+      const res = await fetch(
+        `/admin/api/products/${productId}/attributes/${attrId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key, value }),
+        },
+      );
+
+      const data = (await res.json()) as {
+        ok: boolean;
+        errors?: string[];
+        error?: string;
+      };
+
+      setRowOverlay(row, false);
+
+      if (!res.ok || !data.ok) {
+        if (res.status === 404) {
+          showGlobalError("Atributo no encontrado, refrescá la página.");
+        } else {
+          const errMsg =
+            data.errors?.join(" ") ?? data.error ?? "Error al actualizar el atributo.";
+          setRowError(row, errMsg);
+        }
+        return;
+      }
+
+      clearGlobalError();
+      setRowError(row, null);
+    } catch {
+      setRowOverlay(row, false);
+      setRowError(row, "Error de red. Reintentá.");
+    }
+  }
+
+  // ── Delete ────────────────────────────────────────────────────────────────
+  async function deleteAttr(row: HTMLElement) {
+    const attrId = row.dataset.attrId;
+    const isPending = "pending" in row.dataset;
+
+    if (!confirm("¿Eliminar atributo? Esta acción no se puede deshacer.")) return;
+
+    // Si es pending (sin ID real), solo quitar del DOM
+    if (isPending || !attrId) {
+      row.remove();
+      updateCounter();
+      updateEmpty();
+      return;
+    }
+
+    clearGlobalError();
+    setRowOverlay(row, true);
+
+    try {
+      const res = await fetch(
+        `/admin/api/products/${productId}/attributes/${attrId}`,
+        { method: "DELETE" },
+      );
+
+      const data = (await res.json()) as { ok: boolean; error?: string };
+
+      if (!res.ok || !data.ok) {
+        setRowOverlay(row, false);
+        if (res.status === 404) {
+          showGlobalError("Atributo no encontrado, refrescá la página.");
+        } else {
+          showGlobalError(data.error ?? "Error al eliminar el atributo.");
+        }
+        return;
+      }
+
+      row.remove();
+      updateCounter();
+      updateEmpty();
+      clearGlobalError();
+    } catch {
+      setRowOverlay(row, false);
+      showGlobalError("Error de red. Reintentá.");
+    }
+  }
+
+  // ── Crear fila nueva (pending) ────────────────────────────────────────────
+  function addPendingRow() {
+    const row = document.createElement("div");
+    row.className =
+      "attrs-row flex items-center gap-2 border-2 border-brand rounded-md px-3 py-2 bg-white relative";
+    row.dataset.attrId = "";
+    row.dataset.pending = "true";
+
+    row.innerHTML = `
+      <button
+        type="button"
+        class="attr-drag-handle cursor-grab text-gray-400 hover:text-gray-600 shrink-0 select-none"
+        title="Arrastrar para reordenar"
+        aria-label="Reordenar atributo"
+      >≡</button>
+
+      <input
+        type="text"
+        name="key"
+        placeholder="Nombre"
+        maxlength="${KEY_MAX}"
+        class="attr-key-input flex-1 min-w-0 text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-brand font-mono"
+        aria-label="Nombre del atributo"
+      />
+
+      <input
+        type="text"
+        name="value"
+        placeholder="Valor"
+        maxlength="${VALUE_MAX}"
+        class="attr-value-input flex-[2] min-w-0 text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-brand"
+        aria-label="Valor del atributo"
+      />
+
+      <button
+        type="button"
+        class="attr-delete-btn shrink-0 w-7 h-7 bg-red-600 text-white rounded-sm text-sm font-bold leading-none hover:bg-red-700 flex items-center justify-center transition-colors"
+        title="Eliminar atributo"
+        aria-label="Eliminar atributo"
+      >×</button>
+
+      <div class="attr-overlay hidden absolute inset-0 bg-white/70 rounded-md flex items-center justify-center">
+        <span class="text-xs text-gray-600 font-mono">Guardando...</span>
+      </div>
+
+      <div class="attr-row-error hidden absolute -bottom-6 left-0 right-0 bg-red-600 text-white text-xs px-2 py-1 rounded-b-md z-10"></div>
+    `;
+
+    list.appendChild(row);
+    bindRowEvents(row);
+
+    // Focus en el input key
+    const keyInput = row.querySelector<HTMLInputElement>(".attr-key-input");
+    keyInput?.focus();
+
+    updateCounter();
+    updateEmpty();
+    clearGlobalError();
+  }
+
+  // ── Bind events por fila ──────────────────────────────────────────────────
+  function bindRowEvents(row: HTMLElement) {
+    const keyInput = row.querySelector<HTMLInputElement>(".attr-key-input")!;
+    const valueInput = row.querySelector<HTMLInputElement>(".attr-value-input")!;
+    const deleteBtn = row.querySelector<HTMLButtonElement>(".attr-delete-btn")!;
+
+    function handleSave() {
+      const isPending = "pending" in row.dataset;
+      const key = keyInput.value.trim();
+      const value = valueInput.value.trim();
+
+      if (isPending) {
+        // Solo persistir si ambos campos tienen contenido
+        if (!key || !value) return;
+        createAttr(row);
+      } else {
+        // Fila existente: siempre persistir (errores mostrados en fila)
+        updateAttr(row);
+      }
+    }
+
+    // Blur en cualquier input → guardar
+    keyInput.addEventListener("blur", handleSave);
+    valueInput.addEventListener("blur", handleSave);
+
+    // Enter en cualquier input → guardar (y perder foco para evitar doble trigger)
+    keyInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        keyInput.blur();
+      }
+    });
+    valueInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        valueInput.blur();
+      }
+    });
+
+    deleteBtn.addEventListener("click", () => deleteAttr(row));
+  }
+
+  // ── Inicializar rows server-rendered ──────────────────────────────────────
+  list.querySelectorAll<HTMLElement>(".attrs-row").forEach((row) => {
+    bindRowEvents(row);
+  });
+
+  // ── Botón agregar ─────────────────────────────────────────────────────────
+  addBtn.addEventListener("click", () => {
+    addPendingRow();
+  });
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  updateCounter();
+  updateEmpty();
+</script>

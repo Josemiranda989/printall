@@ -2,6 +2,7 @@
 import AdminLayout from "../../../layouts/AdminLayout.astro";
 import ProductForm from "../../../components/admin/ProductForm.astro";
 import ImagesEditor from "../../../components/admin/ImagesEditor.astro";
+import AttributesEditor from "../../../components/admin/AttributesEditor.astro";
 import { extractProductFromForm } from "../../../lib/admin-products";
 import { getFileUrl, PUBLIC_PB_URL } from "../../../lib/pocketbase";
 import type { Category } from "../../../lib/types";
@@ -20,6 +21,18 @@ try {
 
 const categoriesRaw = await pb.collection("categories").getFullList({ sort: "order" });
 const categories = categoriesRaw as unknown as Category[];
+
+// Cargar atributos del producto para el editor
+const attrsRaw = await pb.collection("product_attributes").getFullList({
+  filter: `product = "${id}"`,
+  sort: "+order",
+});
+const initialAttributes = attrsRaw.map((a: any) => ({
+  id: a.id as string,
+  key: a.key as string,
+  value: a.value as string,
+  order: (a.order as number) ?? 0,
+}));
 
 // Construir initialImages para el editor de imágenes
 const rawImageFilenames = (record.images ?? []) as string[];
@@ -111,6 +124,8 @@ if (Astro.request.method === "POST") {
     pbUrl={PUBLIC_PB_URL}
   />
 
+  <AttributesEditor productId={id} initialAttributes={initialAttributes} />
+
   <ProductForm
     categories={categories}
     values={values}
@@ -118,8 +133,4 @@ if (Astro.request.method === "POST") {
     mode="edit"
     productId={id}
   />
-
-  <div class="mt-8 text-xs text-gray-500">
-    <p>TODO (Sprint 2.3): editor de atributos del producto.</p>
-  </div>
 </AdminLayout>
