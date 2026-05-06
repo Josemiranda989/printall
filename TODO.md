@@ -30,11 +30,6 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 
 ## 💡 Ideas futuras (no urgentes)
 
-- [ ] Sección "Te puede interesar" al final del detalle (3-4 productos de la misma categoría)
-- [ ] Rediseñar `/contacto` en el mismo lenguaje visual del resto (hoy es la única página sin pasar por el rediseño)
-- [ ] Open Graph image dinámica por producto (mejor preview en WhatsApp/Instagram)
-- [ ] Sitemap XML para SEO
-- [ ] Reordenar imágenes desde el admin (hoy el orden viene del array que devuelve PocketBase, hay que arrastrar manual en el admin)
 - [ ] Newsletter / suscripción de novedades
 - [ ] Blog / sección "novedades" para mostrar trabajos recientes
 
@@ -56,6 +51,11 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 - ✅ Patrón `.env.example` adoptado
 - ✅ Logo nuevo (transparente, sin fondo) + mascota recoloreada al brand orange
 - ✅ Repo sincronizado con `origin` (todos los commits en GitHub)
+- ✅ SEO base: `sitemap.xml` (SSR endpoint con productos activos + lastmod ISO 8601) + `robots.txt` apuntando al sitemap
+- ✅ Página `/contacto` rediseñada en el lenguaje retro-industrial (hero con noise/dot grid, card con sello rotado, info en cards dashed)
+- ✅ Sección "Te puede interesar" al final del detalle (3-4 productos de la misma categoría, no aparece si no hay relacionados)
+- ✅ Open Graph image dinámica por producto: endpoint `/og/producto/[slug].png` con Satori + @resvg/resvg-js (1200×630, branding completo, fonts via @fontsource, cache 1d cliente / 30d Cloudflare, query `?v=updated_ts` para invalidar redes sociales al editar)
+- ✅ Reorden de imágenes: verificado que el drag-and-drop nativo del admin de PB 0.25 funciona y el frontend respeta el orden — no hace falta código custom
 
 ## 📂 Referencia rápida — dónde vive cada cosa
 
