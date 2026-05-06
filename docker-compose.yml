@@ -23,8 +23,10 @@ services:
       dockerfile: Dockerfile
     container_name: printall-frontend
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
     ports:
-      - "127.0.0.1:4321:4321"
+      - "4321:4321"
     environment:
       POCKETBASE_URL: http://pocketbase:8090
       PUBLIC_POCKETBASE_URL: ${PUBLIC_POCKETBASE_URL:-https://printall.jmlabs.app}
