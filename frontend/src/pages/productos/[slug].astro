@@ -1,4 +1,7 @@
 ---
-const { slug } = Astro.params;
-return Astro.redirect(`/?categoria=${slug?.replace(/[^a-zA-Z0-9\-_]/g, "") ?? ""}#catalogo`);
+return Astro.redirect(
+  "/?categoria=" +
+    (Astro.params.slug ?? "").replace(/[^a-zA-Z0-9\-_]/g, "") +
+    "#catalogo",
+);
 ---
