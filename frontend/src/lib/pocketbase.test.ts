@@ -1,9 +1,22 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+const mockGetList = vi.fn();
+
+vi.mock("pocketbase", () => ({
+  default: class MockPocketBase {
+    beforeSend: unknown = undefined;
+    collection() {
+      return { getList: mockGetList };
+    }
+  },
+}));
+
 import {
   sanitizeSlug,
   getFileUrl,
   getWhatsAppUrl,
   getProductWhatsAppUrl,
+  getRelatedProducts,
 } from "./pocketbase";
 import type { ProductWithCategory } from "./types";
 
@@ -115,5 +128,111 @@ describe("getProductWhatsAppUrl", () => {
   it("la URL apunta a wa.me", () => {
     const url = getProductWhatsAppUrl(makeProduct());
     expect(url).toMatch(/^https:\/\/wa\.me\//);
+  });
+});
+
+// ── getRelatedProducts ───────────────────────────────────────────────────────
+
+describe("getRelatedProducts", () => {
+  beforeEach(() => {
+    mockGetList.mockReset();
+  });
+
+  it("retorna [] sin pegar a PB cuando categorySlug es vacío", async () => {
+    const result = await getRelatedProducts("", "abc123", 4);
+    expect(result).toEqual([]);
+    expect(mockGetList).not.toHaveBeenCalled();
+  });
+
+  it("retorna [] sin pegar a PB cuando excludeId es vacío", async () => {
+    const result = await getRelatedProducts("filamentos", "", 4);
+    expect(result).toEqual([]);
+    expect(mockGetList).not.toHaveBeenCalled();
+  });
+
+  it("construye filter, sort, expand y fields correctos", async () => {
+    mockGetList.mockResolvedValue({ items: [] });
+    await getRelatedProducts("filamentos", "RECORD123", 5);
+    expect(mockGetList).toHaveBeenCalledWith(1, 5, {
+      filter:
+        'category.slug = "filamentos" && active = true && id != "RECORD123"',
+      sort: "-featured,-created",
+      expand: "category",
+      fields: "*",
+    });
+  });
+
+  it("usa limit 4 por defecto cuando no se pasa", async () => {
+    mockGetList.mockResolvedValue({ items: [] });
+    await getRelatedProducts("filamentos", "abc");
+    expect(mockGetList).toHaveBeenCalledWith(1, 4, expect.any(Object));
+  });
+
+  it("sanitiza el slug (sólo a-zA-Z0-9_-) antes de meterlo al filter", async () => {
+    mockGetList.mockResolvedValue({ items: [] });
+    await getRelatedProducts("'; DROP TABLE--", "abc", 4);
+    const callArgs = mockGetList.mock.calls[0];
+    expect(callArgs?.[2]?.filter).toBe(
+      'category.slug = "DROPTABLE--" && active = true && id != "abc"',
+    );
+  });
+
+  it("sanitiza el excludeId (sólo a-zA-Z0-9 — sin guiones)", async () => {
+    mockGetList.mockResolvedValue({ items: [] });
+    await getRelatedProducts("filamentos", "abc-123_xyz; DROP", 4);
+    const callArgs = mockGetList.mock.calls[0];
+    expect(callArgs?.[2]?.filter).toBe(
+      'category.slug = "filamentos" && active = true && id != "abc123xyzDROP"',
+    );
+  });
+
+  it("mapea items a ProductWithCategory con images expandidas", async () => {
+    mockGetList.mockResolvedValue({
+      items: [
+        {
+          id: "p1",
+          name: "Otro filamento",
+          slug: "otro-filamento",
+          category: "cat1",
+          description: "",
+          price: 5000,
+          price_label: "",
+          stock_status: "in_stock",
+          featured: false,
+          attributes: null,
+          whatsapp_message: "",
+          images: ["foto.jpg"],
+          active: true,
+          created: "2026-01-01",
+          updated: "2026-01-01",
+          collectionId: "products_xxx",
+          expand: {
+            category: {
+              id: "cat1",
+              name: "Filamentos",
+              slug: "filamentos",
+              icon: "🧵",
+              description: "",
+              order: 1,
+              active: true,
+            },
+          },
+        },
+      ],
+    });
+
+    const result = await getRelatedProducts("filamentos", "p2", 4);
+    expect(result).toHaveLength(1);
+    expect(result[0].slug).toBe("otro-filamento");
+    expect(result[0].images).toHaveLength(1);
+    expect(result[0].images[0].fileName).toBe("foto.jpg");
+    expect(result[0].images[0].thumbnails["400x400"]).toContain("?thumb=400x400");
+    expect(result[0].expand.category.slug).toBe("filamentos");
+  });
+
+  it("retorna [] cuando PB tira un error", async () => {
+    mockGetList.mockRejectedValue(new Error("PB unreachable"));
+    const result = await getRelatedProducts("filamentos", "abc", 4);
+    expect(result).toEqual([]);
   });
 });
