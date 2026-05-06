@@ -12,7 +12,7 @@ const REQUEST_TIMEOUT_MS = 5000;
  * Solo permite caracteres seguros en slugs (a-z, A-Z, 0-9, guiones y guion bajo).
  * Previene SQL injection en filters de PocketBase.
  */
-function sanitizeSlug(slug: string): string {
+export function sanitizeSlug(slug: string): string {
   return slug.replace(/[^a-zA-Z0-9\-_]/g, "");
 }
 
@@ -25,7 +25,7 @@ function getClient(): PocketBase {
   return pb;
 }
 
-function getFileUrl(
+export function getFileUrl(
   collectionId: string,
   recordId: string,
   fileName: string,

@@ -1,0 +1,31 @@
+schema: spec-driven
+
+context: |
+  Stack: Astro 5 SSR + Tailwind 4 + TypeScript / PocketBase 0.25
+  Adapter: @astrojs/node standalone, Docker Compose, Cloudflare Tunnel
+  Patterns: SSR pages + client-side filter/search
+  Type checker: astro check (via @astrojs/check)
+  Test runner: vitest (added in add-unit-tests change)
+
+strict_tdd: false
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Identify affected modules
+  specs:
+    - Use Given/When/Then format
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Document architecture decisions with rationale
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+  apply:
+    - Follow existing code patterns
+    - Export only what has external value
+  verify:
+    - Run vitest run and confirm 0 failures
+    - Confirm astro check still passes
+  archive:
+    - Warn before destructive deltas
