@@ -264,7 +264,7 @@ export const GET: APIRoute = async ({ params }) => {
       .render()
       .asPng();
 
-    return new Response(png, {
+    return new Response(new Uint8Array(png), {
       status: 200,
       headers: {
         "Content-Type": "image/png",
