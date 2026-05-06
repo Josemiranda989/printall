@@ -26,8 +26,14 @@ export type StockStatus =
   | "out_of_stock"
   | "made_to_order";
 
-export interface ProductAttributes {
-  [key: string]: string | number | boolean;
+export interface ProductAttribute {
+  id: string;
+  product: string;
+  key: string;
+  value: string;
+  order: number;
+  created: string;
+  updated: string;
 }
 
 export interface Product {
@@ -40,7 +46,7 @@ export interface Product {
   price_label: string;
   stock_status: StockStatus;
   featured: boolean;
-  attributes: ProductAttributes | null;
+  attributes: ProductAttribute[];
   images: ProductImage[];
   published: boolean;
   created: string;

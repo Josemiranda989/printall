@@ -201,17 +201,17 @@ const isInStock = product.stock_status === "in_stock";
           </div>
         )}
 
-        {product.attributes && Object.keys(product.attributes).length > 0 && (
+        {product.attributes.length > 0 && (
           <div class="mt-7">
             <h2 class="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-accent-strong mb-3">
               <span class="h-px w-4 bg-accent"></span>
               Especificaciones
             </h2>
             <dl class="grid grid-cols-2 gap-2.5">
-              {Object.entries(product.attributes).map(([key, value]) => (
+              {product.attributes.map((attr) => (
                 <div class="rounded-xl border-2 border-dashed border-brand/10 bg-surface/40 px-3 py-2.5">
-                  <dt class="text-[9px] font-bold uppercase tracking-[0.18em] text-brand/75">{key}</dt>
-                  <dd class="font-display text-sm text-brand mt-1 leading-tight">{String(value)}</dd>
+                  <dt class="text-[9px] font-bold uppercase tracking-[0.18em] text-brand/75">{attr.key}</dt>
+                  <dd class="font-display text-sm text-brand mt-1 leading-tight">{attr.value}</dd>
                 </div>
               ))}
             </dl>

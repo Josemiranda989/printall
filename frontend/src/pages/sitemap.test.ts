@@ -24,7 +24,7 @@ function makeProduct(
     price_label: "",
     stock_status: "in_stock",
     featured: false,
-    attributes: null,
+    attributes: [],
     images: [],
     published: true,
     created: "2026-01-01 00:00:00.000Z",

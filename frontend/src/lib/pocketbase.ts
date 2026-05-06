@@ -1,5 +1,10 @@
 import PocketBase from "pocketbase";
-import type { Category, Product, ProductWithCategory } from "./types";
+import type {
+  Category,
+  Product,
+  ProductAttribute,
+  ProductWithCategory,
+} from "./types";
 
 const PB_URL =
   import.meta.env.POCKETBASE_URL ||
@@ -65,17 +70,28 @@ function expandProductImages(
   };
 }
 
-/** Procesa un record crudo de PocketBase a ProductWithCategory con imágenes y categoría expandida */
+/** Procesa un record crudo de PocketBase a ProductWithCategory con imágenes, categoría expandida y attributes */
 function mapToProductWithCategory(
   record: Record<string, unknown>,
 ): ProductWithCategory {
   const product = expandProductImages(PB_URL, record);
+  const expand = record.expand as
+    | {
+        category?: Category;
+        product_attributes_via_product?: unknown[];
+      }
+    | undefined;
+
+  const rawAttrs = expand?.product_attributes_via_product ?? [];
+  const attributes = rawAttrs
+    .map((r) => r as ProductAttribute)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
   return {
     ...product,
+    attributes,
     expand: {
-      category: record.expand
-        ? (record.expand as { category: Category }).category
-        : ({} as Category),
+      category: expand?.category ?? ({} as Category),
     },
   };
 }
@@ -134,7 +150,7 @@ export async function getProductBySlug(
     const record = await pb
       .collection("products")
       .getFirstListItem(`slug = "${safeSlug}" && published = true`, {
-        expand: "category",
+        expand: "category,product_attributes_via_product",
         fields: "*",
       });
 
