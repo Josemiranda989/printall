@@ -34,16 +34,36 @@ migrate((app) => {
   app.save(attrs);
 
   // 2) Migrar la data existente: cada entry del JSON `attributes` → record en product_attributes
+  // OJO: en PB 0.37 JSVM, `record.get("attributes")` devuelve types.JSONRaw (un []byte en Go),
+  // NO un JS object. Hay que serializarlo a string y luego JSON.parse.
   const allProducts = app.findAllRecords("products");
   for (const p of allProducts) {
-    const json = p.get("attributes");
-    if (!json || typeof json !== "object") continue;
+    const raw = p.get("attributes");
+    let parsed = null;
+    try {
+      if (raw == null) {
+        parsed = null;
+      } else if (typeof raw === "string") {
+        parsed = JSON.parse(raw);
+      } else if (raw && typeof raw.length === "number") {
+        // []byte-like: convertir a string vía char codes y parsear
+        parsed = JSON.parse(String.fromCharCode.apply(null, raw));
+      } else if (typeof raw === "object") {
+        parsed = raw;
+      }
+    } catch (e) {
+      console.warn("[migration] no se pudo parsear attributes de", p.id, e);
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) continue;
     let order = 0;
-    for (const [key, value] of Object.entries(json)) {
+    for (const [key, value] of Object.entries(parsed)) {
       const rec = new Record(attrs);
       rec.set("product", p.id);
       rec.set("key", String(key));
-      rec.set("value", value === null || value === undefined ? "" : String(value));
+      rec.set(
+        "value",
+        value === null || value === undefined ? "" : String(value),
+      );
       rec.set("order", order);
       app.save(rec);
       order += 1;
