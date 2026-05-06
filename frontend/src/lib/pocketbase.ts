@@ -11,6 +11,8 @@ const PB_URL =
   import.meta.env.PUBLIC_POCKETBASE_URL ||
   "http://localhost:8090";
 const PB_IMAGE_URL = import.meta.env.PUBLIC_POCKETBASE_URL || PB_URL;
+const SITE_URL =
+  import.meta.env.PUBLIC_SITE_URL || "https://printall.jmlabs.app";
 const REQUEST_TIMEOUT_MS = 5000;
 
 /**
@@ -36,11 +38,14 @@ export function getFileUrl(
   fileName: string,
   thumb?: string,
 ): string {
-  const base = `${PB_IMAGE_URL}/api/files/${collectionId}/${recordId}/${fileName}`;
-  if (thumb) {
-    return `${base}?thumb=${thumb}`;
-  }
-  return base;
+  const origin = `${PB_IMAGE_URL}/api/files/${collectionId}/${recordId}/${fileName}`;
+  if (!thumb) return origin;
+
+  const [w, h] = thumb.split("x").map(Number);
+  if (!w || !h) return `${origin}?thumb=${thumb}`;
+
+  const opts = `format=auto,width=${w},height=${h},fit=cover,quality=85`;
+  return `${SITE_URL}/cdn-cgi/image/${opts}/${origin}`;
 }
 
 /** Convierte imágenes crudas de PocketBase a ProductImage[] con thumbnails */

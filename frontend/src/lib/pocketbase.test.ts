@@ -58,23 +58,36 @@ describe("getFileUrl", () => {
   const col = "products_abc123";
   const rec = "rec_xyz789";
   const file = "foto.jpg";
+  const origin = `http://localhost:8090/api/files/${col}/${rec}/${file}`;
 
-  it("construye URL sin thumbnail", () => {
+  it("construye URL sin thumbnail (origen directo, sin pasar por CDN)", () => {
     const url = getFileUrl(col, rec, file);
-    expect(url).toBe(
-      `http://localhost:8090/api/files/${col}/${rec}/${file}`
-    );
+    expect(url).toBe(origin);
   });
 
-  it("construye URL con thumbnail", () => {
+  it("construye URL con thumbnail vía Cloudflare Image Resizing", () => {
     const url = getFileUrl(col, rec, file, "400x400");
     expect(url).toBe(
-      `http://localhost:8090/api/files/${col}/${rec}/${file}?thumb=400x400`
+      `https://printall.jmlabs.app/cdn-cgi/image/format=auto,width=400,height=400,fit=cover,quality=85/${origin}`,
     );
   });
 
-  it("la URL sin thumb no contiene 'thumb_'", () => {
-    expect(getFileUrl(col, rec, file)).not.toContain("thumb_");
+  it("usa el width y height parseados del thumb 'WxH'", () => {
+    const url = getFileUrl(col, rec, file, "120x120");
+    expect(url).toContain("width=120,height=120");
+  });
+
+  it("pide format=auto para que el browser elija WebP/AVIF/PNG", () => {
+    expect(getFileUrl(col, rec, file, "800x800")).toContain("format=auto");
+  });
+
+  it("hace fallback a ?thumb= cuando el thumb no tiene formato 'WxH'", () => {
+    const url = getFileUrl(col, rec, file, "garbage");
+    expect(url).toBe(`${origin}?thumb=garbage`);
+  });
+
+  it("la URL sin thumb no contiene 'cdn-cgi'", () => {
+    expect(getFileUrl(col, rec, file)).not.toContain("cdn-cgi");
   });
 });
 
@@ -229,7 +242,12 @@ describe("getRelatedProducts", () => {
     expect(result[0].slug).toBe("otro-filamento");
     expect(result[0].images).toHaveLength(1);
     expect(result[0].images[0].fileName).toBe("foto.jpg");
-    expect(result[0].images[0].thumbnails["400x400"]).toContain("?thumb=400x400");
+    expect(result[0].images[0].thumbnails["400x400"]).toContain(
+      "/cdn-cgi/image/",
+    );
+    expect(result[0].images[0].thumbnails["400x400"]).toContain(
+      "width=400,height=400",
+    );
     expect(result[0].expand.category.slug).toBe("filamentos");
   });
 
@@ -362,7 +380,10 @@ describe("getProducts", () => {
     expect(result[0].slug).toBe("filamento-pla");
     expect(result[0].images).toHaveLength(2);
     expect(result[0].images[0].thumbnails["400x400"]).toContain(
-      "?thumb=400x400",
+      "/cdn-cgi/image/",
+    );
+    expect(result[0].images[0].thumbnails["400x400"]).toContain(
+      "width=400,height=400",
     );
     expect(result[0].expand.category.slug).toBe("filamentos");
   });
