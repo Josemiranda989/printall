@@ -39,11 +39,44 @@ function stripTrailingSlash(url: string): string {
   return url.endsWith("/") ? url.slice(0, -1) : url;
 }
 
-/** Strip HTML tags y trunca a maxLen chars */
+/** Map de named entities HTML comunes en español. Los crawlers de Google ven
+ * mejor el texto plano que entities crudas tipo "&oacute;". */
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
+  iexcl: "¡", iquest: "¿", deg: "°", plusmn: "±",
+  laquo: "«", raquo: "»", hellip: "…", ndash: "–", mdash: "—",
+  lsquo: "‘", rsquo: "’", ldquo: "“", rdquo: "”",
+  aacute: "á", eacute: "é", iacute: "í", oacute: "ó", uacute: "ú",
+  Aacute: "Á", Eacute: "É", Iacute: "Í", Oacute: "Ó", Uacute: "Ú",
+  ntilde: "ñ", Ntilde: "Ñ", uuml: "ü", Uuml: "Ü",
+  ordf: "ª", ordm: "º", trade: "™", reg: "®", copy: "©",
+};
+
+/** Decodifica entities HTML (named + numeric) a texto plano. */
+function decodeHtmlEntities(str: string): string {
+  return str
+    .replace(/&#(\d+);/g, (_, code) => {
+      try {
+        return String.fromCodePoint(parseInt(code, 10));
+      } catch {
+        return _;
+      }
+    })
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, code) => {
+      try {
+        return String.fromCodePoint(parseInt(code, 16));
+      } catch {
+        return _;
+      }
+    })
+    .replace(/&([a-zA-Z]+);/g, (match, name) => NAMED_ENTITIES[name] ?? match);
+}
+
+/** Strip HTML tags, decodifica entities, colapsa whitespace y trunca a maxLen. */
 function stripHtml(html: string | undefined | null, maxLen = 5000): string {
   if (!html) return "";
-  return html
-    .replace(/<[^>]*>/g, "")
+  return decodeHtmlEntities(html.replace(/<[^>]*>/g, ""))
+    .replace(/\s+/g, " ")
     .trim()
     .slice(0, maxLen);
 }

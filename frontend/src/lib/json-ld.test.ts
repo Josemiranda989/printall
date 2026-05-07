@@ -55,10 +55,10 @@ describe("buildProductJsonLd", () => {
     expect(result.name).toBe("Soporte de escritorio");
   });
 
-  it("stripea HTML de description", () => {
+  it("stripea HTML de description y colapsa whitespace múltiple", () => {
     const p = makeProduct({ description: "<p><strong>Hola</strong> mundo <br/> test.</p>" });
     const result = buildProductJsonLd(p, BASE_URL);
-    expect(result.description).toBe("Hola mundo  test.");
+    expect(result.description).toBe("Hola mundo test.");
   });
 
   it("trunca description a 5000 chars", () => {
@@ -243,5 +243,72 @@ describe("buildProductJsonLd", () => {
     expect(result.image).toHaveLength(2);
     expect(result.image).toContain("https://cdn.example.com/a_full.jpg");
     expect(result.image).toContain("https://cdn.example.com/b_full.jpg");
+  });
+});
+
+describe("buildProductJsonLd — HTML entities decoding", () => {
+  it("decodifica named entities comunes en español", () => {
+    const p = makeProduct({
+      description: "Impresi&oacute;n 3D de alta precisi&oacute;n. Tama&ntilde;o &iacute;deal.",
+    });
+    const result = buildProductJsonLd(p, BASE_URL);
+    expect(result.description).toBe("Impresión 3D de alta precisión. Tamaño ídeal.");
+  });
+
+  it("decodifica entities estructurales (&amp; &lt; &gt; &quot;)", () => {
+    const p = makeProduct({
+      description: "<p>A &amp; B, x &lt; y, &quot;cita&quot;</p>",
+    });
+    const result = buildProductJsonLd(p, BASE_URL);
+    expect(result.description).toBe('A & B, x < y, "cita"');
+  });
+
+  it("decodifica numeric entities decimales (&#xxx;)", () => {
+    const p = makeProduct({
+      description: "Grados: 30&#176;C. Plus: &#177;0.03 mm.",
+    });
+    const result = buildProductJsonLd(p, BASE_URL);
+    expect(result.description).toBe("Grados: 30°C. Plus: ±0.03 mm.");
+  });
+
+  it("decodifica numeric entities hexadecimales (&#xXX;)", () => {
+    const p = makeProduct({
+      description: "Quote: &#x201C;hola&#x201D;",
+    });
+    const result = buildProductJsonLd(p, BASE_URL);
+    // &#x201C; y &#x201D; son las smart quotes “ y ”
+    expect(result.description).toBe("Quote: “hola”");
+  });
+
+  it("entities desconocidas se mantienen literales", () => {
+    const p = makeProduct({
+      description: "Custom &foobar; quedan",
+    });
+    const result = buildProductJsonLd(p, BASE_URL);
+    expect(result.description).toBe("Custom &foobar; quedan");
+  });
+
+  it("colapsa whitespace múltiple a uno solo", () => {
+    const p = makeProduct({
+      description: "<p>Línea 1</p>\n\n<p>Línea 2</p>",
+    });
+    const result = buildProductJsonLd(p, BASE_URL);
+    expect(result.description).toBe("Línea 1 Línea 2");
+  });
+
+  it("combina strip HTML + decode entities + collapse whitespace", () => {
+    const p = makeProduct({
+      description: "<p>Adhesivo de cianoacrilato.\r\n\r\nTemperatura: 190&deg;C - 220&deg;C.\r\n\r\nTolerancia: &plusmn;0.03 mm.</p>",
+    });
+    const result = buildProductJsonLd(p, BASE_URL);
+    expect(result.description).toBe("Adhesivo de cianoacrilato. Temperatura: 190°C - 220°C. Tolerancia: ±0.03 mm.");
+  });
+
+  it("description con solo entities y sin texto real → string decodificado", () => {
+    const p = makeProduct({
+      description: "&iexcl;Hola! &iquest;C&oacute;mo est&aacute;s?",
+    });
+    const result = buildProductJsonLd(p, BASE_URL);
+    expect(result.description).toBe("¡Hola! ¿Cómo estás?");
   });
 });
