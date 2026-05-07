@@ -234,8 +234,11 @@ export function getProductWhatsAppUrl(
  */
 export function getMakerWorldWhatsAppUrl(): string {
   const phone = import.meta.env.PUBLIC_WHATSAPP_NUMBER || "5493816563940";
+  // \u{1F44B} = 👋 (waving hand). Se usa el escape Unicode en lugar del emoji
+  // literal para que el mensaje sea independiente de la codificación del archivo
+  // y de cómo lo procesen los pipes de despliegue.
   const message =
-    "¡Hola! 👋 No encontré lo que buscaba en su catálogo. Quiero que impriman este diseño de MakerWorld: [PEGÁ EL LINK ACÁ]";
+    "\u{00A1}Hola! \u{1F44B} No encontr\u{00E9} lo que buscaba en su cat\u{00E1}logo. Quiero que impriman este dise\u{00F1}o de MakerWorld: [PEG\u{00C1} EL LINK AC\u{00C1}]";
   return getWhatsAppUrl(phone, message);
 }
 
