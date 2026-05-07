@@ -3,6 +3,11 @@ import AdminLayout from "../../../layouts/AdminLayout.astro";
 import { getFileUrl } from "../../../lib/pocketbase";
 import type { Category, StockStatus } from "../../../lib/types";
 import { STOCK_LABELS } from "../../../lib/types";
+import {
+  buildProductsFilter,
+  parseSearchParams,
+  hasFilters,
+} from "../../../lib/admin-products-filter";
 
 const pb = Astro.locals.adminPB!;
 
@@ -21,7 +26,20 @@ type AdminProductRecord = {
   expand?: { category?: Category };
 };
 
+// Parsear filtros desde URL
+const filters = parseSearchParams(Astro.url.searchParams);
+const activeFilters = hasFilters(filters);
+const pbFilter = buildProductsFilter(filters);
+
+// Cargar categorías para el dropdown
+const categoryRecords = await pb
+  .collection("categories")
+  .getFullList({ sort: "+name" });
+const categories = categoryRecords as unknown as Category[];
+
+// Cargar productos aplicando el filter construido
 const records = await pb.collection("products").getFullList({
+  filter: pbFilter,
   sort: "-updated",
   expand: "category",
 });
@@ -32,29 +50,148 @@ function thumbFor(p: AdminProductRecord): string | null {
   if (!first) return null;
   return getFileUrl(p.collectionId, p.id, first, "120x120");
 }
+
+const inputClass =
+  "mt-1 w-full rounded border-2 border-brand/40 px-3 py-2 text-sm focus:border-brand focus:outline-none bg-white";
+const selectClass =
+  "mt-1 w-full rounded border-2 border-brand/40 px-3 py-2 text-sm focus:border-brand focus:outline-none bg-white cursor-pointer";
+const labelSpanClass = "text-xs font-medium uppercase tracking-wider text-brand/70";
 ---
 
 <AdminLayout title="Productos">
-  <div class="flex items-center justify-between gap-4 mb-6">
+  <div class="flex items-center justify-between gap-4 mb-5">
     <div>
       <h1 class="font-display text-3xl">Productos</h1>
-      <p class="text-sm text-gray-600 mt-1">
-        {products.length} {products.length === 1 ? "producto" : "productos"} en total
-      </p>
     </div>
     <a
       href="/admin/productos/nuevo"
-      class="bg-accent text-white font-medium px-4 py-2 rounded-md hover:bg-accent-hover transition-colors text-sm"
+      class="bg-accent text-white font-medium px-4 py-2 rounded-md hover:bg-accent-hover transition-colors text-sm shrink-0"
     >
       + Nuevo producto
     </a>
   </div>
 
-  {products.length === 0 ? (
+  {/* ── Formulario de filtros ── */}
+  <form
+    method="GET"
+    class="bg-white border-2 border-brand rounded-lg p-4 mb-5 shadow-[4px_4px_0_var(--color-brand)]"
+  >
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+      <label class="block">
+        <span class={labelSpanClass}>Buscar</span>
+        <input
+          type="text"
+          name="q"
+          value={filters.q ?? ""}
+          placeholder="Nombre del producto…"
+          class={inputClass}
+        />
+      </label>
+
+      <label class="block">
+        <span class={labelSpanClass}>Categoría</span>
+        <select
+          name="categoria"
+          onchange="this.form.submit()"
+          class={selectClass}
+        >
+          <option value="">Todas</option>
+          {categories.map((c) => (
+            <option
+              value={c.slug}
+              selected={filters.categoria === c.slug}
+            >
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label class="block">
+        <span class={labelSpanClass}>Stock</span>
+        <select
+          name="stock"
+          onchange="this.form.submit()"
+          class={selectClass}
+        >
+          <option value="">Cualquiera</option>
+          <option value="in_stock" selected={filters.stock === "in_stock"}>
+            {STOCK_LABELS.in_stock}
+          </option>
+          <option value="low_stock" selected={filters.stock === "low_stock"}>
+            {STOCK_LABELS.low_stock}
+          </option>
+          <option
+            value="out_of_stock"
+            selected={filters.stock === "out_of_stock"}
+          >
+            {STOCK_LABELS.out_of_stock}
+          </option>
+          <option
+            value="made_to_order"
+            selected={filters.stock === "made_to_order"}
+          >
+            {STOCK_LABELS.made_to_order}
+          </option>
+        </select>
+      </label>
+
+      <label class="block">
+        <span class={labelSpanClass}>Publicado</span>
+        <select
+          name="publicado"
+          onchange="this.form.submit()"
+          class={selectClass}
+        >
+          <option value="">Ambos</option>
+          <option value="true" selected={filters.publicado === "true"}>
+            Sí
+          </option>
+          <option value="false" selected={filters.publicado === "false"}>
+            No (borradores)
+          </option>
+        </select>
+      </label>
+    </div>
+
+    <div class="flex items-center justify-between mt-3">
+      <button
+        type="submit"
+        class="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-hover transition-colors text-sm font-medium"
+      >
+        Buscar
+      </button>
+      {activeFilters && (
+        <a
+          href="/admin/productos"
+          class="text-sm text-gray-500 hover:text-brand underline"
+        >
+          Limpiar filtros
+        </a>
+      )}
+    </div>
+  </form>
+
+  {/* ── Indicador de resultados ── */}
+  <p class="text-sm text-gray-600 mb-3">
+    {activeFilters
+      ? `${products.length} ${products.length === 1 ? "producto" : "productos"} — filtros aplicados`
+      : `${products.length} ${products.length === 1 ? "producto" : "productos"} en total`}
+  </p>
+
+  {/* ── Tabla / Empty states ── */}
+  {products.length === 0 && !activeFilters ? (
     <div class="border-2 border-dashed border-brand/30 rounded-lg p-12 text-center bg-white">
       <p class="text-gray-600 mb-4">Todavía no hay productos cargados.</p>
       <a href="/admin/productos/nuevo" class="text-accent hover:underline font-medium">
         Crear el primero →
+      </a>
+    </div>
+  ) : products.length === 0 && activeFilters ? (
+    <div class="border-2 border-dashed border-brand/30 rounded-lg p-12 text-center bg-white">
+      <p class="text-gray-600 mb-3">No hay productos que coincidan con tu búsqueda.</p>
+      <a href="/admin/productos" class="text-accent hover:underline font-medium text-sm">
+        Limpiar filtros →
       </a>
     </div>
   ) : (
