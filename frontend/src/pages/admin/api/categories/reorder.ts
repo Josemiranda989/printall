@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { mapPBErrorToString } from "../../../../lib/admin-errors";
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -71,11 +72,10 @@ export const PATCH: APIRoute = async ({ request, locals }) => {
     try {
       await pb.collection("categories").update(catId, { order: i });
     } catch (err: unknown) {
-      const e = err as { message?: string };
       return json(
         {
           ok: false,
-          error: `Error al actualizar orden de la categoría ${catId}: ${e.message ?? "error desconocido"}.`,
+          error: mapPBErrorToString(err, `Error al actualizar orden de la categoría ${catId}.`),
         },
         500,
       );

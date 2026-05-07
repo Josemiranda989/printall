@@ -2,6 +2,7 @@
 import AdminLayout from "../../../layouts/AdminLayout.astro";
 import CategoryForm from "../../../components/admin/CategoryForm.astro";
 import { extractCategoryFromForm } from "../../../lib/admin-categories";
+import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
 import type { CategoryFormData } from "../../../lib/admin-categories";
 
 const pb = Astro.locals.adminPB!;
@@ -20,7 +21,7 @@ if (Astro.request.method === "POST") {
 
   if (Object.keys(errors).length === 0) {
     try {
-      const created = await pb.collection("categories").create({
+      await pb.collection("categories").create({
         name: result.data.name,
         slug: result.data.slug,
         icon: result.data.icon,
@@ -30,26 +31,7 @@ if (Astro.request.method === "POST") {
       });
       return Astro.redirect("/admin/categorias?ok=created");
     } catch (err: unknown) {
-      const e = err as {
-        message?: string;
-        response?: { data?: Record<string, { message?: string }> };
-      };
-      const fieldErrors = e.response?.data ?? {};
-
-      // Slug duplicado: PB arroja error en el campo "slug"
-      if (fieldErrors.slug?.message) {
-        errors.slug = "Ese slug ya existe. Elegí uno diferente.";
-      }
-
-      for (const [field, info] of Object.entries(fieldErrors)) {
-        if (field !== "slug" && info?.message) {
-          errors[field] = info.message;
-        }
-      }
-
-      if (Object.keys(errors).length === 0) {
-        errors._global = e.message ?? "No se pudo crear la categoría.";
-      }
+      errors = { ...errors, ...mapPBErrorToFieldErrors(err, "category") };
     }
   }
 }

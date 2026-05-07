@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { validateAttribute } from "../../../../../../lib/admin-attributes";
+import { mapPBErrorToString } from "../../../../../../lib/admin-errors";
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -85,8 +86,7 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
       .collection("product_attributes")
       .update(attrId, { key, value })) as unknown as AttrRecord;
   } catch (err: unknown) {
-    const e = err as { message?: string };
-    return json({ ok: false, error: e.message ?? "Error al actualizar el atributo." }, 500);
+    return json({ ok: false, error: mapPBErrorToString(err, "Error al actualizar el atributo.") }, 500);
   }
 
   return json({
@@ -123,8 +123,7 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
   try {
     await pb.collection("product_attributes").delete(attrId);
   } catch (err: unknown) {
-    const e = err as { message?: string };
-    return json({ ok: false, error: e.message ?? "Error al eliminar el atributo." }, 500);
+    return json({ ok: false, error: mapPBErrorToString(err, "Error al eliminar el atributo.") }, 500);
   }
 
   return json({ ok: true });

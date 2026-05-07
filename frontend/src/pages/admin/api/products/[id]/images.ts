@@ -3,6 +3,7 @@ import {
   extractImagesFromForm,
   IMAGES_MAX_COUNT,
 } from "../../../../../lib/admin-products";
+import { mapPBErrorToString } from "../../../../../lib/admin-errors";
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -84,10 +85,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   try {
     updatedRecord = await pb.collection("products").update(id, uploadForm) as unknown as { id: string; collectionId: string; images?: string[] };
   } catch (err: unknown) {
-    const e = err as { message?: string };
-    // Fallback: si el backend no reconoció "images+", intentar con el array completo
-    // Esto no debería pasar con PB 0.37+ pero lo dejamos como safety net
-    return json({ ok: false, error: e.message ?? "Error al subir imágenes." }, 500);
+    return json({ ok: false, error: mapPBErrorToString(err, "Error al subir imágenes.") }, 500);
   }
 
   // Calcular los filenames recién agregados (diferencia entre updated y existing)
@@ -152,8 +150,7 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
     await pb.collection("products").update(id, { images: order });
     return json({ ok: true });
   } catch (err: unknown) {
-    const e = err as { message?: string };
-    return json({ ok: false, error: e.message ?? "Error al reordenar." }, 500);
+    return json({ ok: false, error: mapPBErrorToString(err, "Error al reordenar.") }, 500);
   }
 };
 
@@ -198,7 +195,6 @@ export const DELETE: APIRoute = async ({ params, request, locals }) => {
     await pb.collection("products").update(id, { "images-": filename });
     return json({ ok: true });
   } catch (err: unknown) {
-    const e = err as { message?: string };
-    return json({ ok: false, error: e.message ?? "Error al eliminar la imagen." }, 500);
+    return json({ ok: false, error: mapPBErrorToString(err, "Error al eliminar la imagen.") }, 500);
   }
 };

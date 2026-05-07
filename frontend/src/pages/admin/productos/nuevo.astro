@@ -2,6 +2,7 @@
 import AdminLayout from "../../../layouts/AdminLayout.astro";
 import ProductForm from "../../../components/admin/ProductForm.astro";
 import { extractProductFromForm, extractImagesFromForm } from "../../../lib/admin-products";
+import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
 import type { Category } from "../../../lib/types";
 import type { ProductFormData } from "../../../lib/admin-products";
 
@@ -58,14 +59,7 @@ if (Astro.request.method === "POST") {
       const created = await pb.collection("products").create(payload);
       return Astro.redirect("/admin/productos/" + created.id + "?ok=created");
     } catch (err: unknown) {
-      const e = err as { message?: string; response?: { data?: Record<string, { message?: string }> } };
-      const fieldErrors = e.response?.data ?? {};
-      for (const [field, info] of Object.entries(fieldErrors)) {
-        if (info?.message) errors[field] = info.message;
-      }
-      if (Object.keys(errors).length === 0) {
-        errors._global = e.message ?? "No se pudo crear el producto.";
-      }
+      errors = { ...errors, ...mapPBErrorToFieldErrors(err, "product") };
     }
   }
 }

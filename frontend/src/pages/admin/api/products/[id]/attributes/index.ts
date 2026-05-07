@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { validateAttribute } from "../../../../../../lib/admin-attributes";
+import { mapPBErrorToString } from "../../../../../../lib/admin-errors";
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -76,8 +77,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       order: nextOrder,
     })) as unknown as { id: string; key: string; value: string; order: number };
   } catch (err: unknown) {
-    const e = err as { message?: string };
-    return json({ ok: false, error: e.message ?? "Error al crear el atributo." }, 500);
+    return json({ ok: false, error: mapPBErrorToString(err, "Error al crear el atributo.") }, 500);
   }
 
   return json(
@@ -156,11 +156,10 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
     try {
       await pb.collection("product_attributes").update(attrId, { order: i });
     } catch (err: unknown) {
-      const e = err as { message?: string };
       return json(
         {
           ok: false,
-          error: `Error al actualizar orden del atributo ${attrId}: ${e.message ?? "error desconocido"}.`,
+          error: mapPBErrorToString(err, `Error al actualizar orden del atributo ${attrId}.`),
         },
         500,
       );
