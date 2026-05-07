@@ -64,6 +64,13 @@ if (okParam === "deleted") flash = "Categoría eliminada.";
     </div>
   )}
 
+  <!-- Error de reorder drag-and-drop -->
+  <div
+    id="categories-error"
+    class="hidden border-2 border-red-500 bg-red-50 text-red-800 px-3 py-2 rounded-md text-sm mb-4"
+    role="alert"
+  ></div>
+
   {categories.length === 0 ? (
     <div class="border-2 border-dashed border-brand/30 rounded-lg p-12 text-center bg-white">
       <p class="text-gray-600 mb-4">Todavía no hay categorías cargadas.</p>
@@ -76,6 +83,7 @@ if (okParam === "deleted") flash = "Categoría eliminada.";
       <table class="w-full text-sm">
         <thead class="bg-surface border-b-2 border-brand">
           <tr>
+            <th class="text-left px-3 py-3 font-medium w-8"></th>
             <th class="text-left px-4 py-3 font-medium w-12">Icono</th>
             <th class="text-left px-4 py-3 font-medium">Nombre</th>
             <th class="text-left px-4 py-3 font-medium hidden md:table-cell">Slug</th>
@@ -85,11 +93,24 @@ if (okParam === "deleted") flash = "Categoría eliminada.";
             <th class="text-right px-4 py-3 font-medium">Acciones</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="categories-list">
           {categories.map((cat) => {
             const count = productCountByCategory[cat.id] ?? 0;
             return (
-              <tr class={`border-b border-brand/10 hover:bg-surface/50 transition-colors ${!cat.active ? "opacity-60" : ""}`}>
+              <tr
+                class={`border-b border-brand/10 hover:bg-surface/50 transition-colors ${!cat.active ? "opacity-60" : ""}`}
+                data-category-id={cat.id}
+              >
+                <td class="px-3 py-3">
+                  <button
+                    type="button"
+                    class="category-drag-handle cursor-grab text-gray-400 hover:text-gray-600 select-none text-lg leading-none"
+                    title="Arrastrar para reordenar"
+                    aria-label="Reordenar categoría"
+                  >
+                    ≡
+                  </button>
+                </td>
                 <td class="px-4 py-3 text-xl text-center">
                   {cat.icon || <span class="text-gray-400 text-sm">—</span>}
                 </td>
@@ -138,3 +159,60 @@ if (okParam === "deleted") flash = "Categoría eliminada.";
     </div>
   )}
 </AdminLayout>
+
+<script>
+  import Sortable from "sortablejs";
+
+  const tbody = document.getElementById("categories-list") as HTMLElement | null;
+  const errorEl = document.getElementById("categories-error") as HTMLElement | null;
+
+  function showError(msg: string) {
+    if (!errorEl) return;
+    errorEl.textContent = msg;
+    errorEl.classList.remove("hidden");
+  }
+
+  function hideError() {
+    if (!errorEl) return;
+    errorEl.textContent = "";
+    errorEl.classList.add("hidden");
+  }
+
+  async function persistOrder() {
+    if (!tbody) return;
+    const rows = tbody.querySelectorAll<HTMLElement>("[data-category-id]");
+    const order = [...rows].map((r) => r.dataset.categoryId!).filter(Boolean);
+
+    if (order.length === 0) return;
+
+    try {
+      const res = await fetch("/admin/api/categories/reorder", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order }),
+      });
+
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: string };
+        showError(data.error ?? "Error al guardar el orden.");
+      } else {
+        hideError();
+      }
+    } catch {
+      showError("Error de red al guardar el orden.");
+    }
+  }
+
+  if (tbody) {
+    new Sortable(tbody, {
+      handle: ".category-drag-handle",
+      animation: 150,
+      ghostClass: "opacity-50",
+      // El drag handle es un <button> que no contiene links, así que no compite
+      // con los <a> de nombre/editar — SortableJS solo captura eventos en el handle.
+      onEnd: () => {
+        persistOrder();
+      },
+    });
+  }
+</script>
