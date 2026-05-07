@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockGetList = vi.fn();
 const mockGetFullList = vi.fn();
 const mockGetFirstListItem = vi.fn();
+const mockGetOne = vi.fn();
 
 vi.mock("pocketbase", () => ({
   default: class MockPocketBase {
@@ -12,19 +13,23 @@ vi.mock("pocketbase", () => ({
         getList: mockGetList,
         getFullList: mockGetFullList,
         getFirstListItem: mockGetFirstListItem,
+        getOne: mockGetOne,
       };
     }
   },
 }));
 
+import PocketBase from "pocketbase";
 import {
   sanitizeSlug,
   getFileUrl,
   getWhatsAppUrl,
   getProductWhatsAppUrl,
+  getMakerWorldWhatsAppUrl,
   getRelatedProducts,
   getProducts,
   getCategories,
+  getProductByIdAdmin,
 } from "./pocketbase";
 import type { ProductWithCategory } from "./types";
 
@@ -391,5 +396,130 @@ describe("getProducts", () => {
   it("propaga errores de PB (sin try/catch)", async () => {
     mockGetFullList.mockRejectedValue(new Error("PB down"));
     await expect(getProducts()).rejects.toThrow("PB down");
+  });
+});
+
+// ── getMakerWorldWhatsAppUrl ─────────────────────────────────────────────────
+
+describe("getMakerWorldWhatsAppUrl", () => {
+  it("genera URL de wa.me con el número por defecto y el mensaje pre-rellenado", () => {
+    const url = getMakerWorldWhatsAppUrl();
+    expect(url).toContain("https://wa.me/5493816563940");
+    expect(url).toContain("MakerWorld");
+    expect(url).toContain("PEG%C3%81%20EL%20LINK%20AC%C3%81");
+  });
+
+  it("incluye el saludo y el contexto de catálogo", () => {
+    const url = getMakerWorldWhatsAppUrl();
+    const decoded = decodeURIComponent(url);
+    expect(decoded).toContain("¡Hola!");
+    expect(decoded).toContain("No encontré lo que buscaba");
+    expect(decoded).toContain("Quiero que impriman este diseño de MakerWorld");
+    expect(decoded).toContain("[PEGÁ EL LINK ACÁ]");
+  });
+});
+
+// ── getProductByIdAdmin ──────────────────────────────────────────────────────
+
+describe("getProductByIdAdmin", () => {
+  beforeEach(() => {
+    mockGetOne.mockReset();
+  });
+
+  function makeRecord(overrides: Record<string, unknown> = {}) {
+    return {
+      id: "prod_001",
+      name: "Mate borrador",
+      slug: "mate-borrador",
+      description: "Descripción",
+      price: 12500,
+      price_label: "",
+      stock_status: "in_stock",
+      featured: false,
+      published: false,
+      images: ["a.jpg"],
+      created: "2026-01-01",
+      updated: "2026-01-01",
+      collectionId: "products_xxx",
+      expand: {
+        category: {
+          id: "cat1",
+          name: "Mates",
+          slug: "mates",
+          icon: "🧉",
+          description: "",
+          order: 1,
+          active: true,
+        },
+        product_attributes_via_product: [
+          { id: "a1", key: "Color", value: "Verde", order: 0, product: "prod_001" },
+          { id: "a2", key: "Material", value: "PLA", order: 1, product: "prod_001" },
+        ],
+      },
+      ...overrides,
+    };
+  }
+
+  it("devuelve un ProductWithCategory cuando PB retorna el record", async () => {
+    const pb = new PocketBase("http://test");
+    mockGetOne.mockResolvedValue(makeRecord());
+
+    const result = await getProductByIdAdmin(pb, "prod_001");
+
+    expect(result).not.toBeNull();
+    expect(result?.id).toBe("prod_001");
+    expect(result?.name).toBe("Mate borrador");
+    expect(result?.expand.category.slug).toBe("mates");
+    expect(result?.images).toHaveLength(1);
+    expect(result?.attributes).toHaveLength(2);
+  });
+
+  it("devuelve borradores (no filtra por published)", async () => {
+    const pb = new PocketBase("http://test");
+    mockGetOne.mockResolvedValue(makeRecord({ published: false }));
+
+    const result = await getProductByIdAdmin(pb, "prod_001");
+
+    expect(result).not.toBeNull();
+    expect(result?.published).toBe(false);
+  });
+
+  it("ordena attributes por el campo order", async () => {
+    const pb = new PocketBase("http://test");
+    mockGetOne.mockResolvedValue(
+      makeRecord({
+        expand: {
+          category: { id: "c", name: "x", slug: "x", icon: "x", description: "", order: 0, active: true },
+          product_attributes_via_product: [
+            { id: "a3", key: "Tercero", value: "z", order: 2, product: "prod_001" },
+            { id: "a1", key: "Primero", value: "x", order: 0, product: "prod_001" },
+            { id: "a2", key: "Segundo", value: "y", order: 1, product: "prod_001" },
+          ],
+        },
+      }),
+    );
+
+    const result = await getProductByIdAdmin(pb, "prod_001");
+
+    expect(result?.attributes.map((a) => a.key)).toEqual(["Primero", "Segundo", "Tercero"]);
+  });
+
+  it("devuelve null si PB tira error (producto inexistente)", async () => {
+    const pb = new PocketBase("http://test");
+    mockGetOne.mockRejectedValue(new Error("404 not found"));
+
+    const result = await getProductByIdAdmin(pb, "prod_inexistente");
+
+    expect(result).toBeNull();
+  });
+
+  it("expande imágenes con thumbnails CDN", async () => {
+    const pb = new PocketBase("http://test");
+    mockGetOne.mockResolvedValue(makeRecord({ images: ["img1.jpg", "img2.jpg"] }));
+
+    const result = await getProductByIdAdmin(pb, "prod_001");
+
+    expect(result?.images).toHaveLength(2);
+    expect(result?.images[0].thumbnails["400x400"]).toContain("/cdn-cgi/image/");
   });
 });

@@ -79,7 +79,7 @@ function expandProductImages(
 }
 
 /** Procesa un record crudo de PocketBase a ProductWithCategory con imágenes, categoría expandida y attributes */
-function mapToProductWithCategory(
+export function mapToProductWithCategory(
   record: Record<string, unknown>,
 ): ProductWithCategory {
   const product = expandProductImages(PB_URL, record);
@@ -223,4 +223,40 @@ export function getProductWhatsAppUrl(
   const categoryName = product.expand?.category?.name ?? "";
   const message = `¡Hola! 👋 Me interesa *${product.name}* (${categoryName})%0A%0A¿Está disponible?`;
   return getWhatsAppUrl(phone, message);
+}
+
+/**
+ * Genera el deeplink de WhatsApp para que un cliente nos mande un link de
+ * MakerWorld de un diseño que NO está en nuestro catálogo y quiere imprimir.
+ *
+ * El cliente abre WhatsApp con el mensaje pre-rellenado y solo tiene que
+ * pegar el link de MakerWorld donde dice [PEGÁ EL LINK ACÁ].
+ */
+export function getMakerWorldWhatsAppUrl(): string {
+  const phone = import.meta.env.PUBLIC_WHATSAPP_NUMBER || "5493816563940";
+  const message =
+    "¡Hola! 👋 No encontré lo que buscaba en su catálogo. Quiero que impriman este diseño de MakerWorld: [PEGÁ EL LINK ACÁ]";
+  return getWhatsAppUrl(phone, message);
+}
+
+/**
+ * Fetch de un producto por ID usando un cliente PB autenticado (admin).
+ * NO filtra por `published` — sirve para previsualizar borradores desde el admin.
+ *
+ * Usa expand igual que `getProductBySlug` para que el resultado sea
+ * compatible con el detalle público.
+ */
+export async function getProductByIdAdmin(
+  pb: PocketBase,
+  id: string,
+): Promise<ProductWithCategory | null> {
+  try {
+    const record = await pb.collection("products").getOne(id, {
+      expand: "category,product_attributes_via_product",
+      fields: "*",
+    });
+    return mapToProductWithCategory(record as Record<string, unknown>);
+  } catch {
+    return null;
+  }
 }

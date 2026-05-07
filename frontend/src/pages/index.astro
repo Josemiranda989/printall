@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import ProductCard from "../components/ProductCard.astro";
+import MakerWorldCTA from "../components/MakerWorldCTA.astro";
 import { getProducts, getCategories, getWhatsAppUrl } from "../lib/pocketbase";
 
 const [allProducts, categories] = await Promise.all([
@@ -226,8 +227,12 @@ const whatsappContactUrl = getWhatsAppUrl(
       >
         Limpiar filtros
       </button>
+
+      <MakerWorldCTA variant="empty" />
     </div>
   </section>
+
+  <MakerWorldCTA variant="permanent" />
 
   <!-- CTA -->
   <section class="cta-section relative bg-brand overflow-hidden">

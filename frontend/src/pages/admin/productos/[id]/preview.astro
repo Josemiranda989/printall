@@ -1,0 +1,476 @@
+---
+import BaseLayout from "../../../../layouts/BaseLayout.astro";
+import ProductCard from "../../../../components/ProductCard.astro";
+import WhatsAppButton from "../../../../components/WhatsAppButton.astro";
+import {
+  getProductByIdAdmin,
+  getProductWhatsAppUrl,
+  getRelatedProducts,
+} from "../../../../lib/pocketbase";
+import { STOCK_LABELS, STOCK_COLORS } from "../../../../lib/types";
+
+const pb = Astro.locals.adminPB!;
+const { id } = Astro.params;
+if (!id) return Astro.redirect("/admin/productos");
+
+const product = await getProductByIdAdmin(pb, id);
+if (!product) return Astro.redirect("/admin/productos");
+
+const category = product.expand?.category;
+const whatsappUrl = getProductWhatsAppUrl(product);
+const allImages = product.images?.length ? product.images : [];
+const firstThumb = allImages[0]?.thumbnails?.["800x800"] ?? "/placeholder.svg";
+
+const relatedProducts = category?.slug
+  ? await getRelatedProducts(category.slug, product.id, 4)
+  : [];
+
+const stockColor = STOCK_COLORS[product.stock_status] ?? "bg-gray-400";
+const stockLabel = STOCK_LABELS[product.stock_status] ?? product.stock_status;
+const isInStock = product.stock_status === "in_stock";
+
+const isDraft = !product.published;
+---
+
+<BaseLayout
+  title={`Vista previa: ${product.name}`}
+  description="Vista previa interna del admin"
+>
+  <!-- Banner de vista previa -->
+  <div class={`sticky top-0 z-40 ${isDraft ? "bg-amber-500" : "bg-emerald-600"} text-white px-4 py-2.5 shadow-md`}>
+    <div class="mx-auto max-w-6xl flex items-center justify-between gap-4 text-sm">
+      <div class="flex items-center gap-2 font-bold">
+        <svg class="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        <span class="uppercase tracking-wider text-[11px] sm:text-xs">
+          {isDraft ? "Vista previa — Borrador (no publicado)" : "Vista previa — Publicado"}
+        </span>
+      </div>
+      <a
+        href={`/admin/productos/${id}`}
+        class="inline-flex items-center gap-1.5 bg-white/15 hover:bg-white/25 transition-colors rounded-md px-3 py-1 text-xs font-bold uppercase tracking-wider"
+      >
+        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+        </svg>
+        Volver al admin
+      </a>
+    </div>
+  </div>
+
+  <div class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 sm:py-12">
+    <!-- Breadcrumb -->
+    <nav class="flex items-center gap-2 mb-7 text-[11px] font-bold uppercase tracking-[0.16em]">
+      <a href="/" class="inline-flex items-center gap-1.5 text-brand/75 hover:text-accent transition-colors group">
+        <svg class="h-3.5 w-3.5 transition-transform duration-200 group-hover:-translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+        </svg>
+        Inicio
+      </a>
+      {category && (
+        <>
+          <svg class="h-3 w-3 text-brand/55" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+          <a href={`/?categoria=${category.slug}`} class="inline-flex items-center gap-1 text-brand/75 hover:text-accent transition-colors">
+            <span>{category.icon}</span>
+            <span>{category.name}</span>
+          </a>
+        </>
+      )}
+    </nav>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14">
+      <!-- ===================== Galería ===================== -->
+      <div>
+        <div
+          id="main-image-wrapper"
+          class="detail-img-main relative aspect-square overflow-hidden rounded-2xl border-2 border-brand/[0.08] cursor-pointer group/image"
+        >
+          <div class="absolute inset-0 detail-dotgrid opacity-40 pointer-events-none"></div>
+
+          <img
+            id="main-image"
+            src={firstThumb}
+            srcset={allImages[0]
+              ? `${allImages[0].thumbnails["120x120"]} 120w, ${allImages[0].thumbnails["400x400"]} 400w, ${allImages[0].thumbnails["800x800"]} 800w`
+              : undefined}
+            sizes="(min-width: 1024px) 50vw, 100vw"
+            alt={product.name}
+            class="relative h-full w-full object-cover transition-transform duration-500 ease-out group-hover/image:scale-[1.04]"
+            width="800"
+            height="800"
+          />
+
+          <div class="absolute top-3 left-3 flex items-center gap-1.5 rounded-full bg-white/95 backdrop-blur-sm px-2.5 py-1 shadow-sm ring-1 ring-brand/5">
+            <span class="relative flex h-2 w-2">
+              <span class={`absolute inline-flex h-full w-full rounded-full opacity-50 ${stockColor} ${isInStock ? "animate-ping" : ""}`}></span>
+              <span class={`relative inline-flex h-2 w-2 rounded-full ${stockColor}`}></span>
+            </span>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-brand/70">{stockLabel}</span>
+          </div>
+
+          {product.featured && (
+            <div class="absolute top-3 right-3 select-none pointer-events-none rotate-[6deg]">
+              <div class="bg-accent-hover text-white text-[10px] font-display uppercase tracking-[0.18em] px-2.5 py-1 rounded-md shadow-md">
+                ★ Destacado
+              </div>
+            </div>
+          )}
+
+          {allImages.length > 1 && (
+            <div
+              id="image-counter"
+              class="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-full bg-black/55 backdrop-blur-sm text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1"
+            >
+              <span data-counter-current>1</span>
+              <span class="opacity-50">/</span>
+              <span>{allImages.length}</span>
+            </div>
+          )}
+
+          <div class="absolute inset-0 bg-black/0 group-hover/image:bg-black/[0.06] transition-all duration-300 flex items-center justify-center pointer-events-none">
+            <div class="opacity-0 group-hover/image:opacity-100 transition-all duration-300 bg-white/95 backdrop-blur-sm rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-brand flex items-center gap-1.5 shadow-lg">
+              <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" />
+              </svg>
+              Ampliar
+            </div>
+          </div>
+        </div>
+
+        {allImages.length > 1 && (
+          <div class="mt-3 grid grid-cols-5 sm:grid-cols-6 gap-2.5" id="thumbnail-grid">
+            {allImages.map((img, i) => (
+              <button
+                type="button"
+                class={`thumb-btn aspect-square overflow-hidden rounded-xl border-2 transition-all cursor-pointer ${
+                  i === 0 ? "border-accent thumb-active" : "border-brand/[0.08] hover:border-accent/40"
+                }`}
+                data-thumb-url={img.thumbnails["800x800"]}
+                data-srcset={`${img.thumbnails["120x120"]} 120w, ${img.thumbnails["400x400"]} 400w, ${img.thumbnails["800x800"]} 800w`}
+                data-full-url={img.url}
+                data-index={i}
+                aria-label={`Ver imagen ${i + 1}`}
+              >
+                <img
+                  src={img.thumbnails["120x120"]}
+                  alt={`${product.name} - ${i + 1}`}
+                  class="h-full w-full object-cover"
+                  width="120"
+                  height="120"
+                  loading="lazy"
+                />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <!-- ===================== Info column ===================== -->
+      <div class="flex flex-col">
+        {category && (
+          <a
+            href={`/?categoria=${category.slug}`}
+            class="group inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-accent-strong w-fit"
+          >
+            <span class="text-base leading-none">{category.icon}</span>
+            <span>{category.name}</span>
+            <svg class="h-3 w-3 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+          </a>
+        )}
+
+        <h1 class="font-display text-3xl sm:text-4xl lg:text-5xl text-brand mt-2 leading-[0.95] tracking-tight">
+          {product.name}
+        </h1>
+
+        <div class="mt-7 rounded-2xl border-2 border-brand/[0.08] bg-surface px-5 py-4 flex items-center justify-between gap-4">
+          <div class="flex flex-col">
+            <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-brand/75">Precio</span>
+            {product.price ? (
+              <span class="font-display text-3xl text-brand mt-0.5 leading-none">
+                ${product.price.toLocaleString("es-AR")}
+              </span>
+            ) : (
+              <span class="font-display text-2xl text-brand/60 mt-0.5 leading-none">
+                Consultar
+              </span>
+            )}
+            {product.price_label && (
+              <span class="text-xs text-brand/75 mt-1.5">{product.price_label}</span>
+            )}
+          </div>
+          <div class="hidden sm:grid place-items-center h-12 w-12 rounded-full bg-accent-soft text-accent">
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
+            </svg>
+          </div>
+        </div>
+
+        {product.description && (
+          <div class="prose prose-sm max-w-none text-brand/65 leading-relaxed mt-7 detail-prose">
+            <Fragment set:html={product.description} />
+          </div>
+        )}
+
+        {product.attributes.length > 0 && (
+          <div class="mt-7">
+            <h2 class="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-accent-strong mb-3">
+              <span class="h-px w-4 bg-accent"></span>
+              Especificaciones
+            </h2>
+            <dl class="grid grid-cols-2 gap-2.5">
+              {product.attributes.map((attr) => (
+                <div class="rounded-xl border-2 border-dashed border-brand/10 bg-surface/40 px-3 py-2.5">
+                  <dt class="text-[9px] font-bold uppercase tracking-[0.18em] text-brand/75">{attr.key}</dt>
+                  <dd class="font-display text-sm text-brand mt-1 leading-tight">{attr.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        )}
+
+        <div class="mt-8 pt-7 border-t border-dashed border-brand/10">
+          <WhatsAppButton href={whatsappUrl} size="lg" label="Consultar por WhatsApp" class="w-full sm:w-auto" />
+          <p class="mt-3 text-xs text-brand/75 leading-relaxed">
+            Te respondemos en minutos. Aceptamos pedidos personalizados.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {relatedProducts.length > 0 && (
+    <section class="mx-auto max-w-6xl px-4 pb-16 sm:px-6 lg:px-8 sm:pb-20">
+      <div class="border-t-2 border-dashed border-brand/10 mb-10 sm:mb-12"></div>
+
+      <div class="mb-7 sm:mb-9">
+        <span class="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-accent-strong mb-2">
+          <span class="h-px w-4 bg-accent"></span>
+          Te puede interesar
+        </span>
+        <h2 class="font-display text-2xl sm:text-3xl text-brand leading-tight">
+          {category ? `Más de ${category.name}` : "Más productos"}
+        </h2>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+        {relatedProducts.map((p) => <ProductCard product={p} />)}
+      </div>
+    </section>
+  )}
+
+  <!-- Lightbox overlay -->
+  <div
+    id="lightbox"
+    class="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm hidden items-center justify-center"
+    data-lightbox
+    data-product-name={product.name}
+    data-images={JSON.stringify(allImages.map(img => ({
+      full: img.url,
+      thumb: img.thumbnails?.["800x800"] ?? img.url
+    })))}
+  >
+    <button
+      type="button"
+      id="lightbox-close"
+      class="absolute top-4 right-4 z-10 grid place-items-center h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 text-white/90 transition-colors"
+      aria-label="Cerrar"
+    >
+      <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+
+    <div class="absolute top-4 left-4 text-white/60 text-xs font-bold uppercase tracking-[0.18em]" id="lightbox-counter"></div>
+
+    <button
+      type="button"
+      id="lightbox-prev"
+      class="absolute left-4 top-1/2 -translate-y-1/2 grid place-items-center h-12 w-12 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+      aria-label="Anterior"
+    >
+      <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+      </svg>
+    </button>
+
+    <img
+      id="lightbox-image"
+      src=""
+      alt=""
+      class="max-h-[90vh] max-w-[90vw] object-contain rounded-lg"
+    />
+
+    <button
+      type="button"
+      id="lightbox-next"
+      class="absolute right-4 top-1/2 -translate-y-1/2 grid place-items-center h-12 w-12 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+      aria-label="Siguiente"
+    >
+      <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+      </svg>
+    </button>
+  </div>
+</BaseLayout>
+
+<style is:global>
+  /* Detail: dot pattern bg para imagen */
+  .detail-dotgrid {
+    background-image: radial-gradient(rgba(31, 31, 43, 0.10) 1px, transparent 1px);
+    background-size: 14px 14px;
+  }
+  .detail-img-main {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 4%, var(--color-surface)) 0%, var(--color-surface) 100%);
+  }
+
+  /* Thumb activo: scale sutil */
+  .thumb-btn.thumb-active {
+    transform: scale(1.04);
+    box-shadow: 0 6px 14px -4px rgba(234, 88, 12, 0.3);
+  }
+
+  /* Prose tweaks para descripción */
+  .detail-prose p { margin: 0.5rem 0; }
+  .detail-prose strong { color: var(--color-brand); font-weight: 600; }
+  .detail-prose a { color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px; }
+  .detail-prose ul { padding-left: 1.25rem; list-style: disc; }
+  .detail-prose li { margin: 0.2rem 0; }
+
+  /* Lightbox */
+  #lightbox { transition: opacity 0.25s ease; }
+  #lightbox:not(.hidden) { opacity: 1; }
+  #lightbox.hidden { opacity: 0; pointer-events: none; }
+  #lightbox-image { transition: opacity 0.2s ease; }
+  #lightbox-image.loading { opacity: 0; }
+</style>
+
+<script>
+  const lightbox = document.getElementById("lightbox")!;
+  const lightboxImg = document.getElementById("lightbox-image") as HTMLImageElement | null;
+  const lightboxClose = document.getElementById("lightbox-close");
+  const lightboxPrev = document.getElementById("lightbox-prev");
+  const lightboxNext = document.getElementById("lightbox-next");
+  const lightboxCounter = document.getElementById("lightbox-counter");
+  const counterCurrent = document.querySelector("[data-counter-current]");
+
+  const productName = lightbox.dataset.productName ?? "";
+  const rawImages = lightbox.dataset.images;
+  const images: { thumb: string; full: string }[] = rawImages
+    ? JSON.parse(rawImages)
+    : [];
+
+  let currentIndex = 0;
+
+  const mainImage = document.getElementById("main-image") as HTMLImageElement | null;
+  const mainWrapper = document.getElementById("main-image-wrapper");
+  const thumbGrid = document.getElementById("thumbnail-grid");
+
+  if (images.length === 0 && mainImage?.src) {
+    images.push({ thumb: mainImage.src, full: mainImage.src });
+  }
+
+  function setActiveThumb(index: number) {
+    if (!thumbGrid) return;
+    const thumbs = thumbGrid.querySelectorAll<HTMLElement>("[data-index]");
+    thumbs.forEach((t, i) => {
+      const active = i === index;
+      t.classList.toggle("border-accent", active);
+      t.classList.toggle("thumb-active", active);
+      t.classList.toggle("border-brand/[0.08]", !active);
+    });
+  }
+
+  function setMainImage(index: number) {
+    const img = images[index];
+    if (!img) return;
+    if (mainImage && img.thumb) mainImage.src = img.thumb;
+    if (mainImage && thumbGrid) {
+      const thumbs = thumbGrid.querySelectorAll<HTMLElement>("[data-index]");
+      const srcset = thumbs[index]?.dataset.srcset;
+      if (srcset) mainImage.srcset = srcset;
+    }
+    if (counterCurrent) counterCurrent.textContent = String(index + 1);
+    currentIndex = index;
+    setActiveThumb(index);
+  }
+
+  function openLightbox(index: number) {
+    if (images.length === 0) return;
+    currentIndex = index;
+    showLightboxImage(currentIndex);
+    lightbox.classList.remove("hidden");
+    lightbox.classList.add("flex");
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeLightbox() {
+    lightbox.classList.add("hidden");
+    lightbox.classList.remove("flex");
+    document.body.style.overflow = "";
+  }
+
+  function showLightboxImage(index: number) {
+    if (!lightboxImg || images.length === 0) return;
+    const img = images[index];
+    if (!img) return;
+
+    lightboxImg.classList.add("loading");
+    lightboxImg.src = img.full;
+    lightboxImg.alt = `${productName} - ${index + 1}`;
+
+    if (lightboxCounter) {
+      lightboxCounter.textContent = `${index + 1} / ${images.length}`;
+    }
+
+    setMainImage(index);
+  }
+
+  if (lightboxImg) {
+    lightboxImg.addEventListener("load", () => {
+      lightboxImg.classList.remove("loading");
+    });
+  }
+
+  function prevImage() {
+    if (images.length === 0) return;
+    currentIndex = (currentIndex - 1 + images.length) % images.length;
+    showLightboxImage(currentIndex);
+  }
+
+  function nextImage() {
+    if (images.length === 0) return;
+    currentIndex = (currentIndex + 1) % images.length;
+    showLightboxImage(currentIndex);
+  }
+
+  mainWrapper?.addEventListener("click", () => openLightbox(currentIndex));
+
+  if (thumbGrid) {
+    thumbGrid.addEventListener("click", (e: Event) => {
+      const target = e.target as HTMLElement;
+      const btn = target.closest("[data-index]") as HTMLElement | null;
+      if (!btn) return;
+      const idx = parseInt(btn.dataset.index ?? "0");
+      setMainImage(idx);
+    });
+  }
+
+  lightboxClose?.addEventListener("click", closeLightbox);
+  lightboxPrev?.addEventListener("click", prevImage);
+  lightboxNext?.addEventListener("click", nextImage);
+
+  lightbox.addEventListener("click", (e: Event) => {
+    if (e.target === lightbox) closeLightbox();
+  });
+
+  document.addEventListener("keydown", (e: KeyboardEvent) => {
+    if (lightbox.classList.contains("hidden")) return;
+    if (e.key === "Escape") closeLightbox();
+    if (e.key === "ArrowLeft") prevImage();
+    if (e.key === "ArrowRight") nextImage();
+  });
+</script>
