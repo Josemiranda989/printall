@@ -5,11 +5,15 @@ import type { Category, StockStatus } from "../../../lib/types";
 import { STOCK_LABELS } from "../../../lib/types";
 import {
   buildProductsFilter,
+  buildPageUrl,
   parseSearchParams,
   hasFilters,
 } from "../../../lib/admin-products-filter";
 
 const pb = Astro.locals.adminPB!;
+
+// Cantidad de productos por página (25 es razonable para el admin)
+const PER_PAGE = 25;
 
 type AdminProductRecord = {
   id: string;
@@ -31,19 +35,34 @@ const filters = parseSearchParams(Astro.url.searchParams);
 const activeFilters = hasFilters(filters);
 const pbFilter = buildProductsFilter(filters);
 
+// Parsear página actual (mínimo 1, default 1)
+const rawPage = Astro.url.searchParams.get("page");
+const page = Math.max(1, parseInt(rawPage ?? "") || 1);
+
 // Cargar categorías para el dropdown
 const categoryRecords = await pb
   .collection("categories")
   .getFullList({ sort: "+name" });
 const categories = categoryRecords as unknown as Category[];
 
-// Cargar productos aplicando el filter construido
-const records = await pb.collection("products").getFullList({
+// Cargar productos con paginación
+const result = await pb.collection("products").getList(page, PER_PAGE, {
   filter: pbFilter,
   sort: "-updated",
   expand: "category",
 });
-const products = records as unknown as AdminProductRecord[];
+
+const products = result.items as unknown as AdminProductRecord[];
+const totalItems = result.totalItems;
+const totalPages = result.totalPages;
+
+// Rango visible: "Mostrando X-Y de N producto(s)"
+const rangeStart = totalItems === 0 ? 0 : (page - 1) * PER_PAGE + 1;
+const rangeEnd = Math.min(page * PER_PAGE, totalItems);
+
+// URLs para paginación — preservan filtros activos
+const prevUrl = buildPageUrl(Astro.url.searchParams, page - 1);
+const nextUrl = buildPageUrl(Astro.url.searchParams, page + 1);
 
 function thumbFor(p: AdminProductRecord): string | null {
   const first = p.images?.[0];
@@ -174,24 +193,36 @@ const labelSpanClass = "text-xs font-medium uppercase tracking-wider text-brand/
 
   {/* ── Indicador de resultados ── */}
   <p class="text-sm text-gray-600 mb-3">
-    {activeFilters
-      ? `${products.length} ${products.length === 1 ? "producto" : "productos"} — filtros aplicados`
-      : `${products.length} ${products.length === 1 ? "producto" : "productos"} en total`}
+    {totalItems === 0
+      ? activeFilters
+        ? "Sin resultados — filtros aplicados"
+        : "Sin productos"
+      : `Mostrando ${rangeStart}–${rangeEnd} de ${totalItems} ${totalItems === 1 ? "producto" : "productos"}${activeFilters ? " — filtros aplicados" : ""}`}
   </p>
 
   {/* ── Tabla / Empty states ── */}
-  {products.length === 0 && !activeFilters ? (
+  {products.length === 0 && totalItems === 0 && !activeFilters ? (
     <div class="border-2 border-dashed border-brand/30 rounded-lg p-12 text-center bg-white">
       <p class="text-gray-600 mb-4">Todavía no hay productos cargados.</p>
       <a href="/admin/productos/nuevo" class="text-accent hover:underline font-medium">
         Crear el primero →
       </a>
     </div>
-  ) : products.length === 0 && activeFilters ? (
+  ) : products.length === 0 && totalItems === 0 && activeFilters ? (
     <div class="border-2 border-dashed border-brand/30 rounded-lg p-12 text-center bg-white">
       <p class="text-gray-600 mb-3">No hay productos que coincidan con tu búsqueda.</p>
       <a href="/admin/productos" class="text-accent hover:underline font-medium text-sm">
         Limpiar filtros →
+      </a>
+    </div>
+  ) : products.length === 0 && page > totalPages ? (
+    <div class="border-2 border-dashed border-brand/30 rounded-lg p-12 text-center bg-white">
+      <p class="text-gray-600 mb-3">Esta página no tiene resultados.</p>
+      <a
+        href={buildPageUrl(Astro.url.searchParams, 1)}
+        class="text-accent hover:underline font-medium text-sm"
+      >
+        Volver al inicio →
       </a>
     </div>
   ) : (
@@ -271,6 +302,47 @@ const labelSpanClass = "text-xs font-medium uppercase tracking-wider text-brand/
           })}
         </tbody>
       </table>
+    </div>
+  )}
+
+  {/* ── Paginación ── solo si hay más de una página */}
+  {totalPages > 1 && (
+    <div class="flex items-center justify-center gap-4 mt-5">
+      {page === 1 ? (
+        <span
+          class="px-4 py-2 border-2 border-brand/30 rounded text-sm font-medium opacity-50 pointer-events-none select-none"
+          aria-disabled="true"
+        >
+          ← Anterior
+        </span>
+      ) : (
+        <a
+          href={prevUrl}
+          class="px-4 py-2 border-2 border-brand rounded text-sm font-medium hover:bg-brand hover:text-white transition-colors"
+        >
+          ← Anterior
+        </a>
+      )}
+
+      <span class="text-sm text-gray-600 font-medium">
+        Página {page} de {totalPages}
+      </span>
+
+      {page >= totalPages ? (
+        <span
+          class="px-4 py-2 border-2 border-brand/30 rounded text-sm font-medium opacity-50 pointer-events-none select-none"
+          aria-disabled="true"
+        >
+          Siguiente →
+        </span>
+      ) : (
+        <a
+          href={nextUrl}
+          class="px-4 py-2 border-2 border-brand rounded text-sm font-medium hover:bg-brand hover:text-white transition-colors"
+        >
+          Siguiente →
+        </a>
+      )}
     </div>
   )}
 </AdminLayout>

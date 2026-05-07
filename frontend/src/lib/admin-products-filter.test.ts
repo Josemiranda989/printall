@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildProductsFilter,
+  buildPageUrl,
   parseSearchParams,
   hasFilters,
   type ProductsListFilters,
@@ -19,8 +20,10 @@ describe("buildProductsFilter", () => {
     expect(buildProductsFilter({ q: "" })).toBe("");
   });
 
-  it("q con valor → name ~ parcial case-insensitive", () => {
-    expect(buildProductsFilter({ q: "mate" })).toBe('name ~ "mate"');
+  it("q con valor → OR en name, description y slug con paréntesis", () => {
+    expect(buildProductsFilter({ q: "mate" })).toBe(
+      '(name ~ "mate" || description ~ "mate" || slug ~ "mate")'
+    );
   });
 
   it("categoria → category.slug con dot syntax", () => {
@@ -65,9 +68,11 @@ describe("buildProductsFilter", () => {
     expect(buildProductsFilter({ publicado: "yes" })).toBe("");
   });
 
-  it("q + stock → AND con &&", () => {
+  it("q + stock → OR entre paréntesis && stock", () => {
     const result = buildProductsFilter({ q: "mate", stock: "in_stock" });
-    expect(result).toBe('name ~ "mate" && stock_status = "in_stock"');
+    expect(result).toBe(
+      '(name ~ "mate" || description ~ "mate" || slug ~ "mate") && stock_status = "in_stock"'
+    );
   });
 
   it("categoria + publicado → AND con &&", () => {
@@ -78,7 +83,7 @@ describe("buildProductsFilter", () => {
     expect(result).toBe('category.slug = "filamentos" && published = true');
   });
 
-  it("todos los filtros juntos → AND con && en orden correcto", () => {
+  it("todos los filtros juntos → OR entre paréntesis && resto en orden correcto", () => {
     const filters: ProductsListFilters = {
       q: "vaso",
       categoria: "vasos",
@@ -87,7 +92,7 @@ describe("buildProductsFilter", () => {
     };
     const result = buildProductsFilter(filters);
     expect(result).toBe(
-      'name ~ "vaso" && category.slug = "vasos" && stock_status = "in_stock" && published = true'
+      '(name ~ "vaso" || description ~ "vaso" || slug ~ "vaso") && category.slug = "vasos" && stock_status = "in_stock" && published = true'
     );
   });
 
@@ -96,28 +101,38 @@ describe("buildProductsFilter", () => {
   // -------------------------------------------------------------------------
 
   it('q con comilla doble → removida (evita PB filter injection)', () => {
-    // 'mate"con'  →  'matecón' (sin la comilla)
+    // 'mate"con'  →  'matecon' (sin la comilla)
     const result = buildProductsFilter({ q: 'mate"con' });
-    expect(result).toBe('name ~ "matecon"');
-    // el string resultado no debe contener comillas dobles DENTRO del valor
-    const inner = result.slice('name ~ "'.length, -1);
-    expect(inner).not.toContain('"');
+    expect(result).toBe(
+      '(name ~ "matecon" || description ~ "matecon" || slug ~ "matecon")'
+    );
+    // verificar que la comilla original no quedó dentro de ningún valor
+    // extraer los tres valores: deben ser "matecon" sin comillas internas
+    const values = [...result.matchAll(/~ "([^"]*)"/g)].map((m) => m[1]);
+    expect(values).toHaveLength(3);
+    values.forEach((v) => expect(v).not.toContain('"'));
   });
 
   it('q con comilla simple → removida', () => {
     const result = buildProductsFilter({ q: "mate'loco" });
-    expect(result).toBe('name ~ "mateloco"');
+    expect(result).toBe(
+      '(name ~ "mateloco" || description ~ "mateloco" || slug ~ "mateloco")'
+    );
   });
 
   it('q con barra invertida → removida', () => {
     const result = buildProductsFilter({ q: "mate\\loco" });
-    expect(result).toBe('name ~ "mateloco"');
+    expect(result).toBe(
+      '(name ~ "mateloco" || description ~ "mateloco" || slug ~ "mateloco")'
+    );
   });
 
   it("q con caracteres especiales de PB filter → removidos", () => {
     // caracteres como < > = & | no están permitidos
     const result = buildProductsFilter({ q: "mate<script>" });
-    expect(result).toBe('name ~ "matescript"');
+    expect(result).toBe(
+      '(name ~ "matescript" || description ~ "matescript" || slug ~ "matescript")'
+    );
   });
 
   it("q solo de chars peligrosos → resulta vacío → filter vacío", () => {
@@ -127,18 +142,106 @@ describe("buildProductsFilter", () => {
 
   it("q con espacios → preserva espacios (búsqueda multipalabra)", () => {
     const result = buildProductsFilter({ q: "mate verde" });
-    expect(result).toBe('name ~ "mate verde"');
+    expect(result).toBe(
+      '(name ~ "mate verde" || description ~ "mate verde" || slug ~ "mate verde")'
+    );
   });
 
   it("q con leading/trailing spaces → trimmed", () => {
     const result = buildProductsFilter({ q: "  mate  " });
-    expect(result).toBe('name ~ "mate"');
+    expect(result).toBe(
+      '(name ~ "mate" || description ~ "mate" || slug ~ "mate")'
+    );
   });
 
   it("categoria desconocida → se incluye igual (PB resuelve sin error)", () => {
     // dejamos que PB valide; nuestro layer no bloquea categorías desconocidas
     const result = buildProductsFilter({ categoria: "categoria-que-no-existe" });
     expect(result).toBe('category.slug = "categoria-que-no-existe"');
+  });
+
+  // -------------------------------------------------------------------------
+  // Búsqueda expandida — nuevos tests Sprint 9
+  // -------------------------------------------------------------------------
+
+  it("solo q → genera OR completo con paréntesis (name, description, slug)", () => {
+    const result = buildProductsFilter({ q: "mate" });
+    expect(result).toBe(
+      '(name ~ "mate" || description ~ "mate" || slug ~ "mate")'
+    );
+  });
+
+  it("q + categoría → OR entre paréntesis seguido de && con category.slug", () => {
+    const result = buildProductsFilter({ q: "mate", categoria: "mates" });
+    expect(result).toBe(
+      '(name ~ "mate" || description ~ "mate" || slug ~ "mate") && category.slug = "mates"'
+    );
+  });
+
+  it("q + todos los filtros → OR entre paréntesis al inicio del filter", () => {
+    const result = buildProductsFilter({
+      q: "llavero",
+      categoria: "accesorios",
+      stock: "low_stock",
+      publicado: "false",
+    });
+    expect(result).toBe(
+      '(name ~ "llavero" || description ~ "llavero" || slug ~ "llavero") && category.slug = "accesorios" && stock_status = "low_stock" && published = false'
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildPageUrl
+// ---------------------------------------------------------------------------
+
+describe("buildPageUrl", () => {
+  function sp(params: Record<string, string>): URLSearchParams {
+    return new URLSearchParams(params);
+  }
+
+  it("sin params + page 1 → '?' (page se omite para URLs limpias)", () => {
+    // page=1 equivale a no tener page, así que se omite el param
+    expect(buildPageUrl(new URLSearchParams(), 1)).toBe("?");
+  });
+
+  it("sin params + page 3 → '?page=3'", () => {
+    expect(buildPageUrl(new URLSearchParams(), 3)).toBe("?page=3");
+  });
+
+  it("con filtros activos + page 2 → preserva filtros y agrega page", () => {
+    const params = sp({ q: "mate", categoria: "mates" });
+    const result = buildPageUrl(params, 2);
+    // Debe contener todos los params originales y el page nuevo
+    const parsed = new URLSearchParams(result.slice(1)); // quita el ?
+    expect(parsed.get("q")).toBe("mate");
+    expect(parsed.get("categoria")).toBe("mates");
+    expect(parsed.get("page")).toBe("2");
+  });
+
+  it("con filtros + page 1 → preserva filtros y OMITE page", () => {
+    const params = sp({ q: "mate", stock: "in_stock" });
+    const result = buildPageUrl(params, 1);
+    const parsed = new URLSearchParams(result.slice(1));
+    expect(parsed.get("q")).toBe("mate");
+    expect(parsed.get("stock")).toBe("in_stock");
+    expect(parsed.has("page")).toBe(false);
+  });
+
+  it("con page existente en params → lo reemplaza con el nuevo", () => {
+    const params = sp({ q: "llavero", page: "3" });
+    const result = buildPageUrl(params, 5);
+    const parsed = new URLSearchParams(result.slice(1));
+    expect(parsed.get("page")).toBe("5");
+    expect(parsed.get("q")).toBe("llavero");
+  });
+
+  it("con page existente → page 1 → lo elimina", () => {
+    const params = sp({ q: "algo", page: "7" });
+    const result = buildPageUrl(params, 1);
+    const parsed = new URLSearchParams(result.slice(1));
+    expect(parsed.has("page")).toBe(false);
+    expect(parsed.get("q")).toBe("algo");
   });
 });
 

@@ -34,11 +34,12 @@ function sanitizeQ(raw: string): string {
 export function buildProductsFilter(filters: ProductsListFilters): string {
   const parts: string[] = [];
 
-  // q: búsqueda parcial case-insensitive en name
+  // q: búsqueda parcial case-insensitive en name, description y slug
   if (filters.q !== undefined && filters.q !== "") {
     const safe = sanitizeQ(filters.q);
     if (safe !== "") {
-      parts.push(`name ~ "${safe}"`);
+      // Paréntesis críticos: sin ellos PocketBase combina el OR con los && de otros filtros
+      parts.push(`(name ~ "${safe}" || description ~ "${safe}" || slug ~ "${safe}")`);
     }
   }
 
@@ -112,4 +113,23 @@ export function hasFilters(filters: ProductsListFilters): boolean {
     filters.stock !== undefined ||
     filters.publicado !== undefined
   );
+}
+
+/**
+ * Construye una URL de paginación preservando todos los query params actuales.
+ * Reemplaza (o agrega) el param `page` con el nuevo número.
+ * Si page === 1 se omite el param (URL más limpia, equivalente a page=1).
+ */
+export function buildPageUrl(
+  currentParams: URLSearchParams,
+  page: number
+): string {
+  const next = new URLSearchParams(currentParams);
+  if (page <= 1) {
+    next.delete("page");
+  } else {
+    next.set("page", String(page));
+  }
+  const qs = next.toString();
+  return qs ? `?${qs}` : "?";
 }
