@@ -1,0 +1,126 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import {
+  MATERIAL_KIND_LABELS,
+  MATERIAL_KIND_UNIT,
+  materialMargin,
+  type MaterialPrice,
+} from "../../../lib/types";
+
+const pb = Astro.locals.adminPB!;
+
+const records = (await pb.collection("materials").getFullList({
+  sort: "-active,kind,name",
+  batch: 200,
+})) as unknown as MaterialPrice[];
+
+function fmtPrice(n: number, kind: string): string {
+  const unit = MATERIAL_KIND_UNIT[kind as keyof typeof MATERIAL_KIND_UNIT] ?? "$";
+  return "$" + Math.round(n).toLocaleString("es-AR") + " " + unit;
+}
+
+function fmtMargin(m: MaterialPrice): { text: string; color: string } {
+  const margin = materialMargin(m);
+  if (margin === null) return { text: "—", color: "text-gray-400" };
+  const pct = (margin * 100).toFixed(0);
+  if (margin > 0) return { text: `+${pct}%`, color: "text-emerald-700" };
+  if (margin < 0) return { text: `${pct}%`, color: "text-red-600" };
+  return { text: "0%", color: "text-gray-500" };
+}
+---
+
+<AdminLayout title="Materiales">
+  <div class="flex items-center justify-between gap-4 mb-5 flex-wrap">
+    <div>
+      <h1 class="font-display text-3xl">Materiales</h1>
+      <p class="text-sm text-gray-600 mt-1">
+        Filamentos y componentes que usa la calculadora de costos.
+      </p>
+    </div>
+    <a
+      href="/admin/materiales/nuevo"
+      class="bg-accent text-white font-medium px-4 py-2 rounded-md hover:bg-accent-hover transition-colors text-sm shrink-0"
+    >
+      + Nuevo material
+    </a>
+  </div>
+
+  {records.length === 0 ? (
+    <div class="border-2 border-dashed border-brand/30 rounded-lg p-12 text-center bg-white">
+      <p class="text-gray-600 mb-4">Todavía no hay materiales cargados.</p>
+      <a href="/admin/materiales/nuevo" class="text-accent hover:underline font-medium">
+        Crear el primero →
+      </a>
+    </div>
+  ) : (
+    <div class="bg-white border-2 border-brand rounded-lg overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-surface border-b-2 border-brand">
+          <tr>
+            <th class="text-left px-4 py-3 font-medium">Nombre</th>
+            <th class="text-left px-4 py-3 font-medium">Tipo</th>
+            <th class="text-right px-4 py-3 font-medium">Costo</th>
+            <th class="text-right px-4 py-3 font-medium">Venta</th>
+            <th class="text-right px-4 py-3 font-medium hidden sm:table-cell">Margen</th>
+            <th class="text-left px-4 py-3 font-medium">Estado</th>
+            <th class="text-right px-4 py-3 font-medium">Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          {records.map((m) => {
+            const margin = fmtMargin(m);
+            return (
+              <tr
+                class="border-b border-brand/10 hover:bg-surface/50 transition-colors cursor-pointer"
+                data-row-href={`/admin/materiales/${m.id}`}
+              >
+                <td class="px-4 py-3 font-medium">{m.name}</td>
+                <td class="px-4 py-3 text-gray-700">{MATERIAL_KIND_LABELS[m.kind]}</td>
+                <td class="px-4 py-3 text-right font-mono text-gray-600">
+                  {fmtPrice(m.cost_price, m.kind)}
+                </td>
+                <td class="px-4 py-3 text-right font-mono font-medium">
+                  {fmtPrice(m.sell_price, m.kind)}
+                </td>
+                <td class={`px-4 py-3 text-right font-mono hidden sm:table-cell ${margin.color}`}>
+                  {margin.text}
+                </td>
+                <td class="px-4 py-3">
+                  <span
+                    class={`inline-block text-xs px-2 py-0.5 rounded border ${
+                      m.active
+                        ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                        : "bg-gray-100 text-gray-600 border-gray-300"
+                    }`}
+                  >
+                    {m.active ? "Activo" : "Inactivo"}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <a
+                    href={`/admin/materiales/${m.id}`}
+                    class="inline-block px-3 py-1 border-2 border-brand rounded hover:bg-brand hover:text-white transition-colors text-xs font-medium"
+                    onclick="event.stopPropagation()"
+                  >
+                    Editar
+                  </a>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  )}
+</AdminLayout>
+
+<script>
+  document.querySelectorAll<HTMLElement>("[data-row-href]").forEach((row) => {
+    row.addEventListener("click", (ev) => {
+      const target = ev.target as HTMLElement;
+      if (target.closest("input, button, a, label")) return;
+      const href = row.dataset.rowHref;
+      if (href) window.location.href = href;
+    });
+  });
+</script>

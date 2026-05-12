@@ -1,0 +1,76 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import OrderForm from "../../../components/admin/OrderForm.astro";
+import { extractOrderFromForm, type OrderFormData } from "../../../lib/admin-orders";
+import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
+
+const pb = Astro.locals.adminPB!;
+
+let values: Partial<OrderFormData> = {
+  status: "pending",
+  priority: "medium",
+  is_paid: false,
+  unit_price: 0,
+  units_ordered: 1,
+  units_done: 0,
+  material: "pla",
+  color: "negro",
+  order_date: new Date().toISOString(),
+};
+let errors: Record<string, string> = {};
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const result = extractOrderFromForm(form);
+  values = result.data;
+  errors = result.errors;
+
+  if (Object.keys(errors).length === 0) {
+    const payload: Record<string, unknown> = {
+      project_name: result.data.project_name,
+      customer_name: result.data.customer_name,
+      customer_whatsapp: result.data.customer_whatsapp,
+      material: result.data.material,
+      color: result.data.color,
+      priority: result.data.priority,
+      status: result.data.status,
+      is_paid: result.data.is_paid,
+      unit_price: result.data.unit_price,
+      units_ordered: result.data.units_ordered,
+      units_done: result.data.units_done,
+      notes: result.data.notes,
+    };
+    if (result.data.order_date) payload.order_date = result.data.order_date;
+    if (result.data.delivery_date) payload.delivery_date = result.data.delivery_date;
+
+    // Reintento ante race condition de order_number — el hook pre-calcula el seq
+    // y otra request simultánea podría haber tomado el mismo número. UNIQUE INDEX
+    // hace fallar la 2da con validation_not_unique; reintentamos UNA vez.
+    let lastErr: unknown = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const created = await pb.collection("orders").create(payload);
+        return Astro.redirect(`/admin/pedidos/${created.id}?ok=created`);
+      } catch (err: unknown) {
+        lastErr = err;
+        const fieldErrors = mapPBErrorToFieldErrors(err, "order");
+        const isOrderNumConflict = fieldErrors.order_number !== undefined;
+        if (!isOrderNumConflict) break;
+        // Si fue conflicto de número, reintentamos (el hook recalculará).
+      }
+    }
+    errors = { ...errors, ...mapPBErrorToFieldErrors(lastErr, "order") };
+  }
+}
+---
+
+<AdminLayout title="Nuevo pedido">
+  <div class="mb-6">
+    <h1 class="font-display text-3xl">Nuevo pedido</h1>
+    <p class="text-sm text-gray-600 mt-1">
+      Cargá los datos del proyecto. El número de pedido se genera automáticamente.
+    </p>
+  </div>
+
+  <OrderForm values={values} errors={errors} mode="create" />
+</AdminLayout>

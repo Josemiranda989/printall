@@ -1,0 +1,226 @@
+---
+import {
+  MATERIAL_KIND_LABELS,
+  MATERIAL_KIND_UNIT,
+  MATERIAL_KIND_VALUES,
+} from "../../lib/types";
+import {
+  MATERIAL_NAME_MAX,
+  type MaterialFormData,
+} from "../../lib/admin-materials";
+
+export interface Props {
+  values: Partial<MaterialFormData>;
+  errors?: Record<string, string>;
+  mode: "create" | "edit";
+  materialId?: string;
+}
+
+const { values, errors = {}, mode, materialId } = Astro.props;
+
+const fieldClass =
+  "mt-1 block w-full border-2 border-brand rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent disabled:bg-gray-100";
+
+function errorMsg(field: string) {
+  return errors[field];
+}
+
+const currentKind = values.kind ?? "filament";
+---
+
+<form method="POST" class="space-y-5">
+  {errors._global && (
+    <div class="border-2 border-red-500 bg-red-50 text-red-800 px-3 py-2 rounded-md text-sm">
+      {errors._global}
+    </div>
+  )}
+
+  <div class="bg-white border-2 border-brand rounded-lg p-5 space-y-5 shadow-[4px_4px_0_var(--color-brand)]">
+    <label class="block">
+      <span class="text-sm font-medium">Nombre *</span>
+      <input
+        type="text"
+        name="name"
+        required
+        maxlength={MATERIAL_NAME_MAX}
+        value={values.name ?? ""}
+        placeholder="Ej: PLA, PETG, Argollas, Vasos milkshake, Cianocrilato"
+        class={fieldClass}
+      />
+      {errorMsg("name") && <p class="text-xs text-red-600 mt-1">{errorMsg("name")}</p>}
+    </label>
+
+    <div>
+      <span class="text-sm font-medium block mb-2">Tipo *</span>
+      <div class="flex gap-2 flex-wrap">
+        {MATERIAL_KIND_VALUES.map((k) => (
+          <label class="cursor-pointer">
+            <input
+              type="radio"
+              name="kind"
+              value={k}
+              checked={currentKind === k}
+              class="sr-only peer"
+              data-kind-radio
+            />
+            <span
+              class="inline-block px-4 py-2 border-2 rounded-md text-sm font-medium transition-colors border-brand/30 text-brand peer-checked:bg-brand peer-checked:text-white peer-checked:border-brand hover:border-brand"
+            >
+              {MATERIAL_KIND_LABELS[k]}
+            </span>
+          </label>
+        ))}
+      </div>
+      <p class="text-xs text-gray-500 mt-1">
+        <strong>Filamento</strong>: la calculadora usa <strong>costo/kg × multiplicador del proceso</strong> por gramos impresos.
+        <strong>Componente</strong>: la calculadora suma <strong>cantidad × precio venta</strong> directo (argollas, vasos, pegamento, bolsas, etc).
+      </p>
+      {errorMsg("kind") && <p class="text-xs text-red-600 mt-1">{errorMsg("kind")}</p>}
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <label class="block">
+        <span class="text-sm font-medium">
+          Precio <strong>costo</strong> (<span data-price-unit>{MATERIAL_KIND_UNIT[currentKind]}</span>) *
+        </span>
+        <input
+          type="number"
+          name="cost_price"
+          required
+          min="0"
+          step="0.01"
+          value={values.cost_price ?? 0}
+          data-cost-price
+          class={fieldClass}
+        />
+        <p class="text-xs text-gray-500 mt-1">Lo que pagás vos al proveedor.</p>
+        {errorMsg("cost_price") && (
+          <p class="text-xs text-red-600 mt-1">{errorMsg("cost_price")}</p>
+        )}
+      </label>
+
+      <label class="block">
+        <span class="text-sm font-medium">
+          Precio <strong>venta</strong> (<span data-price-unit>{MATERIAL_KIND_UNIT[currentKind]}</span>) *
+        </span>
+        <input
+          type="number"
+          name="sell_price"
+          required
+          min="0"
+          step="0.01"
+          value={values.sell_price ?? 0}
+          data-sell-price
+          class={fieldClass}
+        />
+        <p class="text-xs text-gray-500 mt-1">
+          Lo que cobrás. Margen: <span data-margin-display class="font-mono font-medium">—</span>
+        </p>
+        {errorMsg("sell_price") && (
+          <p class="text-xs text-red-600 mt-1">{errorMsg("sell_price")}</p>
+        )}
+      </label>
+    </div>
+
+    <label class="inline-flex items-center gap-2 cursor-pointer">
+      <input
+        type="checkbox"
+        name="active"
+        checked={values.active ?? true}
+        class="w-4 h-4 accent-accent"
+      />
+      <span class="text-sm font-medium">Activo (aparece en la calculadora)</span>
+    </label>
+  </div>
+
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <a
+      href="/admin/materiales"
+      class="text-sm text-gray-600 hover:text-brand underline-offset-4 hover:underline"
+    >
+      ← Volver al listado
+    </a>
+
+    <div class="flex items-center gap-3">
+      {mode === "edit" && materialId && (
+        <button
+          type="submit"
+          name="action"
+          value="delete"
+          formnovalidate
+          data-confirm="¿Seguro que querés borrar este material? Esta acción no se puede deshacer."
+          class="px-4 py-2 border-2 border-red-600 text-red-600 rounded-md hover:bg-red-600 hover:text-white transition-colors text-sm font-medium"
+        >
+          Eliminar
+        </button>
+      )}
+      <button
+        type="submit"
+        name="action"
+        value="save"
+        class="px-5 py-2.5 bg-accent text-white rounded-md hover:bg-accent-hover transition-colors font-medium"
+      >
+        {mode === "create" ? "Crear material" : "Guardar cambios"}
+      </button>
+    </div>
+  </div>
+</form>
+
+<script>
+  const KIND_UNIT: Record<string, string> = {
+    filament: "$/kg",
+    component: "$/u",
+  };
+
+  // Update unit labels (cost + sell) cuando cambia kind
+  const unitEls = document.querySelectorAll<HTMLElement>("[data-price-unit]");
+  document.querySelectorAll<HTMLInputElement>("[data-kind-radio]").forEach((radio) => {
+    radio.addEventListener("change", () => {
+      if (!radio.checked) return;
+      unitEls.forEach((el) => {
+        el.textContent = KIND_UNIT[radio.value] ?? "$";
+      });
+    });
+  });
+
+  // Margen calculado en vivo
+  const costEl = document.querySelector<HTMLInputElement>("[data-cost-price]");
+  const sellEl = document.querySelector<HTMLInputElement>("[data-sell-price]");
+  const marginEl = document.querySelector<HTMLElement>("[data-margin-display]");
+
+  function updateMargin() {
+    if (!costEl || !sellEl || !marginEl) return;
+    const cost = Number(costEl.value);
+    const sell = Number(sellEl.value);
+    if (!Number.isFinite(cost) || cost <= 0) {
+      marginEl.textContent = "—";
+      marginEl.className = "font-mono font-medium";
+      return;
+    }
+    if (!Number.isFinite(sell)) {
+      marginEl.textContent = "—";
+      marginEl.className = "font-mono font-medium";
+      return;
+    }
+    const margin = (sell - cost) / cost;
+    const pct = (margin * 100).toFixed(0);
+    marginEl.textContent = `${pct}%`;
+    marginEl.className =
+      "font-mono font-medium " +
+      (margin > 0
+        ? "text-emerald-700"
+        : margin < 0
+          ? "text-red-600"
+          : "text-gray-500");
+  }
+  costEl?.addEventListener("input", updateMargin);
+  sellEl?.addEventListener("input", updateMargin);
+  updateMargin();
+
+  document.querySelectorAll<HTMLButtonElement>("[data-confirm]").forEach((btn) => {
+    btn.addEventListener("click", (ev) => {
+      const msg = btn.dataset.confirm ?? "¿Confirmás?";
+      if (!confirm(msg)) ev.preventDefault();
+    });
+  });
+</script>

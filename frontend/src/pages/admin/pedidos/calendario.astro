@@ -1,0 +1,245 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import {
+  ORDER_STATUS_LABELS,
+  ORDER_STATUS_VALUES,
+  PRIORITY_COLORS,
+  type Order,
+} from "../../../lib/types";
+
+const pb = Astro.locals.adminPB!;
+
+// ─── Parsear parámetros ───
+const mesParam = Astro.url.searchParams.get("mes") ?? "";
+const statusFilter = Astro.url.searchParams.get("status") ?? "";
+
+const today = new Date();
+let year: number;
+let month: number; // 1-12
+
+const mesMatch = /^(\d{4})-(\d{2})$/.exec(mesParam);
+if (mesMatch) {
+  year = parseInt(mesMatch[1], 10);
+  month = Math.max(1, Math.min(12, parseInt(mesMatch[2], 10)));
+} else {
+  year = today.getFullYear();
+  month = today.getMonth() + 1;
+}
+
+// ─── Calcular rango del mes ───
+const firstDay = new Date(year, month - 1, 1);
+const lastDay = new Date(year, month, 0); // día 0 del mes siguiente = último del actual
+const daysInMonth = lastDay.getDate();
+
+// firstDayOfWeek: 0 = domingo, 1 = lunes, ...
+// Ajustamos para que la semana empiece en lunes (0 = lunes)
+const firstDow = firstDay.getDay();
+const offsetStart = firstDow === 0 ? 6 : firstDow - 1;
+
+// ─── Filter PB para cargar pedidos del mes ───
+const startISO = `${year}-${String(month).padStart(2, "0")}-01 00:00:00`;
+const endISO = `${year}-${String(month).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")} 23:59:59`;
+
+// Por default ocultamos delivered y cancelled (los que ya no requieren atención)
+const VALID_STATUS = new Set<string>(ORDER_STATUS_VALUES);
+let statusFilterPart = "";
+if (statusFilter && VALID_STATUS.has(statusFilter)) {
+  statusFilterPart = ` && status = "${statusFilter}"`;
+} else if (!statusFilter) {
+  statusFilterPart = ` && status != "delivered" && status != "cancelled"`;
+}
+
+const filterStr = `delivery_date >= "${startISO}" && delivery_date <= "${endISO}"${statusFilterPart}`;
+
+const ordersInMonth = (await pb.collection("orders").getFullList({
+  filter: filterStr,
+  sort: "delivery_date,-priority",
+  batch: 500,
+})) as unknown as Order[];
+
+// Indexar por día del mes (1..daysInMonth)
+const ordersByDay = new Map<number, Order[]>();
+for (const o of ordersInMonth) {
+  if (!o.delivery_date) continue;
+  const d = new Date(o.delivery_date);
+  if (isNaN(d.getTime())) continue;
+  if (d.getFullYear() !== year || d.getMonth() !== month - 1) continue;
+  const day = d.getDate();
+  if (!ordersByDay.has(day)) ordersByDay.set(day, []);
+  ordersByDay.get(day)!.push(o);
+}
+
+// ─── Navegación mes anterior / siguiente ───
+const prevMonth = month === 1 ? 12 : month - 1;
+const prevYear = month === 1 ? year - 1 : year;
+const nextMonth = month === 12 ? 1 : month + 1;
+const nextYear = month === 12 ? year + 1 : year;
+
+function buildMesUrl(y: number, m: number): string {
+  const params = new URLSearchParams(Astro.url.searchParams);
+  params.set("mes", `${y}-${String(m).padStart(2, "0")}`);
+  return `?${params.toString()}`;
+}
+const prevUrl = buildMesUrl(prevYear, prevMonth);
+const nextUrl = buildMesUrl(nextYear, nextMonth);
+const todayUrl = buildMesUrl(today.getFullYear(), today.getMonth() + 1);
+
+const monthName = firstDay.toLocaleDateString("es-AR", {
+  month: "long",
+  year: "numeric",
+});
+
+// Construir array de celdas (offsetStart vacíos + daysInMonth + relleno final hasta múltiplo de 7)
+type Cell = { day: number | null; isToday: boolean };
+const cells: Cell[] = [];
+for (let i = 0; i < offsetStart; i++) {
+  cells.push({ day: null, isToday: false });
+}
+const isCurrentMonth =
+  today.getFullYear() === year && today.getMonth() + 1 === month;
+const todayDay = isCurrentMonth ? today.getDate() : -1;
+for (let d = 1; d <= daysInMonth; d++) {
+  cells.push({ day: d, isToday: d === todayDay });
+}
+while (cells.length % 7 !== 0) {
+  cells.push({ day: null, isToday: false });
+}
+
+const tabBaseClass =
+  "px-3 py-1.5 border-2 rounded-md text-sm font-medium transition-colors";
+const tabActiveClass = "bg-brand text-white border-brand";
+const tabInactiveClass =
+  "border-brand/30 text-brand hover:bg-brand hover:text-white";
+
+const dowLabels = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+---
+
+<AdminLayout title={`Calendario · ${monthName}`}>
+  <div class="flex items-center justify-between gap-4 mb-5 flex-wrap">
+    <h1 class="font-display text-3xl">Pedidos</h1>
+    <a
+      href="/admin/pedidos/nuevo"
+      class="bg-accent text-white font-medium px-4 py-2 rounded-md hover:bg-accent-hover transition-colors text-sm shrink-0"
+    >
+      + Nuevo pedido
+    </a>
+  </div>
+
+  <div class="flex items-center gap-2 mb-5 flex-wrap">
+    <a href="/admin/pedidos" class={`${tabBaseClass} ${tabInactiveClass}`}>📋 Tabla</a>
+    <a href="/admin/pedidos/kanban" class={`${tabBaseClass} ${tabInactiveClass}`}>📊 Kanban</a>
+    <a href="/admin/pedidos/calendario" class={`${tabBaseClass} ${tabActiveClass}`}>📅 Calendario</a>
+  </div>
+
+  <div class="bg-white border-2 border-brand rounded-lg p-5 shadow-[4px_4px_0_var(--color-brand)]">
+    <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
+      <div class="flex items-center gap-2">
+        <a
+          href={prevUrl}
+          class="px-3 py-1.5 border-2 border-brand rounded-md text-sm hover:bg-brand hover:text-white transition-colors"
+          title="Mes anterior"
+        >
+          ←
+        </a>
+        <h2 class="font-display text-xl capitalize min-w-[10rem] text-center">
+          {monthName}
+        </h2>
+        <a
+          href={nextUrl}
+          class="px-3 py-1.5 border-2 border-brand rounded-md text-sm hover:bg-brand hover:text-white transition-colors"
+          title="Mes siguiente"
+        >
+          →
+        </a>
+        <a
+          href={todayUrl}
+          class="px-3 py-1.5 border-2 border-brand/40 rounded-md text-sm hover:bg-brand hover:text-white transition-colors ml-2"
+        >
+          Hoy
+        </a>
+      </div>
+
+      <form method="GET" class="flex items-center gap-2">
+        <input type="hidden" name="mes" value={`${year}-${String(month).padStart(2, "0")}`} />
+        <label class="flex items-center gap-2 text-sm">
+          <span class="text-xs font-medium uppercase tracking-wider text-brand/70">Estado</span>
+          <select
+            name="status"
+            onchange="this.form.submit()"
+            class="rounded border-2 border-brand/40 px-2 py-1 text-sm focus:border-brand focus:outline-none bg-white cursor-pointer"
+          >
+            <option value="">Activos (oculta entregados/cancelados)</option>
+            {ORDER_STATUS_VALUES.map((s) => (
+              <option value={s} selected={statusFilter === s}>
+                {ORDER_STATUS_LABELS[s]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </form>
+    </div>
+
+    <div class="grid grid-cols-7 gap-1 mb-1">
+      {dowLabels.map((d) => (
+        <div class="text-center text-xs font-medium uppercase tracking-wider text-brand/70 py-1">
+          {d}
+        </div>
+      ))}
+    </div>
+
+    <div class="grid grid-cols-7 gap-1">
+      {cells.map((cell) => {
+        if (cell.day === null) {
+          return <div class="min-h-[6rem] bg-surface/30 rounded-md"></div>;
+        }
+        const dayOrders = ordersByDay.get(cell.day) ?? [];
+        const cellClass = cell.isToday
+          ? "min-h-[6rem] bg-accent-soft border-2 border-accent rounded-md p-1.5"
+          : "min-h-[6rem] bg-white border-2 border-brand/15 rounded-md p-1.5 hover:border-brand/30 transition-colors";
+        return (
+          <div class={cellClass}>
+            <div class="flex items-center justify-between mb-1">
+              <span
+                class={`text-xs font-mono ${cell.isToday ? "font-bold text-accent" : "text-gray-500"}`}
+              >
+                {cell.day}
+              </span>
+              {dayOrders.length > 0 && (
+                <span class="text-xs text-gray-400">{dayOrders.length}</span>
+              )}
+            </div>
+            <div class="space-y-0.5">
+              {dayOrders.slice(0, 4).map((o) => (
+                <a
+                  href={`/admin/pedidos/${o.id}`}
+                  class={`block text-xs px-1.5 py-0.5 rounded truncate font-medium ${PRIORITY_COLORS[o.priority]} hover:opacity-90`}
+                  title={`${o.order_number || o.id} · ${o.project_name} · ${o.customer_name}`}
+                >
+                  {o.project_name}
+                </a>
+              ))}
+              {dayOrders.length > 4 && (
+                <p class="text-xs text-gray-500 italic px-1">
+                  + {dayOrders.length - 4} más
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+
+    <div class="mt-4 flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+      <span class="font-medium">Color por prioridad:</span>
+      <span class="inline-flex items-center gap-1">
+        <span class="inline-block w-3 h-3 rounded bg-red-600"></span> Alta
+      </span>
+      <span class="inline-flex items-center gap-1">
+        <span class="inline-block w-3 h-3 rounded bg-amber-500"></span> Media
+      </span>
+      <span class="inline-flex items-center gap-1">
+        <span class="inline-block w-3 h-3 rounded bg-emerald-600"></span> Baja
+      </span>
+    </div>
+  </div>
+</AdminLayout>

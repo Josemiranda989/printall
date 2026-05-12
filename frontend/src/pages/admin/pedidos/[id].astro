@@ -1,0 +1,273 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import OrderForm from "../../../components/admin/OrderForm.astro";
+import OrderStatusBadge from "../../../components/admin/OrderStatusBadge.astro";
+import OrderPriorityBadge from "../../../components/admin/OrderPriorityBadge.astro";
+import OrderStatusButtons from "../../../components/admin/OrderStatusButtons.astro";
+import OrderProgressBar from "../../../components/admin/OrderProgressBar.astro";
+import { extractOrderFromForm, type OrderFormData } from "../../../lib/admin-orders";
+import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
+import type { Order } from "../../../lib/types";
+
+const pb = Astro.locals.adminPB!;
+const { id } = Astro.params;
+if (!id) return Astro.redirect("/admin/pedidos");
+
+let record: Order;
+try {
+  record = (await pb.collection("orders").getOne(id)) as unknown as Order;
+} catch {
+  return new Response("Pedido no encontrado", { status: 404 });
+}
+
+let values: Partial<OrderFormData> = {
+  project_name: record.project_name,
+  customer_name: record.customer_name,
+  customer_whatsapp: record.customer_whatsapp,
+  material: record.material,
+  color: record.color,
+  priority: record.priority,
+  status: record.status,
+  is_paid: record.is_paid,
+  unit_price: record.unit_price,
+  units_ordered: record.units_ordered,
+  units_done: record.units_done,
+  order_date: record.order_date,
+  delivery_date: record.delivery_date,
+  notes: record.notes,
+};
+let errors: Record<string, string> = {};
+let flash: string | null = null;
+
+const okParam = new URL(Astro.request.url).searchParams.get("ok");
+if (okParam === "created") flash = "Pedido creado.";
+if (okParam === "saved") flash = "Cambios guardados.";
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const action = String(form.get("action") ?? "save");
+
+  if (action === "delete") {
+    try {
+      await pb.collection("orders").delete(id);
+      return Astro.redirect("/admin/pedidos");
+    } catch (err: unknown) {
+      errors = mapPBErrorToFieldErrors(err, "order");
+      if (!errors._global) errors._global = "No se pudo eliminar el pedido.";
+    }
+  } else {
+    const result = extractOrderFromForm(form);
+    values = result.data;
+    errors = result.errors;
+
+    if (Object.keys(errors).length === 0) {
+      const payload: Record<string, unknown> = {
+        project_name: result.data.project_name,
+        customer_name: result.data.customer_name,
+        customer_whatsapp: result.data.customer_whatsapp,
+        material: result.data.material,
+        color: result.data.color,
+        priority: result.data.priority,
+        status: result.data.status,
+        is_paid: result.data.is_paid,
+        unit_price: result.data.unit_price,
+        units_ordered: result.data.units_ordered,
+        units_done: result.data.units_done,
+        notes: result.data.notes,
+      };
+      if (result.data.order_date) payload.order_date = result.data.order_date;
+      // Si el delivery se borró, mandamos string vacío para que PB lo limpie.
+      payload.delivery_date = result.data.delivery_date || "";
+
+      try {
+        await pb.collection("orders").update(id, payload);
+        return Astro.redirect(`/admin/pedidos/${id}?ok=saved`);
+      } catch (err: unknown) {
+        errors = { ...errors, ...mapPBErrorToFieldErrors(err, "order") };
+      }
+    }
+  }
+}
+
+// Helpers para mostrar fechas formateadas en el header
+function fmtDateTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleString("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+// Detectar si está atrasado (fecha de entrega pasada y status no es completed/delivered)
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+const deliveryDate = record.delivery_date ? new Date(record.delivery_date) : null;
+const overdue =
+  deliveryDate !== null &&
+  !isNaN(deliveryDate.getTime()) &&
+  deliveryDate < today &&
+  record.status !== "completed" &&
+  record.status !== "delivered" &&
+  record.status !== "cancelled";
+---
+
+<AdminLayout title={`Pedido ${record.order_number || record.id}`}>
+  <div class="mb-6 flex items-start justify-between gap-4 flex-wrap">
+    <div class="space-y-1">
+      <p class="font-mono text-sm text-gray-600">{record.order_number || record.id}</p>
+      <h1 class="font-display text-3xl">{record.project_name}</h1>
+      <div class="flex items-center gap-2 flex-wrap mt-1">
+        <OrderStatusBadge status={record.status} size="md" />
+        <OrderPriorityBadge priority={record.priority} size="md" />
+        {overdue && (
+          <span class="inline-block text-sm px-2.5 py-1 rounded border border-red-400 bg-red-50 text-red-700 font-medium">
+            ⚠ Atrasado
+          </span>
+        )}
+      </div>
+      <p class="text-sm text-gray-500 mt-2">
+        Pedido el <span class="font-medium text-gray-700">{fmtDateTime(record.order_date)}</span>
+        <span class="text-gray-400">·</span>
+        Entrega <span class={`font-medium ${overdue ? "text-red-600" : "text-gray-700"}`}>{fmtDate(record.delivery_date)}</span>
+        <span class="text-gray-400">·</span>
+        Última edición {fmtDateTime(record.updated)}
+      </p>
+    </div>
+  </div>
+
+  {flash && (
+    <div class="border-2 border-emerald-600 bg-emerald-50 text-emerald-800 px-3 py-2 rounded-md text-sm mb-4">
+      {flash}
+    </div>
+  )}
+
+  {/* ─── Cambio rápido de estado ─── */}
+  <section class="bg-white border-2 border-brand rounded-lg p-5 mb-5 shadow-[4px_4px_0_var(--color-brand)]">
+    <h2 class="font-display text-lg mb-3">Cambiar estado</h2>
+    <OrderStatusButtons orderId={id} current={record.status} />
+  </section>
+
+  {/* ─── Avance ─── */}
+  <section
+    class="bg-white border-2 border-brand rounded-lg p-5 mb-5 shadow-[4px_4px_0_var(--color-brand)]"
+    data-progress-section
+    data-order-id={id}
+    data-units-ordered={record.units_ordered}
+  >
+    <div class="flex items-center justify-between gap-4 mb-3">
+      <h2 class="font-display text-lg">Avance de impresión</h2>
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          data-progress-decr
+          class="w-9 h-9 border-2 border-brand rounded-md font-bold text-lg hover:bg-brand hover:text-white transition-colors"
+          aria-label="Restar una unidad"
+        >−</button>
+        <button
+          type="button"
+          data-progress-incr
+          class="w-9 h-9 border-2 border-brand rounded-md font-bold text-lg hover:bg-brand hover:text-white transition-colors"
+          aria-label="Sumar una unidad"
+        >+</button>
+      </div>
+    </div>
+    <OrderProgressBar
+      done={record.units_done}
+      total={record.units_ordered}
+      overdue={overdue}
+    />
+    <div
+      class="hidden mt-2 text-sm border-2 border-red-500 bg-red-50 text-red-800 px-3 py-2 rounded-md"
+      data-progress-error
+    ></div>
+  </section>
+
+  {/* ─── Form principal ─── */}
+  <OrderForm values={values} errors={errors} mode="edit" orderId={id} />
+</AdminLayout>
+
+<script>
+  function init() {
+    const root = document.querySelector<HTMLElement>("[data-progress-section]");
+    if (!root) return;
+
+    const orderId = root.dataset.orderId!;
+    const decr = root.querySelector<HTMLButtonElement>("[data-progress-decr]")!;
+    const incr = root.querySelector<HTMLButtonElement>("[data-progress-incr]")!;
+    const errorEl = root.querySelector<HTMLElement>("[data-progress-error]")!;
+    const fillEl = root.querySelector<HTMLElement>("[data-progress-fill]");
+    const doneEl = root.querySelector<HTMLElement>("[data-progress-done]");
+    const totalEl = root.querySelector<HTMLElement>("[data-progress-total]");
+    const percentEl = root.querySelector<HTMLElement>("[data-progress-percent]");
+
+    function updateUI(done: number, total: number) {
+      const pct = total === 0 ? 0 : Math.min(100, Math.max(0, Math.round((done / total) * 100)));
+      if (fillEl) fillEl.style.width = pct + "%";
+      if (doneEl) doneEl.textContent = String(done);
+      if (totalEl) totalEl.textContent = String(total);
+      if (percentEl) percentEl.textContent = String(pct);
+    }
+
+    function showError(msg: string) {
+      errorEl.textContent = msg;
+      errorEl.classList.remove("hidden");
+    }
+    function clearError() {
+      errorEl.textContent = "";
+      errorEl.classList.add("hidden");
+    }
+
+    async function bump(delta: number) {
+      decr.disabled = true;
+      incr.disabled = true;
+      clearError();
+      try {
+        const res = await fetch(`/admin/api/orders/${orderId}/progress`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ delta }),
+        });
+        const data = (await res.json()) as {
+          ok: boolean;
+          units_done?: number;
+          units_ordered?: number;
+          error?: string;
+        };
+        if (!res.ok || !data.ok) {
+          showError(data.error ?? "No se pudo actualizar el progreso.");
+        } else if (data.units_done !== undefined && data.units_ordered !== undefined) {
+          updateUI(data.units_done, data.units_ordered);
+        }
+      } catch {
+        showError("Error de red. Reintentá.");
+      } finally {
+        decr.disabled = false;
+        incr.disabled = false;
+      }
+    }
+
+    decr.addEventListener("click", () => bump(-1));
+    incr.addEventListener("click", () => bump(+1));
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+</script>

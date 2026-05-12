@@ -1,0 +1,16 @@
+---
+import type { Priority } from "../../lib/types";
+import { PRIORITY_COLORS, PRIORITY_LABELS } from "../../lib/types";
+
+export interface Props {
+  priority: Priority;
+  size?: "sm" | "md";
+}
+
+const { priority, size = "sm" } = Astro.props;
+const sizeClass = size === "md" ? "text-sm px-2.5 py-1" : "text-xs px-2 py-0.5";
+---
+
+<span class={`inline-block ${sizeClass} rounded font-medium ${PRIORITY_COLORS[priority]}`}>
+  {PRIORITY_LABELS[priority]}
+</span>

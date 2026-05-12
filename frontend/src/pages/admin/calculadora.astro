@@ -1,0 +1,397 @@
+---
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { DEFAULT_PROCESS_MULTIPLIER, type MaterialPrice } from "../../lib/types";
+
+const pb = Astro.locals.adminPB!;
+
+const materials = (await pb.collection("materials").getFullList({
+  filter: "active = true",
+  sort: "kind,name",
+  batch: 200,
+})) as unknown as MaterialPrice[];
+
+const filaments = materials.filter((m) => m.kind === "filament");
+const components = materials.filter((m) => m.kind === "component");
+
+const fieldClass =
+  "mt-1 block w-full border-2 border-brand rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent";
+const sectionClass =
+  "bg-white border-2 border-brand rounded-lg p-5 space-y-4 shadow-[4px_4px_0_var(--color-brand)]";
+---
+
+<AdminLayout title="Calculadora de costos">
+  <div class="flex items-center justify-between gap-4 mb-5 flex-wrap">
+    <div>
+      <h1 class="font-display text-3xl">Calculadora de costos</h1>
+      <p class="text-sm text-gray-600 mt-1">
+        Filamento: <span class="font-mono">(gramos / 1000) × costo/kg × multiplicador del proceso</span>
+        <br />
+        Componentes: <span class="font-mono">cantidad × precio venta</span>
+      </p>
+    </div>
+    <a
+      href="/admin/materiales"
+      class="text-sm text-accent hover:underline font-medium shrink-0"
+    >
+      Editar materiales →
+    </a>
+  </div>
+
+  {filaments.length === 0 && components.length === 0 ? (
+    <div class="border-2 border-dashed border-brand/30 rounded-lg p-12 text-center bg-white">
+      <p class="text-gray-600 mb-4">No hay materiales activos cargados.</p>
+      <a href="/admin/materiales/nuevo" class="text-accent hover:underline font-medium">
+        Cargar el primero →
+      </a>
+    </div>
+  ) : (
+    <div class="space-y-5">
+      {/* ─── Multiplicador del proceso ─── */}
+      <section class={sectionClass}>
+        <div class="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h2 class="font-display text-lg">Multiplicador del proceso</h2>
+            <p class="text-xs text-gray-500 mt-0.5">
+              Cubre errores, luz, tiempo y desgaste de máquina. Solo aplica al filamento.
+            </p>
+          </div>
+          <div class="flex items-center gap-2">
+            <input
+              type="number"
+              id="process-multiplier"
+              min="0"
+              step="0.1"
+              value={DEFAULT_PROCESS_MULTIPLIER}
+              class={fieldClass + " mt-0 w-24 font-mono text-right"}
+            />
+            <span class="text-sm text-gray-500 font-mono">×</span>
+            <button
+              type="button"
+              id="reset-multiplier"
+              class="text-xs text-gray-500 hover:text-brand underline"
+              title={`Restaurar valor por defecto (×${DEFAULT_PROCESS_MULTIPLIER})`}
+            >
+              reset
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Sección Filamento ─── */}
+      {filaments.length > 0 && (
+        <section class={sectionClass}>
+          <h2 class="font-display text-lg border-b-2 border-brand/20 pb-2">Filamento</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label class="block">
+              <span class="text-sm font-medium">Material</span>
+              <select id="filament-select" class={fieldClass}>
+                {filaments.map((m, idx) => (
+                  <option
+                    value={m.id}
+                    selected={idx === 0}
+                    data-cost={m.cost_price}
+                    data-name={m.name}
+                  >
+                    {m.name} — costo ${Math.round(m.cost_price).toLocaleString("es-AR")}/kg
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label class="block">
+              <span class="text-sm font-medium">Gramos</span>
+              <input
+                type="number"
+                id="filament-grams"
+                min="0"
+                step="1"
+                value="0"
+                placeholder="Ej: 312"
+                class={fieldClass + " font-mono"}
+              />
+            </label>
+          </div>
+
+          <p class="text-sm text-gray-600">
+            Costo de impresión:
+            <span class="font-mono font-bold text-lg" id="filament-result">$0</span>
+            <span class="text-xs text-gray-500" id="filament-formula"></span>
+          </p>
+        </section>
+      )}
+
+      {/* ─── Sección Componentes ─── */}
+      {components.length > 0 && (
+        <section class={sectionClass}>
+          <h2 class="font-display text-lg border-b-2 border-brand/20 pb-2">Componentes</h2>
+          <p class="text-xs text-gray-500">
+            Marcá los componentes que querés sumar al total. Se cobran al precio de venta directo.
+          </p>
+
+          <div class="space-y-2" id="components-list">
+            {components.map((m) => (
+              <div
+                class="flex items-center gap-3 border-2 border-brand/20 rounded-md px-3 py-2"
+                data-component-row
+                data-sell={m.sell_price}
+                data-name={m.name}
+              >
+                <label class="inline-flex items-center gap-2 cursor-pointer flex-1">
+                  <input
+                    type="checkbox"
+                    class="component-toggle w-4 h-4 accent-accent"
+                    data-id={m.id}
+                  />
+                  <span class="text-sm font-medium">{m.name}</span>
+                  <span class="text-xs text-gray-500 font-mono">
+                    venta ${Math.round(m.sell_price).toLocaleString("es-AR")}/u
+                  </span>
+                </label>
+                <label class="flex items-center gap-2">
+                  <span class="text-xs text-gray-500">Cant.</span>
+                  <input
+                    type="number"
+                    class="component-qty w-20 border-2 border-brand/40 rounded px-2 py-1 text-sm font-mono text-right"
+                    min="0"
+                    step="1"
+                    value="0"
+                    disabled
+                  />
+                </label>
+                <span class="text-sm font-mono font-medium w-24 text-right component-subtotal">$0</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ─── Total ─── */}
+      <section class={sectionClass}>
+        <h2 class="font-display text-lg border-b-2 border-brand/20 pb-2">Total</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          <label class="block md:col-span-1">
+            <span class="text-sm font-medium">Unidades del proyecto</span>
+            <input
+              type="number"
+              id="total-units"
+              min="1"
+              step="1"
+              value="1"
+              class={fieldClass + " font-mono"}
+            />
+            <p class="text-xs text-gray-500 mt-1">
+              Si en una misma impresión te salen <strong>varias piezas idénticas</strong>
+              (ej: 4 llaveros del mismo modelo), poné acá la cantidad y vas a ver
+              el precio sugerido <strong>por pieza</strong> a la derecha. Si dejás 1, no divide.
+            </p>
+          </label>
+
+          <div class="md:col-span-2 grid grid-cols-2 gap-4">
+            <div class="bg-surface border-2 border-brand rounded-md p-3">
+              <p class="text-xs uppercase tracking-wider text-brand/70 font-medium">Total proyecto</p>
+              <p class="text-2xl font-display" id="total-amount">$0</p>
+            </div>
+            <div class="bg-surface border-2 border-brand rounded-md p-3">
+              <p class="text-xs uppercase tracking-wider text-brand/70 font-medium">Por unidad</p>
+              <p class="text-2xl font-display" id="total-per-unit">$0</p>
+            </div>
+          </div>
+        </div>
+
+        <details class="text-xs text-gray-600 mt-3">
+          <summary class="cursor-pointer hover:text-brand">Ver desglose</summary>
+          <ul class="mt-2 space-y-1 pl-4 font-mono" id="breakdown-list">
+            <li class="text-gray-400">— sin items —</li>
+          </ul>
+        </details>
+      </section>
+    </div>
+  )}
+</AdminLayout>
+
+<script is:inline define:vars={{ DEFAULT_MULTIPLIER: DEFAULT_PROCESS_MULTIPLIER }}>
+  // Hidratar el multiplicador del proceso desde localStorage al inicio.
+  // Hacemos esto en script is:inline antes que el handler module-scoped
+  // para que el valor inicial sea correcto en el primer render.
+  (function () {
+    try {
+      const saved = localStorage.getItem("printall:process-multiplier");
+      const el = document.getElementById("process-multiplier");
+      if (el && saved !== null) {
+        const n = Number(saved);
+        if (Number.isFinite(n) && n >= 0) {
+          el.value = String(n);
+        } else {
+          el.value = String(DEFAULT_MULTIPLIER);
+        }
+      }
+    } catch {
+      // Ignoramos: si localStorage falla, queda el default.
+    }
+  })();
+</script>
+
+<script>
+  function fmtArs(n: number): string {
+    return "$" + Math.round(n).toLocaleString("es-AR");
+  }
+
+  function getNum(el: HTMLInputElement | null): number {
+    if (!el) return 0;
+    const n = Number(el.value);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  }
+
+  // ─── Multiplicador del proceso ───
+  const multiplierEl = document.getElementById("process-multiplier") as HTMLInputElement | null;
+  const resetBtn = document.getElementById("reset-multiplier") as HTMLButtonElement | null;
+  const STORAGE_KEY = "printall:process-multiplier";
+  const DEFAULT_MULT = 5;
+
+  function getMultiplier(): number {
+    if (!multiplierEl) return DEFAULT_MULT;
+    const n = Number(multiplierEl.value);
+    return Number.isFinite(n) && n >= 0 ? n : DEFAULT_MULT;
+  }
+
+  multiplierEl?.addEventListener("input", () => {
+    const v = getMultiplier();
+    try {
+      localStorage.setItem(STORAGE_KEY, String(v));
+    } catch {
+      // Ignoramos: si localStorage falla, el cambio no persiste.
+    }
+    calcFilament();
+    updateTotal();
+  });
+
+  resetBtn?.addEventListener("click", () => {
+    if (multiplierEl) multiplierEl.value = String(DEFAULT_MULT);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // Ignoramos.
+    }
+    calcFilament();
+    updateTotal();
+  });
+
+  // ─── Filamento ───
+  const filamentSelect = document.getElementById("filament-select") as HTMLSelectElement | null;
+  const filamentGrams = document.getElementById("filament-grams") as HTMLInputElement | null;
+  const filamentResult = document.getElementById("filament-result");
+  const filamentFormula = document.getElementById("filament-formula");
+
+  function calcFilament(): { cost: number; name: string } {
+    if (!filamentSelect || !filamentGrams) return { cost: 0, name: "" };
+    const opt = filamentSelect.selectedOptions[0];
+    if (!opt) return { cost: 0, name: "" };
+    const costPrice = Number(opt.dataset.cost ?? "0");
+    const name = opt.dataset.name ?? "";
+    const grams = getNum(filamentGrams);
+    const mult = getMultiplier();
+    const cost = (grams / 1000) * costPrice * mult;
+    if (filamentResult) filamentResult.textContent = fmtArs(cost);
+    if (filamentFormula) {
+      filamentFormula.textContent =
+        grams > 0
+          ? ` (${grams}g × $${costPrice.toLocaleString("es-AR")}/kg × ${mult})`
+          : "";
+    }
+    return { cost, name };
+  }
+
+  filamentSelect?.addEventListener("change", () => {
+    calcFilament();
+    updateTotal();
+  });
+  filamentGrams?.addEventListener("input", () => {
+    calcFilament();
+    updateTotal();
+  });
+
+  // ─── Componentes ───
+  type ComponentLine = { name: string; cost: number; qty: number };
+
+  function calcComponents(): ComponentLine[] {
+    const rows = document.querySelectorAll<HTMLElement>("[data-component-row]");
+    const result: ComponentLine[] = [];
+    rows.forEach((row) => {
+      const toggle = row.querySelector<HTMLInputElement>(".component-toggle");
+      const qtyInput = row.querySelector<HTMLInputElement>(".component-qty");
+      const subEl = row.querySelector<HTMLElement>(".component-subtotal");
+      if (!toggle || !qtyInput || !subEl) return;
+
+      qtyInput.disabled = !toggle.checked;
+      if (!toggle.checked) {
+        qtyInput.value = "0";
+        subEl.textContent = "$0";
+        return;
+      }
+
+      const sell = Number(row.dataset.sell ?? "0");
+      const name = row.dataset.name ?? "";
+      const qty = getNum(qtyInput);
+      const sub = qty * sell;
+      subEl.textContent = fmtArs(sub);
+      if (qty > 0) result.push({ name, cost: sub, qty });
+    });
+    return result;
+  }
+
+  document.querySelectorAll<HTMLInputElement>(".component-toggle").forEach((cb) => {
+    cb.addEventListener("change", () => {
+      const row = cb.closest("[data-component-row]") as HTMLElement | null;
+      const qtyInput = row?.querySelector<HTMLInputElement>(".component-qty");
+      if (cb.checked && qtyInput && Number(qtyInput.value) === 0) qtyInput.value = "1";
+      calcComponents();
+      updateTotal();
+    });
+  });
+  document.querySelectorAll<HTMLInputElement>(".component-qty").forEach((inp) => {
+    inp.addEventListener("input", () => {
+      calcComponents();
+      updateTotal();
+    });
+  });
+
+  // ─── Total ───
+  const totalAmount = document.getElementById("total-amount");
+  const totalPerUnit = document.getElementById("total-per-unit");
+  const totalUnits = document.getElementById("total-units") as HTMLInputElement | null;
+  const breakdownList = document.getElementById("breakdown-list");
+
+  function updateTotal() {
+    const fil = calcFilament();
+    const comps = calcComponents();
+    const total = fil.cost + comps.reduce((acc, c) => acc + c.cost, 0);
+    const units = Math.max(1, getNum(totalUnits) || 1);
+    const perUnit = total / units;
+
+    if (totalAmount) totalAmount.textContent = fmtArs(total);
+    if (totalPerUnit) totalPerUnit.textContent = fmtArs(perUnit);
+
+    if (breakdownList) {
+      const items: string[] = [];
+      if (fil.cost > 0) {
+        items.push(`<li>${fil.name} (impresión): ${fmtArs(fil.cost)}</li>`);
+      }
+      for (const c of comps) {
+        items.push(`<li>${c.name} ×${c.qty}: ${fmtArs(c.cost)}</li>`);
+      }
+      if (units > 1 && total > 0) {
+        items.push(`<li class="text-gray-500">÷ ${units} unidades = ${fmtArs(perUnit)}/u</li>`);
+      }
+      breakdownList.innerHTML = items.length > 0
+        ? items.join("")
+        : '<li class="text-gray-400">— sin items —</li>';
+    }
+  }
+
+  totalUnits?.addEventListener("input", updateTotal);
+
+  // Init
+  updateTotal();
+</script>

@@ -1,0 +1,52 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import MaterialForm from "../../../components/admin/MaterialForm.astro";
+import {
+  extractMaterialFromForm,
+  type MaterialFormData,
+} from "../../../lib/admin-materials";
+import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
+
+const pb = Astro.locals.adminPB!;
+
+let values: Partial<MaterialFormData> = {
+  kind: "filament",
+  cost_price: 0,
+  sell_price: 0,
+  active: true,
+};
+let errors: Record<string, string> = {};
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const result = extractMaterialFromForm(form);
+  values = result.data;
+  errors = result.errors;
+
+  if (Object.keys(errors).length === 0) {
+    try {
+      await pb.collection("materials").create({
+        name: result.data.name,
+        kind: result.data.kind,
+        cost_price: result.data.cost_price,
+        sell_price: result.data.sell_price,
+        active: result.data.active,
+      });
+      return Astro.redirect("/admin/materiales");
+    } catch (err: unknown) {
+      errors = { ...errors, ...mapPBErrorToFieldErrors(err, "generic") };
+    }
+  }
+}
+---
+
+<AdminLayout title="Nuevo material">
+  <div class="mb-6">
+    <h1 class="font-display text-3xl">Nuevo material</h1>
+    <p class="text-sm text-gray-600 mt-1">
+      Cargá un filamento (PLA, PETG, etc.) o un componente (argollas, tornillos, etc.).
+    </p>
+  </div>
+
+  <MaterialForm values={values} errors={errors} mode="create" />
+</AdminLayout>

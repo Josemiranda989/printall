@@ -1,0 +1,73 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import MaterialForm from "../../../components/admin/MaterialForm.astro";
+import {
+  extractMaterialFromForm,
+  type MaterialFormData,
+} from "../../../lib/admin-materials";
+import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
+import type { MaterialPrice } from "../../../lib/types";
+
+const pb = Astro.locals.adminPB!;
+const { id } = Astro.params;
+if (!id) return Astro.redirect("/admin/materiales");
+
+let record: MaterialPrice;
+try {
+  record = (await pb.collection("materials").getOne(id)) as unknown as MaterialPrice;
+} catch {
+  return new Response("Material no encontrado", { status: 404 });
+}
+
+let values: Partial<MaterialFormData> = {
+  name: record.name,
+  kind: record.kind,
+  cost_price: record.cost_price,
+  sell_price: record.sell_price,
+  active: record.active,
+};
+let errors: Record<string, string> = {};
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const action = String(form.get("action") ?? "save");
+
+  if (action === "delete") {
+    try {
+      await pb.collection("materials").delete(id);
+      return Astro.redirect("/admin/materiales");
+    } catch (err: unknown) {
+      errors = mapPBErrorToFieldErrors(err, "generic");
+      if (!errors._global) errors._global = "No se pudo eliminar el material.";
+    }
+  } else {
+    const result = extractMaterialFromForm(form);
+    values = result.data;
+    errors = result.errors;
+
+    if (Object.keys(errors).length === 0) {
+      try {
+        await pb.collection("materials").update(id, {
+          name: result.data.name,
+          kind: result.data.kind,
+          cost_price: result.data.cost_price,
+          sell_price: result.data.sell_price,
+          active: result.data.active,
+        });
+        return Astro.redirect("/admin/materiales");
+      } catch (err: unknown) {
+        errors = { ...errors, ...mapPBErrorToFieldErrors(err, "generic") };
+      }
+    }
+  }
+}
+---
+
+<AdminLayout title={`Material: ${record.name}`}>
+  <div class="mb-6">
+    <h1 class="font-display text-3xl">{record.name}</h1>
+    <p class="text-sm text-gray-600 mt-1 font-mono">id: {id}</p>
+  </div>
+
+  <MaterialForm values={values} errors={errors} mode="edit" materialId={id} />
+</AdminLayout>
