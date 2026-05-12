@@ -9,6 +9,11 @@ services:
       - ./pocketbase/pb_data:/pb_data
       - ./pocketbase/pb_migrations:/pb_migrations
       - ./pocketbase/pb_hooks:/pb_hooks
+    environment:
+      # Token de la Notion Internal Integration con acceso a la DB de Pedidos.
+      # Lo lee el hook orders.pb.js para sincronizar pedidos a Notion.
+      # Si falta, el sync queda deshabilitado silenciosamente (no rompe).
+      NOTION_TOKEN: ${NOTION_TOKEN:-}
     healthcheck:
       test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:8090/api/health"]
       interval: 30s

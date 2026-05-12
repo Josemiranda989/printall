@@ -65,6 +65,12 @@ if (!filters.show_finalized) {
   hiddenFinalizedCount = finalizedResult.totalItems;
 }
 
+// Flash message del query param ?ok=...
+const okParam = Astro.url.searchParams.get("ok");
+let flash: string | null = null;
+if (okParam === "created") flash = "Pedido creado.";
+else if (okParam === "saved") flash = "Cambios guardados.";
+
 const inputClass =
   "mt-1 w-full rounded border-2 border-brand/40 px-3 py-2 text-sm focus:border-brand focus:outline-none bg-white";
 const selectClass =
@@ -129,6 +135,12 @@ const tabInactiveClass =
       <span class="hidden sm:inline">+ Nuevo pedido</span>
     </a>
   </div>
+
+  {flash && (
+    <div class="border-2 border-emerald-600 bg-emerald-50 text-emerald-800 px-3 py-2 rounded-md text-sm mb-4">
+      {flash}
+    </div>
+  )}
 
   {/* ─── Tabs de vista ─── */}
   <div class="flex items-center gap-2 mb-5 flex-wrap">
