@@ -115,13 +115,14 @@ const dowLabels = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 ---
 
 <AdminLayout title={`Calendario · ${monthName}`}>
-  <div class="flex items-center justify-between gap-4 mb-5 flex-wrap">
-    <h1 class="font-display text-3xl">Pedidos</h1>
+  <div class="flex items-center justify-between gap-3 mb-5 flex-wrap">
+    <h1 class="font-display text-2xl sm:text-3xl">Pedidos</h1>
     <a
       href="/admin/pedidos/nuevo"
-      class="bg-accent text-white font-medium px-4 py-2 rounded-md hover:bg-accent-hover transition-colors text-sm shrink-0"
+      class="bg-accent text-white font-medium px-3 sm:px-4 py-2 rounded-md hover:bg-accent-hover transition-colors text-sm shrink-0 whitespace-nowrap"
     >
-      + Nuevo pedido
+      <span class="sm:hidden">+ Nuevo</span>
+      <span class="hidden sm:inline">+ Nuevo pedido</span>
     </a>
   </div>
 
@@ -131,42 +132,44 @@ const dowLabels = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
     <a href="/admin/pedidos/calendario" class={`${tabBaseClass} ${tabActiveClass}`}>📅 Calendario</a>
   </div>
 
-  <div class="bg-white border-2 border-brand rounded-lg p-5 shadow-[4px_4px_0_var(--color-brand)]">
+  <div class="bg-white border-2 border-brand rounded-lg p-3 sm:p-5 shadow-[4px_4px_0_var(--color-brand)]">
     <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 flex-wrap">
         <a
           href={prevUrl}
-          class="px-3 py-1.5 border-2 border-brand rounded-md text-sm hover:bg-brand hover:text-white transition-colors"
+          class="w-10 h-10 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 border-2 border-brand rounded-md text-sm hover:bg-brand hover:text-white transition-colors flex items-center justify-center"
           title="Mes anterior"
+          aria-label="Mes anterior"
         >
           ←
         </a>
-        <h2 class="font-display text-xl capitalize min-w-[10rem] text-center">
+        <h2 class="font-display text-lg sm:text-xl capitalize min-w-[8rem] sm:min-w-[10rem] text-center">
           {monthName}
         </h2>
         <a
           href={nextUrl}
-          class="px-3 py-1.5 border-2 border-brand rounded-md text-sm hover:bg-brand hover:text-white transition-colors"
+          class="w-10 h-10 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 border-2 border-brand rounded-md text-sm hover:bg-brand hover:text-white transition-colors flex items-center justify-center"
           title="Mes siguiente"
+          aria-label="Mes siguiente"
         >
           →
         </a>
         <a
           href={todayUrl}
-          class="px-3 py-1.5 border-2 border-brand/40 rounded-md text-sm hover:bg-brand hover:text-white transition-colors ml-2"
+          class="px-3 py-1.5 border-2 border-brand/40 rounded-md text-sm hover:bg-brand hover:text-white transition-colors sm:ml-2"
         >
           Hoy
         </a>
       </div>
 
-      <form method="GET" class="flex items-center gap-2">
+      <form method="GET" class="flex items-center gap-2 w-full sm:w-auto">
         <input type="hidden" name="mes" value={`${year}-${String(month).padStart(2, "0")}`} />
-        <label class="flex items-center gap-2 text-sm">
-          <span class="text-xs font-medium uppercase tracking-wider text-brand/70">Estado</span>
+        <label class="flex items-center gap-2 text-sm w-full sm:w-auto">
+          <span class="text-xs font-medium uppercase tracking-wider text-brand/70 hidden sm:inline">Estado</span>
           <select
             name="status"
             onchange="this.form.submit()"
-            class="rounded border-2 border-brand/40 px-2 py-1 text-sm focus:border-brand focus:outline-none bg-white cursor-pointer"
+            class="rounded border-2 border-brand/40 px-2 py-1.5 text-sm focus:border-brand focus:outline-none bg-white cursor-pointer w-full sm:w-auto min-w-0"
           >
             <option value="">Activos (oculta entregados/cancelados)</option>
             {ORDER_STATUS_VALUES.map((s) => (
@@ -187,15 +190,15 @@ const dowLabels = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
       ))}
     </div>
 
-    <div class="grid grid-cols-7 gap-1">
+    <div class="grid grid-cols-7 gap-0.5 sm:gap-1">
       {cells.map((cell) => {
         if (cell.day === null) {
-          return <div class="min-h-[6rem] bg-surface/30 rounded-md"></div>;
+          return <div class="min-h-[3.5rem] sm:min-h-[6rem] bg-surface/30 rounded-md"></div>;
         }
         const dayOrders = ordersByDay.get(cell.day) ?? [];
         const cellClass = cell.isToday
-          ? "min-h-[6rem] bg-accent-soft border-2 border-accent rounded-md p-1.5"
-          : "min-h-[6rem] bg-white border-2 border-brand/15 rounded-md p-1.5 hover:border-brand/30 transition-colors";
+          ? "min-h-[3.5rem] sm:min-h-[6rem] bg-accent-soft border-2 border-accent rounded-md p-1 sm:p-1.5"
+          : "min-h-[3.5rem] sm:min-h-[6rem] bg-white border-2 border-brand/15 rounded-md p-1 sm:p-1.5 hover:border-brand/30 transition-colors";
         return (
           <div class={cellClass}>
             <div class="flex items-center justify-between mb-1">
@@ -208,7 +211,22 @@ const dowLabels = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
                 <span class="text-xs text-gray-400">{dayOrders.length}</span>
               )}
             </div>
-            <div class="space-y-0.5">
+            {/* Mobile: solo dot indicators con color de prioridad */}
+            <div class="sm:hidden flex flex-wrap gap-0.5">
+              {dayOrders.slice(0, 6).map((o) => (
+                <a
+                  href={`/admin/pedidos/${o.id}`}
+                  class={`block w-1.5 h-1.5 rounded-full ${PRIORITY_COLORS[o.priority]}`}
+                  title={`${o.project_name} · ${o.customer_name}`}
+                  aria-label={`Pedido: ${o.project_name}`}
+                ></a>
+              ))}
+              {dayOrders.length > 6 && (
+                <span class="text-[10px] text-gray-500 leading-none">+{dayOrders.length - 6}</span>
+              )}
+            </div>
+            {/* Desktop: nombres truncados */}
+            <div class="hidden sm:block space-y-0.5">
               {dayOrders.slice(0, 4).map((o) => (
                 <a
                   href={`/admin/pedidos/${o.id}`}

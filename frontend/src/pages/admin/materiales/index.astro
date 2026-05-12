@@ -30,18 +30,19 @@ function fmtMargin(m: MaterialPrice): { text: string; color: string } {
 ---
 
 <AdminLayout title="Materiales">
-  <div class="flex items-center justify-between gap-4 mb-5 flex-wrap">
-    <div>
-      <h1 class="font-display text-3xl">Materiales</h1>
-      <p class="text-sm text-gray-600 mt-1">
+  <div class="flex items-center justify-between gap-3 mb-5 flex-wrap">
+    <div class="min-w-0">
+      <h1 class="font-display text-2xl sm:text-3xl">Materiales</h1>
+      <p class="text-xs sm:text-sm text-gray-600 mt-1">
         Filamentos y componentes que usa la calculadora de costos.
       </p>
     </div>
     <a
       href="/admin/materiales/nuevo"
-      class="bg-accent text-white font-medium px-4 py-2 rounded-md hover:bg-accent-hover transition-colors text-sm shrink-0"
+      class="bg-accent text-white font-medium px-3 sm:px-4 py-2 rounded-md hover:bg-accent-hover transition-colors text-sm shrink-0 whitespace-nowrap"
     >
-      + Nuevo material
+      <span class="sm:hidden">+ Nuevo</span>
+      <span class="hidden sm:inline">+ Nuevo material</span>
     </a>
   </div>
 
@@ -57,13 +58,13 @@ function fmtMargin(m: MaterialPrice): { text: string; color: string } {
       <table class="w-full text-sm">
         <thead class="bg-surface border-b-2 border-brand">
           <tr>
-            <th class="text-left px-4 py-3 font-medium">Nombre</th>
-            <th class="text-left px-4 py-3 font-medium">Tipo</th>
-            <th class="text-right px-4 py-3 font-medium">Costo</th>
-            <th class="text-right px-4 py-3 font-medium">Venta</th>
+            <th class="text-left px-2 sm:px-4 py-3 font-medium">Nombre</th>
+            <th class="text-left px-4 py-3 font-medium hidden md:table-cell">Tipo</th>
+            <th class="text-right px-2 sm:px-4 py-3 font-medium hidden sm:table-cell">Costo</th>
+            <th class="text-right px-2 sm:px-4 py-3 font-medium">Venta</th>
             <th class="text-right px-4 py-3 font-medium hidden sm:table-cell">Margen</th>
-            <th class="text-left px-4 py-3 font-medium">Estado</th>
-            <th class="text-right px-4 py-3 font-medium">Acción</th>
+            <th class="text-left px-2 sm:px-4 py-3 font-medium">Estado</th>
+            <th class="text-right px-2 sm:px-4 py-3 font-medium">Acción</th>
           </tr>
         </thead>
         <tbody>
@@ -74,20 +75,31 @@ function fmtMargin(m: MaterialPrice): { text: string; color: string } {
                 class="border-b border-brand/10 hover:bg-surface/50 transition-colors cursor-pointer"
                 data-row-href={`/admin/materiales/${m.id}`}
               >
-                <td class="px-4 py-3 font-medium">{m.name}</td>
-                <td class="px-4 py-3 text-gray-700">{MATERIAL_KIND_LABELS[m.kind]}</td>
-                <td class="px-4 py-3 text-right font-mono text-gray-600">
+                <td class="px-2 sm:px-4 py-3">
+                  <div class="font-medium break-words">{m.name}</div>
+                  <div class="md:hidden text-xs text-gray-500 mt-0.5">
+                    {MATERIAL_KIND_LABELS[m.kind]}
+                  </div>
+                  <div class="sm:hidden text-xs text-gray-500 font-mono mt-0.5">
+                    costo {fmtPrice(m.cost_price, m.kind)}
+                    <span class={margin.color}> · {margin.text}</span>
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-gray-700 hidden md:table-cell">
+                  {MATERIAL_KIND_LABELS[m.kind]}
+                </td>
+                <td class="px-2 sm:px-4 py-3 text-right font-mono text-gray-600 hidden sm:table-cell">
                   {fmtPrice(m.cost_price, m.kind)}
                 </td>
-                <td class="px-4 py-3 text-right font-mono font-medium">
+                <td class="px-2 sm:px-4 py-3 text-right font-mono font-medium whitespace-nowrap">
                   {fmtPrice(m.sell_price, m.kind)}
                 </td>
                 <td class={`px-4 py-3 text-right font-mono hidden sm:table-cell ${margin.color}`}>
                   {margin.text}
                 </td>
-                <td class="px-4 py-3">
+                <td class="px-2 sm:px-4 py-3">
                   <span
-                    class={`inline-block text-xs px-2 py-0.5 rounded border ${
+                    class={`inline-block text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded border ${
                       m.active
                         ? "bg-emerald-100 text-emerald-800 border-emerald-300"
                         : "bg-gray-100 text-gray-600 border-gray-300"
@@ -96,10 +108,10 @@ function fmtMargin(m: MaterialPrice): { text: string; color: string } {
                     {m.active ? "Activo" : "Inactivo"}
                   </span>
                 </td>
-                <td class="px-4 py-3 text-right">
+                <td class="px-2 sm:px-4 py-3 text-right">
                   <a
                     href={`/admin/materiales/${m.id}`}
-                    class="inline-block px-3 py-1 border-2 border-brand rounded hover:bg-brand hover:text-white transition-colors text-xs font-medium"
+                    class="inline-block px-2 sm:px-3 py-1 border-2 border-brand rounded hover:bg-brand hover:text-white transition-colors text-xs font-medium whitespace-nowrap"
                     onclick="event.stopPropagation()"
                   >
                     Editar

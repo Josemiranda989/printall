@@ -21,7 +21,7 @@ const admin = Astro.locals.admin;
     <title>{title} | Admin Print All</title>
     <link rel="icon" type="image/png" href="/logo.png" />
   </head>
-  <body class="min-h-screen bg-surface text-text font-sans antialiased">
+  <body class="min-h-screen bg-surface text-text font-sans antialiased overflow-x-hidden">
     {admin && (
       <header class="sticky top-0 z-30 border-b-2 border-brand bg-white">
         <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">

@@ -20,10 +20,10 @@ const sectionClass =
 ---
 
 <AdminLayout title="Calculadora de costos">
-  <div class="flex items-center justify-between gap-4 mb-5 flex-wrap">
-    <div>
-      <h1 class="font-display text-3xl">Calculadora de costos</h1>
-      <p class="text-sm text-gray-600 mt-1">
+  <div class="flex items-start justify-between gap-3 mb-5 flex-wrap">
+    <div class="min-w-0">
+      <h1 class="font-display text-2xl sm:text-3xl">Calculadora de costos</h1>
+      <p class="text-xs sm:text-sm text-gray-600 mt-1 break-words">
         Filamento: <span class="font-mono">(gramos / 1000) × costo/kg × multiplicador del proceso</span>
         <br />
         Componentes: <span class="font-mono">cantidad × precio venta</span>
@@ -31,7 +31,7 @@ const sectionClass =
     </div>
     <a
       href="/admin/materiales"
-      class="text-sm text-accent hover:underline font-medium shrink-0"
+      class="text-sm text-accent hover:underline font-medium shrink-0 whitespace-nowrap"
     >
       Editar materiales →
     </a>
@@ -48,21 +48,21 @@ const sectionClass =
     <div class="space-y-5">
       {/* ─── Multiplicador del proceso ─── */}
       <section class={sectionClass}>
-        <div class="flex items-center justify-between gap-4 flex-wrap">
-          <div>
+        <div class="flex items-start justify-between gap-3 flex-wrap">
+          <div class="min-w-0 flex-1">
             <h2 class="font-display text-lg">Multiplicador del proceso</h2>
             <p class="text-xs text-gray-500 mt-0.5">
               Cubre errores, luz, tiempo y desgaste de máquina. Solo aplica al filamento.
             </p>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 shrink-0">
             <input
               type="number"
               id="process-multiplier"
               min="0"
               step="0.1"
               value={DEFAULT_PROCESS_MULTIPLIER}
-              class={fieldClass + " mt-0 w-24 font-mono text-right"}
+              class={fieldClass + " mt-0 w-20 sm:w-24 font-mono text-right"}
             />
             <span class="text-sm text-gray-500 font-mono">×</span>
             <button
@@ -132,34 +132,34 @@ const sectionClass =
           <div class="space-y-2" id="components-list">
             {components.map((m) => (
               <div
-                class="flex items-center gap-3 border-2 border-brand/20 rounded-md px-3 py-2"
+                class="flex flex-wrap sm:flex-nowrap items-center gap-x-3 gap-y-2 border-2 border-brand/20 rounded-md px-3 py-2"
                 data-component-row
                 data-sell={m.sell_price}
                 data-name={m.name}
               >
-                <label class="inline-flex items-center gap-2 cursor-pointer flex-1">
+                <label class="inline-flex items-center gap-2 cursor-pointer w-full sm:flex-1 sm:w-auto min-w-0">
                   <input
                     type="checkbox"
-                    class="component-toggle w-4 h-4 accent-accent"
+                    class="component-toggle w-5 h-5 sm:w-4 sm:h-4 accent-accent shrink-0"
                     data-id={m.id}
                   />
-                  <span class="text-sm font-medium">{m.name}</span>
-                  <span class="text-xs text-gray-500 font-mono">
-                    venta ${Math.round(m.sell_price).toLocaleString("es-AR")}/u
+                  <span class="text-sm font-medium break-words min-w-0">{m.name}</span>
+                  <span class="text-xs text-gray-500 font-mono whitespace-nowrap">
+                    ${Math.round(m.sell_price).toLocaleString("es-AR")}/u
                   </span>
                 </label>
-                <label class="flex items-center gap-2">
+                <label class="flex items-center gap-2 ml-auto sm:ml-0">
                   <span class="text-xs text-gray-500">Cant.</span>
                   <input
                     type="number"
-                    class="component-qty w-20 border-2 border-brand/40 rounded px-2 py-1 text-sm font-mono text-right"
+                    class="component-qty w-16 sm:w-20 border-2 border-brand/40 rounded px-2 py-1 text-sm font-mono text-right"
                     min="0"
                     step="1"
                     value="0"
                     disabled
                   />
                 </label>
-                <span class="text-sm font-mono font-medium w-24 text-right component-subtotal">$0</span>
+                <span class="text-sm font-mono font-medium w-20 sm:w-24 text-right component-subtotal">$0</span>
               </div>
             ))}
           </div>
@@ -188,14 +188,14 @@ const sectionClass =
             </p>
           </label>
 
-          <div class="md:col-span-2 grid grid-cols-2 gap-4">
-            <div class="bg-surface border-2 border-brand rounded-md p-3">
-              <p class="text-xs uppercase tracking-wider text-brand/70 font-medium">Total proyecto</p>
-              <p class="text-2xl font-display" id="total-amount">$0</p>
+          <div class="md:col-span-2 grid grid-cols-2 gap-2 sm:gap-4">
+            <div class="bg-surface border-2 border-brand rounded-md p-2 sm:p-3 min-w-0">
+              <p class="text-[10px] sm:text-xs uppercase tracking-wider text-brand/70 font-medium">Total proyecto</p>
+              <p class="text-xl sm:text-2xl font-display break-words" id="total-amount">$0</p>
             </div>
-            <div class="bg-surface border-2 border-brand rounded-md p-3">
-              <p class="text-xs uppercase tracking-wider text-brand/70 font-medium">Por unidad</p>
-              <p class="text-2xl font-display" id="total-per-unit">$0</p>
+            <div class="bg-surface border-2 border-brand rounded-md p-2 sm:p-3 min-w-0">
+              <p class="text-[10px] sm:text-xs uppercase tracking-wider text-brand/70 font-medium">Por unidad</p>
+              <p class="text-xl sm:text-2xl font-display break-words" id="total-per-unit">$0</p>
             </div>
           </div>
         </div>

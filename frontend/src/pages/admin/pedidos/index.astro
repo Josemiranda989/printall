@@ -99,15 +99,16 @@ const tabInactiveClass =
 ---
 
 <AdminLayout title="Pedidos">
-  <div class="flex items-center justify-between gap-4 mb-5 flex-wrap">
-    <div>
-      <h1 class="font-display text-3xl">Pedidos</h1>
+  <div class="flex items-center justify-between gap-3 mb-5 flex-wrap">
+    <div class="min-w-0">
+      <h1 class="font-display text-2xl sm:text-3xl">Pedidos</h1>
     </div>
     <a
       href="/admin/pedidos/nuevo"
-      class="bg-accent text-white font-medium px-4 py-2 rounded-md hover:bg-accent-hover transition-colors text-sm shrink-0"
+      class="bg-accent text-white font-medium px-3 sm:px-4 py-2 rounded-md hover:bg-accent-hover transition-colors text-sm shrink-0 whitespace-nowrap"
     >
-      + Nuevo pedido
+      <span class="sm:hidden">+ Nuevo</span>
+      <span class="hidden sm:inline">+ Nuevo pedido</span>
     </a>
   </div>
 
@@ -230,10 +231,10 @@ const tabInactiveClass =
       </label>
     </div>
 
-    <div class="flex items-center justify-between mt-3">
+    <div class="flex flex-wrap items-center justify-between gap-3 mt-3">
       <button
         type="submit"
-        class="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-hover transition-colors text-sm font-medium"
+        class="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-hover transition-colors text-sm font-medium w-full sm:w-auto"
       >
         Buscar
       </button>
@@ -283,16 +284,16 @@ const tabInactiveClass =
       <table class="w-full text-sm">
         <thead class="bg-surface border-b-2 border-brand">
           <tr>
-            <th class="text-left px-3 py-3 font-medium">Proyecto</th>
+            <th class="text-left px-2 sm:px-3 py-3 font-medium">Proyecto</th>
             <th class="text-left px-3 py-3 font-medium hidden md:table-cell">Cliente</th>
             <th class="text-left px-3 py-3 font-medium hidden lg:table-cell">Mat / Color</th>
             <th class="text-left px-3 py-3 font-medium hidden md:table-cell">Avance</th>
-            <th class="text-right px-3 py-3 font-medium">Total</th>
-            <th class="text-center px-3 py-3 font-medium">Pago</th>
+            <th class="text-right px-2 sm:px-3 py-3 font-medium">Total</th>
+            <th class="text-center px-2 sm:px-3 py-3 font-medium">Pago</th>
             <th class="text-left px-3 py-3 font-medium hidden sm:table-cell">Prio</th>
-            <th class="text-left px-3 py-3 font-medium">Estado</th>
+            <th class="text-left px-2 sm:px-3 py-3 font-medium">Estado</th>
             <th class="text-left px-3 py-3 font-medium hidden sm:table-cell">Entrega</th>
-            <th class="text-right px-3 py-3 font-medium">Acción</th>
+            <th class="text-right px-2 sm:px-3 py-3 font-medium">Acción</th>
           </tr>
         </thead>
         <tbody>
@@ -304,12 +305,16 @@ const tabInactiveClass =
                 class="border-b border-brand/10 hover:bg-surface/50 transition-colors cursor-pointer"
                 data-row-href={`/admin/pedidos/${o.id}`}
               >
-                <td class="px-3 py-3">
-                  <div class="font-medium">{o.project_name}</div>
+                <td class="px-2 sm:px-3 py-3">
+                  <div class="font-medium break-words">{o.project_name}</div>
                   <div class="text-xs text-gray-400 font-mono mt-0.5">
                     {o.order_number || o.id.slice(-6)}
                   </div>
-                  <div class="md:hidden text-xs text-gray-500 mt-0.5">{o.customer_name}</div>
+                  <div class="md:hidden text-xs text-gray-500 mt-0.5 break-words">{o.customer_name}</div>
+                  <div class="sm:hidden text-xs text-gray-500 mt-0.5">
+                    {overdue && <span class="text-red-600 font-medium">⚠ </span>}
+                    {o.delivery_date ? `Entrega ${fmtShortDate(o.delivery_date)}` : ""}
+                  </div>
                 </td>
                 <td class="px-3 py-3 hidden md:table-cell text-gray-700">
                   {o.customer_name}
@@ -328,18 +333,18 @@ const tabInactiveClass =
                     {o.units_done}/{o.units_ordered}
                   </p>
                 </td>
-                <td class="px-3 py-3 text-right whitespace-nowrap">
+                <td class="px-2 sm:px-3 py-3 text-right whitespace-nowrap">
                   <div class="font-mono text-sm font-medium">{fmtArs(total)}</div>
                   {o.units_ordered > 1 && (
-                    <div class="text-xs text-gray-400 font-mono mt-0.5">
+                    <div class="text-xs text-gray-400 font-mono mt-0.5 hidden sm:block">
                       {o.units_ordered} × {fmtArs(o.unit_price)}
                     </div>
                   )}
                 </td>
-                <td class="px-3 py-3 text-center">
+                <td class="px-2 sm:px-3 py-3 text-center">
                   <input
                     type="checkbox"
-                    class="w-4 h-4 accent-emerald-600 cursor-pointer"
+                    class="w-5 h-5 sm:w-4 sm:h-4 accent-emerald-600 cursor-pointer"
                     checked={o.is_paid}
                     data-paid-toggle
                     data-order-id={o.id}
@@ -360,9 +365,9 @@ const tabInactiveClass =
                     ))}
                   </select>
                 </td>
-                <td class="px-3 py-3">
+                <td class="px-2 sm:px-3 py-3">
                   <select
-                    class={`status-inline-select text-xs px-2 py-0.5 rounded border font-medium cursor-pointer ${ORDER_STATUS_COLORS[o.status]}`}
+                    class={`status-inline-select text-[11px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded border font-medium cursor-pointer max-w-[8rem] sm:max-w-none ${ORDER_STATUS_COLORS[o.status]}`}
                     data-order-id={o.id}
                     data-current={o.status}
                     aria-label="Cambiar estado"
@@ -382,10 +387,10 @@ const tabInactiveClass =
                     {overdue && "⚠ "}{fmtShortDate(o.delivery_date)}
                   </span>
                 </td>
-                <td class="px-3 py-3 text-right">
+                <td class="px-2 sm:px-3 py-3 text-right">
                   <a
                     href={`/admin/pedidos/${o.id}`}
-                    class="inline-block px-3 py-1 border-2 border-brand rounded hover:bg-brand hover:text-white transition-colors text-xs font-medium"
+                    class="inline-block px-2 sm:px-3 py-1 border-2 border-brand rounded hover:bg-brand hover:text-white transition-colors text-xs font-medium whitespace-nowrap"
                     onclick="event.stopPropagation()"
                   >
                     Editar
@@ -400,27 +405,27 @@ const tabInactiveClass =
   )}
 
   {totalPages > 1 && (
-    <div class="flex items-center justify-center gap-4 mt-5">
+    <div class="flex items-center justify-center gap-2 sm:gap-4 mt-5 flex-wrap">
       {page === 1 ? (
-        <span class="px-4 py-2 border-2 border-brand/30 rounded text-sm font-medium opacity-50 pointer-events-none select-none">
+        <span class="px-3 sm:px-4 py-2 border-2 border-brand/30 rounded text-sm font-medium opacity-50 pointer-events-none select-none">
           ← Anterior
         </span>
       ) : (
-        <a href={prevUrl} class="px-4 py-2 border-2 border-brand rounded text-sm font-medium hover:bg-brand hover:text-white transition-colors">
+        <a href={prevUrl} class="px-3 sm:px-4 py-2 border-2 border-brand rounded text-sm font-medium hover:bg-brand hover:text-white transition-colors">
           ← Anterior
         </a>
       )}
 
-      <span class="text-sm text-gray-600 font-medium">
+      <span class="text-sm text-gray-600 font-medium whitespace-nowrap">
         Página {page} de {totalPages}
       </span>
 
       {page >= totalPages ? (
-        <span class="px-4 py-2 border-2 border-brand/30 rounded text-sm font-medium opacity-50 pointer-events-none select-none">
+        <span class="px-3 sm:px-4 py-2 border-2 border-brand/30 rounded text-sm font-medium opacity-50 pointer-events-none select-none">
           Siguiente →
         </span>
       ) : (
-        <a href={nextUrl} class="px-4 py-2 border-2 border-brand rounded text-sm font-medium hover:bg-brand hover:text-white transition-colors">
+        <a href={nextUrl} class="px-3 sm:px-4 py-2 border-2 border-brand rounded text-sm font-medium hover:bg-brand hover:text-white transition-colors">
           Siguiente →
         </a>
       )}
