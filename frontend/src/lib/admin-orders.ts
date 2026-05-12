@@ -29,10 +29,12 @@ export type OrderFormData = {
   color: Color;
   priority: Priority;
   status: OrderStatus;
+  /** is_paid es DERIVADO server-side: true cuando paid_amount >= total. */
   is_paid: boolean;
   unit_price: number;
   units_ordered: number;
   units_done: number;
+  paid_amount: number;
   order_date: string;
   delivery_date: string;
   notes: string;
@@ -46,11 +48,6 @@ export type ExtractOrderResult = {
 function str(form: FormData, key: string): string {
   const v = form.get(key);
   return typeof v === "string" ? v.trim() : "";
-}
-
-function checkbox(form: FormData, key: string): boolean {
-  const v = form.get(key);
-  return v === "on" || v === "true" || v === "1";
 }
 
 /**
@@ -75,10 +72,10 @@ export function extractOrderFromForm(form: FormData): ExtractOrderResult {
   const colorRaw = str(form, "color");
   const priorityRaw = str(form, "priority");
   const statusRaw = str(form, "status");
-  const is_paid = checkbox(form, "is_paid");
   const unitPriceRaw = str(form, "unit_price");
   const unitsOrderedRaw = str(form, "units_ordered");
   const unitsDoneRaw = str(form, "units_done");
+  const paidAmountRaw = str(form, "paid_amount");
   const orderDateRaw = str(form, "order_date");
   const deliveryDateRaw = str(form, "delivery_date");
   const notes = str(form, "notes");
@@ -186,6 +183,33 @@ export function extractOrderFromForm(form: FormData): ExtractOrderResult {
     errors.units_done = "No puede superar las unidades pedidas.";
   }
 
+  // Pagado: monto que el cliente pagó hasta ahora (seña parcial o total).
+  // Validación cruzada: no puede superar el total del pedido.
+  let paid_amount = 0;
+  if (paidAmountRaw) {
+    const parsed = Number(paidAmountRaw);
+    if (!Number.isFinite(parsed)) {
+      errors.paid_amount = "El monto pagado debe ser un número.";
+    } else if (parsed < 0) {
+      errors.paid_amount = "El monto pagado no puede ser negativo.";
+    } else {
+      paid_amount = parsed;
+    }
+  }
+
+  // Total comprometido = unit_price × units_ordered.
+  // Si paid_amount lo supera, error. Margen de redondeo de 0.01 por floats.
+  if (!errors.paid_amount && !errors.unit_price && !errors.units_ordered) {
+    const total = unit_price * units_ordered;
+    if (paid_amount > total + 0.01) {
+      errors.paid_amount = `No puede superar el total del pedido ($${Math.round(total).toLocaleString("es-AR")}).`;
+    }
+  }
+
+  // is_paid es DERIVADO: true cuando paid_amount cubre el total.
+  const total = unit_price * units_ordered;
+  const is_paid = paid_amount >= total && total > 0;
+
   // Dates
   const order_date_parsed = parseDateInput(orderDateRaw);
   if (order_date_parsed === null) {
@@ -213,6 +237,7 @@ export function extractOrderFromForm(form: FormData): ExtractOrderResult {
       unit_price,
       units_ordered,
       units_done,
+      paid_amount,
       order_date,
       delivery_date,
       notes,

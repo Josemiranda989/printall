@@ -117,15 +117,27 @@ export interface Order {
   color: Color;
   priority: Priority;
   status: OrderStatus;
+  /** Derivado server-side: true cuando paid_amount cubre el total. */
   is_paid: boolean;
   unit_price: number;
   units_ordered: number;
   units_done: number;
+  /** Monto que el cliente pagó hasta ahora (seña parcial o total). */
+  paid_amount: number;
   order_date: string;
   delivery_date: string;
   notes: string;
   created: string;
   updated: string;
+}
+
+/** Saldo pendiente: total comprometido menos lo ya pagado, mínimo 0. */
+export function orderBalanceDue(
+  o: Pick<Order, "unit_price" | "units_ordered" | "paid_amount">,
+): number {
+  const total = (o.unit_price ?? 0) * (o.units_ordered ?? 0);
+  const paid = o.paid_amount ?? 0;
+  return Math.max(0, total - paid);
 }
 
 export function orderTotalAmount(o: Pick<Order, "unit_price" | "units_ordered">): number {

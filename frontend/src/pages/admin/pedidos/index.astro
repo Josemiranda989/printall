@@ -355,6 +355,7 @@ const tabInactiveClass =
           {orders.map((o) => {
             const overdue = isOverdue(o);
             const total = orderTotalAmount(o);
+            const balance = Math.max(0, total - (o.paid_amount ?? 0));
             return (
               <tr
                 class="border-b border-brand/10 hover:bg-surface/50 transition-colors cursor-pointer"
@@ -390,7 +391,12 @@ const tabInactiveClass =
                 </td>
                 <td class="px-2 sm:px-3 py-3 text-right whitespace-nowrap">
                   <div class="font-mono text-sm font-medium">{fmtArs(total)}</div>
-                  {o.units_ordered > 1 && (
+                  {balance > 0 && total > 0 && (
+                    <div class="text-xs text-amber-700 font-mono mt-0.5 font-medium">
+                      Saldo: {fmtArs(balance)}
+                    </div>
+                  )}
+                  {o.units_ordered > 1 && balance <= 0 && (
                     <div class="text-xs text-gray-400 font-mono mt-0.5 hidden sm:block">
                       {o.units_ordered} × {fmtArs(o.unit_price)}
                     </div>

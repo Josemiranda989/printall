@@ -355,13 +355,15 @@ const kpiClass =
             <tr>
               <th class="text-left px-3 py-2 font-medium">Proyecto</th>
               <th class="text-left px-3 py-2 font-medium hidden sm:table-cell">Cliente</th>
-              <th class="text-right px-3 py-2 font-medium">Total</th>
+              <th class="text-right px-3 py-2 font-medium">Saldo</th>
               <th class="text-right px-3 py-2 font-medium"></th>
             </tr>
           </thead>
           <tbody>
             {toCollectItems.slice(0, 10).map((o) => {
-              const total = (Number(o.unit_price) || 0) * (Number(o.units_done) || Number(o.units_ordered) || 0);
+              const total = (Number(o.unit_price) || 0) * (Number(o.units_ordered) || 0);
+              const balance = Math.max(0, total - (Number(o.paid_amount) || 0));
+              const partialPaid = (Number(o.paid_amount) || 0) > 0;
               return (
                 <tr class="border-b border-brand/10 hover:bg-surface/50 transition-colors">
                   <td class="px-3 py-2">
@@ -369,7 +371,14 @@ const kpiClass =
                     <div class="text-xs text-gray-500 sm:hidden">{o.customer_name}</div>
                   </td>
                   <td class="px-3 py-2 hidden sm:table-cell text-gray-700">{o.customer_name}</td>
-                  <td class="px-3 py-2 text-right font-mono font-medium">{fmtArs(total)}</td>
+                  <td class="px-3 py-2 text-right whitespace-nowrap">
+                    <div class="font-mono font-medium text-amber-700">{fmtArs(balance)}</div>
+                    {partialPaid && (
+                      <div class="text-xs text-gray-500 font-mono mt-0.5">
+                        {fmtArs(Number(o.paid_amount))} de {fmtArs(total)}
+                      </div>
+                    )}
+                  </td>
                   <td class="px-3 py-2 text-right">
                     <a
                       href={`/admin/pedidos/${o.id}`}

@@ -13,6 +13,7 @@ let values: Partial<OrderFormData> = {
   unit_price: 0,
   units_ordered: 1,
   units_done: 0,
+  paid_amount: 0,
   material: "pla",
   color: "negro",
   order_date: new Date().toISOString(),
@@ -38,6 +39,7 @@ if (Astro.request.method === "POST") {
       unit_price: result.data.unit_price,
       units_ordered: result.data.units_ordered,
       units_done: result.data.units_done,
+      paid_amount: result.data.paid_amount,
       notes: result.data.notes,
     };
     if (result.data.order_date) payload.order_date = result.data.order_date;
