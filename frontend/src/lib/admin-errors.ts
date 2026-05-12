@@ -13,7 +13,13 @@
 
 export type FieldErrors = Record<string, string>;
 
-export type ErrorContext = "product" | "category" | "attribute" | "image" | "generic";
+export type ErrorContext =
+  | "product"
+  | "category"
+  | "attribute"
+  | "image"
+  | "order"
+  | "generic";
 
 type PBValidationInfo = { code?: string; message?: string };
 type PBError = {
@@ -26,6 +32,7 @@ const CONTEXT_FALLBACK: Record<ErrorContext, string> = {
   category: "No se pudo guardar la categoría.",
   attribute: "No se pudo guardar el atributo.",
   image: "No se pudo procesar la imagen.",
+  order: "No se pudo guardar el pedido.",
   generic: "No se pudo completar la operación.",
 };
 
@@ -37,6 +44,7 @@ const FIELD_ERROR_MESSAGES: Record<string, Record<string, string>> = {
   validation_not_unique: {
     slug: "Ese slug ya existe. Elegí uno diferente.",
     name: "Ese nombre ya está en uso.",
+    order_number: "Ese número de pedido ya existe. Reintentá.",
     _default: "Ese valor ya existe — tiene que ser único.",
   },
   validation_required: {

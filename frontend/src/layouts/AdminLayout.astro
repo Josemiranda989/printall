@@ -34,6 +34,9 @@ const admin = Astro.locals.admin;
           <nav class="hidden sm:flex items-center gap-4 text-sm">
             <a href="/admin/productos" class="hover:text-accent transition-colors">Productos</a>
             <a href="/admin/categorias" class="hover:text-accent transition-colors">Categorías</a>
+            <a href="/admin/pedidos" class="hover:text-accent transition-colors">Pedidos</a>
+            <a href="/admin/calculadora" class="hover:text-accent transition-colors">Calculadora</a>
+            <a href="/admin/materiales" class="hover:text-accent transition-colors">Materiales</a>
             <span class="text-gray-400">|</span>
             <span class="text-gray-600">{admin.email}</span>
             <form method="POST" action="/admin/logout">
@@ -69,6 +72,9 @@ const admin = Astro.locals.admin;
           <div class="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-2 text-sm">
             <a href="/admin/productos" class="py-2 px-2 rounded hover:bg-surface transition-colors font-medium">Productos</a>
             <a href="/admin/categorias" class="py-2 px-2 rounded hover:bg-surface transition-colors font-medium">Categorías</a>
+            <a href="/admin/pedidos" class="py-2 px-2 rounded hover:bg-surface transition-colors font-medium">Pedidos</a>
+            <a href="/admin/calculadora" class="py-2 px-2 rounded hover:bg-surface transition-colors font-medium">Calculadora</a>
+            <a href="/admin/materiales" class="py-2 px-2 rounded hover:bg-surface transition-colors font-medium">Materiales</a>
             <div class="border-t border-brand/20 pt-2 mt-1 flex items-center justify-between gap-3">
               <span class="text-gray-600 text-xs truncate">{admin.email}</span>
               <form method="POST" action="/admin/logout">

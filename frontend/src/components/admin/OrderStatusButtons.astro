@@ -1,0 +1,116 @@
+---
+import type { OrderStatus } from "../../lib/types";
+import { ORDER_STATUS_LABELS, ORDER_STATUS_VALUES } from "../../lib/types";
+
+export interface Props {
+  orderId: string;
+  current: OrderStatus;
+}
+
+const { orderId, current } = Astro.props;
+---
+
+<div
+  class="flex flex-wrap gap-2"
+  data-status-buttons
+  data-order-id={orderId}
+  data-current={current}
+>
+  {
+    ORDER_STATUS_VALUES.map((s) => (
+      <button
+        type="button"
+        class={`status-btn px-3 py-2 border-2 rounded-md text-sm font-medium transition-colors ${
+          s === current
+            ? "bg-brand text-white border-brand cursor-default"
+            : "border-brand/40 text-brand hover:bg-brand hover:text-white"
+        }`}
+        data-status={s}
+        aria-pressed={s === current}
+      >
+        {ORDER_STATUS_LABELS[s]}
+      </button>
+    ))
+  }
+</div>
+
+<div
+  class="hidden mt-2 text-sm border-2 border-red-500 bg-red-50 text-red-800 px-3 py-2 rounded-md"
+  data-status-error
+></div>
+
+<script>
+  function init() {
+    const root = document.querySelector<HTMLElement>("[data-status-buttons]");
+    if (!root) return;
+    const rootEl: HTMLElement = root;
+
+    const orderId = rootEl.dataset.orderId!;
+    const errorEl = document.querySelector<HTMLElement>("[data-status-error]")!;
+    const buttons = rootEl.querySelectorAll<HTMLButtonElement>(".status-btn");
+
+    function setActive(status: string) {
+      buttons.forEach((b) => {
+        const isActive = b.dataset.status === status;
+        b.setAttribute("aria-pressed", isActive ? "true" : "false");
+        if (isActive) {
+          b.className =
+            "status-btn px-3 py-2 border-2 rounded-md text-sm font-medium transition-colors bg-brand text-white border-brand cursor-default";
+        } else {
+          b.className =
+            "status-btn px-3 py-2 border-2 rounded-md text-sm font-medium transition-colors border-brand/40 text-brand hover:bg-brand hover:text-white";
+        }
+      });
+      rootEl.dataset.current = status;
+    }
+
+    function showError(msg: string) {
+      errorEl.textContent = msg;
+      errorEl.classList.remove("hidden");
+    }
+    function clearError() {
+      errorEl.textContent = "";
+      errorEl.classList.add("hidden");
+    }
+
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const target = btn.dataset.status!;
+        if (target === rootEl.dataset.current) return;
+
+        if (target === "cancelled") {
+          if (!confirm("¿Marcar este pedido como cancelado?")) return;
+        }
+
+        const previous = rootEl.dataset.current!;
+        setActive(target);
+        clearError();
+        btn.disabled = true;
+
+        try {
+          const res = await fetch(`/admin/api/orders/${orderId}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: target }),
+          });
+          const data = (await res.json()) as { ok: boolean; error?: string };
+          if (!res.ok || !data.ok) {
+            setActive(previous);
+            showError(data.error ?? "No se pudo cambiar el estado.");
+          }
+        } catch {
+          setActive(previous);
+          showError("Error de red. Reintentá.");
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+</script>

@@ -1,0 +1,561 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import MaterialColorChip from "../../../components/admin/MaterialColorChip.astro";
+import OrderProgressBar from "../../../components/admin/OrderProgressBar.astro";
+import {
+  buildOrdersFilter,
+  buildPageUrl,
+  hasFilters,
+  parseSearchParams,
+} from "../../../lib/admin-orders-filter";
+import {
+  COLOR_LABELS,
+  COLOR_VALUES,
+  MATERIAL_LABELS,
+  MATERIAL_VALUES,
+  ORDER_STATUS_COLORS,
+  ORDER_STATUS_LABELS,
+  ORDER_STATUS_VALUES,
+  PRIORITY_COLORS,
+  PRIORITY_LABELS,
+  PRIORITY_VALUES,
+  orderTotalAmount,
+  type Order,
+} from "../../../lib/types";
+
+const pb = Astro.locals.adminPB!;
+const PER_PAGE = 25;
+
+const filters = parseSearchParams(Astro.url.searchParams);
+const activeFilters = hasFilters(filters);
+const pbFilter = buildOrdersFilter(filters);
+
+const rawPage = Astro.url.searchParams.get("page");
+const page = Math.max(1, parseInt(rawPage ?? "") || 1);
+
+const result = await pb.collection("orders").getList(page, PER_PAGE, {
+  filter: pbFilter,
+  sort: "-created",
+});
+
+const orders = result.items as unknown as Order[];
+const totalItems = result.totalItems;
+const totalPages = result.totalPages;
+
+const rangeStart = totalItems === 0 ? 0 : (page - 1) * PER_PAGE + 1;
+const rangeEnd = Math.min(page * PER_PAGE, totalItems);
+const prevUrl = buildPageUrl(Astro.url.searchParams, page - 1);
+const nextUrl = buildPageUrl(Astro.url.searchParams, page + 1);
+
+const inputClass =
+  "mt-1 w-full rounded border-2 border-brand/40 px-3 py-2 text-sm focus:border-brand focus:outline-none bg-white";
+const selectClass =
+  "mt-1 w-full rounded border-2 border-brand/40 px-3 py-2 text-sm focus:border-brand focus:outline-none bg-white cursor-pointer";
+const labelSpanClass =
+  "text-xs font-medium uppercase tracking-wider text-brand/70";
+
+// Helpers de fecha para la tabla
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+
+function fmtShortDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}`;
+}
+function fmtFullDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+function isOverdue(o: Order): boolean {
+  if (!o.delivery_date) return false;
+  const d = new Date(o.delivery_date);
+  if (isNaN(d.getTime())) return false;
+  return (
+    d < today &&
+    o.status !== "completed" &&
+    o.status !== "delivered" &&
+    o.status !== "cancelled"
+  );
+}
+function fmtArs(n: number): string {
+  return "$" + Math.round(n).toLocaleString("es-AR");
+}
+
+const tabBaseClass =
+  "px-3 py-1.5 border-2 rounded-md text-sm font-medium transition-colors";
+const tabActiveClass = "bg-brand text-white border-brand";
+const tabInactiveClass =
+  "border-brand/30 text-brand hover:bg-brand hover:text-white";
+---
+
+<AdminLayout title="Pedidos">
+  <div class="flex items-center justify-between gap-4 mb-5 flex-wrap">
+    <div>
+      <h1 class="font-display text-3xl">Pedidos</h1>
+    </div>
+    <a
+      href="/admin/pedidos/nuevo"
+      class="bg-accent text-white font-medium px-4 py-2 rounded-md hover:bg-accent-hover transition-colors text-sm shrink-0"
+    >
+      + Nuevo pedido
+    </a>
+  </div>
+
+  {/* ─── Tabs de vista ─── */}
+  <div class="flex items-center gap-2 mb-5 flex-wrap">
+    <a href="/admin/pedidos" class={`${tabBaseClass} ${tabActiveClass}`}>📋 Tabla</a>
+    <a href="/admin/pedidos/kanban" class={`${tabBaseClass} ${tabInactiveClass}`}>📊 Kanban</a>
+    <a href="/admin/pedidos/calendario" class={`${tabBaseClass} ${tabInactiveClass}`}>📅 Calendario</a>
+  </div>
+
+  {/* ─── Filtros (colapsable) ─── */}
+  <details
+    class="bg-white border-2 border-brand rounded-lg mb-5 shadow-[4px_4px_0_var(--color-brand)] overflow-hidden group"
+    open={activeFilters}
+  >
+    <summary class="cursor-pointer px-4 py-3 flex items-center justify-between gap-2 hover:bg-surface/50 transition-colors select-none list-none">
+      <span class="flex items-center gap-2 font-medium text-sm">
+        <span class="text-brand/70">🔎</span>
+        Filtros
+        {activeFilters && (
+          <span class="text-xs bg-accent text-white px-2 py-0.5 rounded-full font-mono">
+            activos
+          </span>
+        )}
+      </span>
+      <span class="text-xs text-gray-400 group-open:hidden">▼ Mostrar</span>
+      <span class="text-xs text-gray-400 hidden group-open:inline">▲ Ocultar</span>
+    </summary>
+  <form
+    method="GET"
+    class="px-4 pb-4 border-t-2 border-brand/10"
+  >
+    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3 items-end pt-4">
+      <label class="block">
+        <span class={labelSpanClass}>Buscar</span>
+        <input
+          type="text"
+          name="q"
+          value={filters.q ?? ""}
+          placeholder="Proyecto, cliente, # pedido…"
+          class={inputClass}
+        />
+      </label>
+
+      <label class="block">
+        <span class={labelSpanClass}>Estado</span>
+        <select name="status" onchange="this.form.submit()" class={selectClass}>
+          <option value="">Todos</option>
+          {ORDER_STATUS_VALUES.map((s) => (
+            <option value={s} selected={filters.status === s}>
+              {ORDER_STATUS_LABELS[s]}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label class="block">
+        <span class={labelSpanClass}>Prioridad</span>
+        <select name="priority" onchange="this.form.submit()" class={selectClass}>
+          <option value="">Todas</option>
+          {PRIORITY_VALUES.map((p) => (
+            <option value={p} selected={filters.priority === p}>
+              {PRIORITY_LABELS[p]}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label class="block">
+        <span class={labelSpanClass}>Pago</span>
+        <select name="paid" onchange="this.form.submit()" class={selectClass}>
+          <option value="">Todos</option>
+          <option value="yes" selected={filters.paid === "yes"}>Pagados</option>
+          <option value="no" selected={filters.paid === "no"}>Sin pagar</option>
+        </select>
+      </label>
+
+      <label class="block">
+        <span class={labelSpanClass}>Material</span>
+        <select name="material" onchange="this.form.submit()" class={selectClass}>
+          <option value="">Todos</option>
+          {MATERIAL_VALUES.map((m) => (
+            <option value={m} selected={filters.material === m}>
+              {MATERIAL_LABELS[m]}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label class="block">
+        <span class={labelSpanClass}>Color</span>
+        <select name="color" onchange="this.form.submit()" class={selectClass}>
+          <option value="">Todos</option>
+          {COLOR_VALUES.map((c) => (
+            <option value={c} selected={filters.color === c}>
+              {COLOR_LABELS[c]}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label class="block">
+        <span class={labelSpanClass}>Entrega desde</span>
+        <input
+          type="date"
+          name="delivery_from"
+          value={filters.delivery_from ?? ""}
+          class={inputClass}
+        />
+      </label>
+
+      <label class="block">
+        <span class={labelSpanClass}>Entrega hasta</span>
+        <input
+          type="date"
+          name="delivery_to"
+          value={filters.delivery_to ?? ""}
+          class={inputClass}
+        />
+      </label>
+    </div>
+
+    <div class="flex items-center justify-between mt-3">
+      <button
+        type="submit"
+        class="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-hover transition-colors text-sm font-medium"
+      >
+        Buscar
+      </button>
+      {activeFilters && (
+        <a
+          href="/admin/pedidos"
+          class="text-sm text-gray-500 hover:text-brand underline"
+        >
+          Limpiar filtros
+        </a>
+      )}
+    </div>
+  </form>
+  </details>
+
+  <p class="text-sm text-gray-600 mb-3">
+    {totalItems === 0
+      ? activeFilters
+        ? "Sin resultados — filtros aplicados"
+        : "Sin pedidos"
+      : `Mostrando ${rangeStart}–${rangeEnd} de ${totalItems} ${totalItems === 1 ? "pedido" : "pedidos"}${activeFilters ? " — filtros aplicados" : ""}`}
+  </p>
+
+  {orders.length === 0 && totalItems === 0 && !activeFilters ? (
+    <div class="border-2 border-dashed border-brand/30 rounded-lg p-12 text-center bg-white">
+      <p class="text-gray-600 mb-4">Todavía no hay pedidos cargados.</p>
+      <a href="/admin/pedidos/nuevo" class="text-accent hover:underline font-medium">
+        Crear el primero →
+      </a>
+    </div>
+  ) : orders.length === 0 && totalItems === 0 && activeFilters ? (
+    <div class="border-2 border-dashed border-brand/30 rounded-lg p-12 text-center bg-white">
+      <p class="text-gray-600 mb-3">No hay pedidos que coincidan con tu búsqueda.</p>
+      <a href="/admin/pedidos" class="text-accent hover:underline font-medium text-sm">
+        Limpiar filtros →
+      </a>
+    </div>
+  ) : orders.length === 0 && page > totalPages ? (
+    <div class="border-2 border-dashed border-brand/30 rounded-lg p-12 text-center bg-white">
+      <p class="text-gray-600 mb-3">Esta página no tiene resultados.</p>
+      <a href={buildPageUrl(Astro.url.searchParams, 1)} class="text-accent hover:underline font-medium text-sm">
+        Volver al inicio →
+      </a>
+    </div>
+  ) : (
+    <div class="bg-white border-2 border-brand rounded-lg overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-surface border-b-2 border-brand">
+          <tr>
+            <th class="text-left px-3 py-3 font-medium">Proyecto</th>
+            <th class="text-left px-3 py-3 font-medium hidden md:table-cell">Cliente</th>
+            <th class="text-left px-3 py-3 font-medium hidden lg:table-cell">Mat / Color</th>
+            <th class="text-left px-3 py-3 font-medium hidden md:table-cell">Avance</th>
+            <th class="text-right px-3 py-3 font-medium">Total</th>
+            <th class="text-center px-3 py-3 font-medium">Pago</th>
+            <th class="text-left px-3 py-3 font-medium hidden sm:table-cell">Prio</th>
+            <th class="text-left px-3 py-3 font-medium">Estado</th>
+            <th class="text-left px-3 py-3 font-medium hidden sm:table-cell">Entrega</th>
+            <th class="text-right px-3 py-3 font-medium">Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          {orders.map((o) => {
+            const overdue = isOverdue(o);
+            const total = orderTotalAmount(o);
+            return (
+              <tr
+                class="border-b border-brand/10 hover:bg-surface/50 transition-colors cursor-pointer"
+                data-row-href={`/admin/pedidos/${o.id}`}
+              >
+                <td class="px-3 py-3">
+                  <div class="font-medium">{o.project_name}</div>
+                  <div class="text-xs text-gray-400 font-mono mt-0.5">
+                    {o.order_number || o.id.slice(-6)}
+                  </div>
+                  <div class="md:hidden text-xs text-gray-500 mt-0.5">{o.customer_name}</div>
+                </td>
+                <td class="px-3 py-3 hidden md:table-cell text-gray-700">
+                  {o.customer_name}
+                </td>
+                <td class="px-3 py-3 hidden lg:table-cell">
+                  <MaterialColorChip material={o.material} color={o.color} />
+                </td>
+                <td class="px-3 py-3 hidden md:table-cell w-32">
+                  <OrderProgressBar
+                    done={o.units_done}
+                    total={o.units_ordered}
+                    compact
+                    overdue={overdue}
+                  />
+                  <p class="text-xs text-gray-500 mt-1 font-mono">
+                    {o.units_done}/{o.units_ordered}
+                  </p>
+                </td>
+                <td class="px-3 py-3 text-right whitespace-nowrap">
+                  <div class="font-mono text-sm font-medium">{fmtArs(total)}</div>
+                  {o.units_ordered > 1 && (
+                    <div class="text-xs text-gray-400 font-mono mt-0.5">
+                      {o.units_ordered} × {fmtArs(o.unit_price)}
+                    </div>
+                  )}
+                </td>
+                <td class="px-3 py-3 text-center">
+                  <input
+                    type="checkbox"
+                    class="w-4 h-4 accent-emerald-600 cursor-pointer"
+                    checked={o.is_paid}
+                    data-paid-toggle
+                    data-order-id={o.id}
+                    aria-label="Marcar como pagado"
+                  />
+                </td>
+                <td class="px-3 py-3 hidden sm:table-cell">
+                  <select
+                    class={`priority-inline-select text-xs px-2 py-0.5 rounded font-medium cursor-pointer border-0 ${PRIORITY_COLORS[o.priority]}`}
+                    data-order-id={o.id}
+                    data-current={o.priority}
+                    aria-label="Cambiar prioridad"
+                  >
+                    {PRIORITY_VALUES.map((p) => (
+                      <option value={p} selected={p === o.priority}>
+                        {PRIORITY_LABELS[p]}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td class="px-3 py-3">
+                  <select
+                    class={`status-inline-select text-xs px-2 py-0.5 rounded border font-medium cursor-pointer ${ORDER_STATUS_COLORS[o.status]}`}
+                    data-order-id={o.id}
+                    data-current={o.status}
+                    aria-label="Cambiar estado"
+                  >
+                    {ORDER_STATUS_VALUES.map((s) => (
+                      <option value={s} selected={s === o.status}>
+                        {ORDER_STATUS_LABELS[s]}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td class="px-3 py-3 hidden sm:table-cell whitespace-nowrap">
+                  <span
+                    class={`text-sm ${overdue ? "text-red-600 font-medium" : "text-gray-700"}`}
+                    title={fmtFullDate(o.delivery_date)}
+                  >
+                    {overdue && "⚠ "}{fmtShortDate(o.delivery_date)}
+                  </span>
+                </td>
+                <td class="px-3 py-3 text-right">
+                  <a
+                    href={`/admin/pedidos/${o.id}`}
+                    class="inline-block px-3 py-1 border-2 border-brand rounded hover:bg-brand hover:text-white transition-colors text-xs font-medium"
+                    onclick="event.stopPropagation()"
+                  >
+                    Editar
+                  </a>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  )}
+
+  {totalPages > 1 && (
+    <div class="flex items-center justify-center gap-4 mt-5">
+      {page === 1 ? (
+        <span class="px-4 py-2 border-2 border-brand/30 rounded text-sm font-medium opacity-50 pointer-events-none select-none">
+          ← Anterior
+        </span>
+      ) : (
+        <a href={prevUrl} class="px-4 py-2 border-2 border-brand rounded text-sm font-medium hover:bg-brand hover:text-white transition-colors">
+          ← Anterior
+        </a>
+      )}
+
+      <span class="text-sm text-gray-600 font-medium">
+        Página {page} de {totalPages}
+      </span>
+
+      {page >= totalPages ? (
+        <span class="px-4 py-2 border-2 border-brand/30 rounded text-sm font-medium opacity-50 pointer-events-none select-none">
+          Siguiente →
+        </span>
+      ) : (
+        <a href={nextUrl} class="px-4 py-2 border-2 border-brand rounded text-sm font-medium hover:bg-brand hover:text-white transition-colors">
+          Siguiente →
+        </a>
+      )}
+    </div>
+  )}
+</AdminLayout>
+
+<script
+  type="application/json"
+  id="ui-colors"
+  set:html={JSON.stringify({
+    status: ORDER_STATUS_COLORS,
+    priority: PRIORITY_COLORS,
+  })}
+/>
+
+<script>
+  const colorsRaw = document.getElementById("ui-colors")?.textContent ?? "{}";
+  const COLORS = JSON.parse(colorsRaw) as {
+    status: Record<string, string>;
+    priority: Record<string, string>;
+  };
+
+  // ─── Filas clickables (excepto sobre interactivos) ───
+  document.querySelectorAll<HTMLElement>("[data-row-href]").forEach((row) => {
+    row.addEventListener("click", (ev) => {
+      const target = ev.target as HTMLElement;
+      // Si el click fue sobre un input/button/a/select, no navegar
+      if (target.closest("input, button, a, label, select, option")) return;
+      const href = row.dataset.rowHref;
+      if (href) window.location.href = href;
+    });
+  });
+
+  // ─── Toggle pagado optimista ───
+  document.querySelectorAll<HTMLInputElement>("[data-paid-toggle]").forEach((cb) => {
+    cb.addEventListener("change", async (ev) => {
+      ev.stopPropagation();
+      const orderId = cb.dataset.orderId!;
+      const newValue = cb.checked;
+      cb.disabled = true;
+      try {
+        const res = await fetch(`/admin/api/orders/${orderId}/paid`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ is_paid: newValue }),
+        });
+        const data = (await res.json()) as { ok: boolean; error?: string };
+        if (!res.ok || !data.ok) {
+          cb.checked = !newValue;
+          alert(data.error ?? "No se pudo cambiar el estado de pago.");
+        }
+      } catch {
+        cb.checked = !newValue;
+        alert("Error de red al cambiar el estado de pago.");
+      } finally {
+        cb.disabled = false;
+      }
+    });
+    cb.addEventListener("click", (ev) => ev.stopPropagation());
+  });
+
+  // ─── Inline select genérico (status + priority) ───
+  function attachInlineSelect(opts: {
+    selector: string;
+    field: "status" | "priority";
+    endpoint: (id: string) => string;
+    bodyKey: string;
+    confirmIfValue?: { value: string; msg: string };
+  }) {
+    const colorMap = COLORS[opts.field];
+    document.querySelectorAll<HTMLSelectElement>(opts.selector).forEach((sel) => {
+      sel.addEventListener("click", (ev) => ev.stopPropagation());
+      sel.addEventListener("change", async (ev) => {
+        ev.stopPropagation();
+        const orderId = sel.dataset.orderId!;
+        const previous = sel.dataset.current!;
+        const newValue = sel.value;
+        if (newValue === previous) return;
+
+        if (
+          opts.confirmIfValue &&
+          newValue === opts.confirmIfValue.value &&
+          !confirm(opts.confirmIfValue.msg)
+        ) {
+          sel.value = previous;
+          return;
+        }
+
+        function applyClass(value: string) {
+          for (const v of Object.keys(colorMap)) {
+            colorMap[v].split(" ").forEach((c) => c && sel.classList.remove(c));
+          }
+          (colorMap[value] ?? "").split(" ").forEach((c) => c && sel.classList.add(c));
+        }
+        applyClass(newValue);
+        sel.dataset.current = newValue;
+        sel.disabled = true;
+
+        try {
+          const res = await fetch(opts.endpoint(orderId), {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ [opts.bodyKey]: newValue }),
+          });
+          const data = (await res.json()) as { ok: boolean; error?: string };
+          if (!res.ok || !data.ok) {
+            sel.value = previous;
+            applyClass(previous);
+            sel.dataset.current = previous;
+            alert(data.error ?? "No se pudo actualizar.");
+          }
+        } catch {
+          sel.value = previous;
+          applyClass(previous);
+          sel.dataset.current = previous;
+          alert("Error de red.");
+        } finally {
+          sel.disabled = false;
+        }
+      });
+    });
+  }
+
+  attachInlineSelect({
+    selector: ".status-inline-select",
+    field: "status",
+    endpoint: (id) => `/admin/api/orders/${id}/status`,
+    bodyKey: "status",
+    confirmIfValue: { value: "cancelled", msg: "¿Marcar este pedido como cancelado?" },
+  });
+  attachInlineSelect({
+    selector: ".priority-inline-select",
+    field: "priority",
+    endpoint: (id) => `/admin/api/orders/${id}/priority`,
+    bodyKey: "priority",
+  });
+</script>

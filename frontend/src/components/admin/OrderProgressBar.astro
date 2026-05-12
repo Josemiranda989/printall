@@ -1,0 +1,39 @@
+---
+export interface Props {
+  done: number;
+  total: number;
+  /** Si true, oculta el texto y solo muestra la barra (para tablas densas). */
+  compact?: boolean;
+  /** Si delivery_date está vencida y no completado, marcar urgente (rojo). */
+  overdue?: boolean;
+}
+
+const { done, total, compact = false, overdue = false } = Astro.props;
+const safeTotal = Math.max(0, total);
+const safeDone = Math.max(0, Math.min(done, safeTotal));
+const percent = safeTotal === 0 ? 0 : Math.round((safeDone / safeTotal) * 100);
+
+let barColor = "bg-amber-500";
+if (percent >= 100) barColor = "bg-emerald-600";
+else if (overdue && percent < 100) barColor = "bg-red-600";
+else if (percent === 0) barColor = "bg-gray-300";
+
+const heightClass = compact ? "h-1.5" : "h-2.5";
+---
+
+<div class="w-full" data-progress-root>
+  <div class={`relative w-full ${heightClass} bg-gray-200 rounded-full overflow-hidden`}>
+    <div
+      class={`absolute inset-y-0 left-0 ${barColor} transition-all duration-200`}
+      style={`width: ${percent}%`}
+      data-progress-fill
+    ></div>
+  </div>
+  {!compact && (
+    <p class="text-xs text-gray-600 mt-1 font-mono" data-progress-text>
+      <span data-progress-done>{safeDone}</span>/<span data-progress-total>{safeTotal}</span>
+      <span class="text-gray-400">·</span>
+      <span data-progress-percent>{percent}</span>%
+    </p>
+  )}
+</div>
