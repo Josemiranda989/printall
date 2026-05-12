@@ -10,7 +10,15 @@ const materials = (await pb.collection("materials").getFullList({
   batch: 200,
 })) as unknown as MaterialPrice[];
 
-const filaments = materials.filter((m) => m.kind === "filament");
+const filaments = materials
+  .filter((m) => m.kind === "filament")
+  // PLA queda primero en el dropdown como default sugerido (es el más usado).
+  // Si no hay PLA, mantiene orden alfabético.
+  .sort((a, b) => {
+    if (a.name === "PLA") return -1;
+    if (b.name === "PLA") return 1;
+    return a.name.localeCompare(b.name);
+  });
 const components = materials.filter((m) => m.kind === "component");
 
 const fieldClass =

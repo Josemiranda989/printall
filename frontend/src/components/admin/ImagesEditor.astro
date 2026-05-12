@@ -8,7 +8,7 @@ export interface Props {
 
 const { productId, collectionId, initialImages, pbUrl } = Astro.props;
 const total = initialImages.length;
-const maxCount = 8;
+const maxCount = 16;
 ---
 
 <div class="bg-white border-2 border-brand rounded-lg p-5 shadow-[4px_4px_0_var(--color-brand)] mb-6" id="images-editor">
@@ -109,7 +109,7 @@ const maxCount = 8;
   const productId = grid.dataset.productId!;
   const collectionId = grid.dataset.collectionId!;
   const pbUrl = grid.dataset.pbUrl!;
-  const maxCount = Number(grid.dataset.max ?? 8);
+  const maxCount = Number(grid.dataset.max ?? 16);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   function showError(msg: string) {
@@ -123,7 +123,10 @@ const maxCount = 8;
   }
 
   function updateCounter() {
-    const items = grid.querySelectorAll("[data-filename]:not([data-pending])");
+    // ":scope >" filtra solo hijos directos del grid. Sin esto, el selector
+    // contaba también el <button data-filename> dentro de cada item, dando
+    // el doble de la cantidad real.
+    const items = grid.querySelectorAll(":scope > [data-filename]:not([data-pending])");
     counter.textContent = `${items.length}/${maxCount}`;
   }
 
@@ -192,9 +195,9 @@ const maxCount = 8;
     const files = Array.from(fileList);
     if (files.length === 0) return;
 
-    // Validación cliente
-    const currentCount = grid.querySelectorAll("[data-filename]:not([data-pending])").length;
-    const pendingCount = grid.querySelectorAll("[data-pending]").length;
+    // Validación cliente — mismo criterio del contador (hijos directos solamente).
+    const currentCount = grid.querySelectorAll(":scope > [data-filename]:not([data-pending])").length;
+    const pendingCount = grid.querySelectorAll(":scope > [data-pending]").length;
     const totalBefore = currentCount + pendingCount;
 
     if (totalBefore + files.length > maxCount) {

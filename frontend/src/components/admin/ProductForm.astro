@@ -148,7 +148,7 @@ function errorMsg(field: string) {
       <fieldset class="border-t-2 border-brand pt-4 space-y-2">
         <legend class="text-sm font-medium sr-only">Imágenes</legend>
         <label class="block">
-          <span class="text-sm font-medium">Imágenes <span class="font-normal text-gray-500">(máx 8, 5MB cada una, jpeg / png / webp)</span></span>
+          <span class="text-sm font-medium">Imágenes <span class="font-normal text-gray-500">(máx 16, 5MB cada una, jpeg / png / webp)</span></span>
           <input
             type="file"
             name="images"
@@ -159,7 +159,7 @@ function errorMsg(field: string) {
           {errors.images && <p class="text-xs text-red-600 mt-1">{errors.images}</p>}
         </label>
         <p class="text-xs text-gray-500">
-          Podés agregar hasta 8 imágenes ahora. Para reordenarlas o editarlas, entrá al detalle del producto después de crearlo.
+          Podés agregar hasta 16 imágenes ahora. Para reordenarlas o editarlas, entrá al detalle del producto después de crearlo.
         </p>
       </fieldset>
     )}

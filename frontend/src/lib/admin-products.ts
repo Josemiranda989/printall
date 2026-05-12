@@ -1,8 +1,9 @@
 import { slugify } from "./slug";
 import type { StockStatus } from "./types";
 
-// Image constraints — must match pocketbase/pb_migrations/1745784001_create_products.js images field constraints
-export const IMAGES_MAX_COUNT = 8;
+// Image constraints — must match maxSelect del campo images en la collection products.
+// Bumpeado a 16 en pb_migrations/1778100300_products_images_max_16.js.
+export const IMAGES_MAX_COUNT = 16;
 export const IMAGES_MAX_SIZE = 5 * 1024 * 1024; // 5MB
 export const IMAGES_ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
