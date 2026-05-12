@@ -14,6 +14,11 @@ export type OrdersListFilters = {
   paid?: string; // "yes" | "no" | undefined
   delivery_from?: string; // YYYY-MM-DD
   delivery_to?: string; // YYYY-MM-DD
+  /**
+   * Si false (default), oculta los pedidos finalizados (entregados Y pagados).
+   * El usuario los ve solo si activa el toggle "Mostrar finalizados".
+   */
+  show_finalized?: boolean;
 };
 
 const VALID_STATUS = new Set<string>(ORDER_STATUS_VALUES);
@@ -87,6 +92,13 @@ export function buildOrdersFilter(filters: OrdersListFilters): string {
     parts.push(`delivery_date <= "${filters.delivery_to} 23:59:59"`);
   }
 
+  // Por default ocultamos los finalizados (entregados Y pagados). El usuario
+  // los hace aparecer marcando el toggle "Mostrar finalizados".
+  // Paréntesis críticos para que el OR no se mezcle con los && previos.
+  if (!filters.show_finalized) {
+    parts.push(`(status != "delivered" || is_paid != true)`);
+  }
+
   return parts.join(" && ");
 }
 
@@ -107,11 +119,16 @@ export function parseSearchParams(searchParams: URLSearchParams): OrdersListFilt
     paid: get("paid"),
     delivery_from: get("delivery_from"),
     delivery_to: get("delivery_to"),
+    show_finalized: searchParams.get("show_finalized") === "1",
   };
 }
 
 export function hasFilters(filters: OrdersListFilters): boolean {
-  return Object.values(filters).some((v) => v !== undefined && v !== "");
+  // show_finalized=false es el comportamiento por defecto, NO cuenta como filtro activo.
+  // Solo cuenta cuando el usuario lo activa explícitamente (= true).
+  const { show_finalized, ...rest } = filters;
+  if (show_finalized) return true;
+  return Object.values(rest).some((v) => v !== undefined && v !== "");
 }
 
 export function buildPageUrl(
