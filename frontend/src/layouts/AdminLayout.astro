@@ -25,16 +25,17 @@ const admin = Astro.locals.admin;
     {admin && (
       <header class="sticky top-0 z-30 border-b-2 border-brand bg-white">
         <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <a href="/admin/productos" class="flex items-center gap-2 font-display text-base sm:text-lg min-w-0">
+          <a href="/admin" class="flex items-center gap-2 font-display text-base sm:text-lg min-w-0">
             <span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0"></span>
             <span class="truncate">Admin · Print All</span>
           </a>
 
           <!-- Desktop nav -->
           <nav class="hidden sm:flex items-center gap-4 text-sm">
+            <a href="/admin" class="hover:text-accent transition-colors">Dashboard</a>
+            <a href="/admin/pedidos" class="hover:text-accent transition-colors">Pedidos</a>
             <a href="/admin/productos" class="hover:text-accent transition-colors">Productos</a>
             <a href="/admin/categorias" class="hover:text-accent transition-colors">Categorías</a>
-            <a href="/admin/pedidos" class="hover:text-accent transition-colors">Pedidos</a>
             <a href="/admin/calculadora" class="hover:text-accent transition-colors">Calculadora</a>
             <a href="/admin/materiales" class="hover:text-accent transition-colors">Materiales</a>
             <span class="text-gray-400">|</span>
@@ -70,9 +71,10 @@ const admin = Astro.locals.admin;
           class="hidden sm:hidden border-t-2 border-brand bg-white"
         >
           <div class="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-2 text-sm">
+            <a href="/admin" class="py-2 px-2 rounded hover:bg-surface transition-colors font-medium">Dashboard</a>
+            <a href="/admin/pedidos" class="py-2 px-2 rounded hover:bg-surface transition-colors font-medium">Pedidos</a>
             <a href="/admin/productos" class="py-2 px-2 rounded hover:bg-surface transition-colors font-medium">Productos</a>
             <a href="/admin/categorias" class="py-2 px-2 rounded hover:bg-surface transition-colors font-medium">Categorías</a>
-            <a href="/admin/pedidos" class="py-2 px-2 rounded hover:bg-surface transition-colors font-medium">Pedidos</a>
             <a href="/admin/calculadora" class="py-2 px-2 rounded hover:bg-surface transition-colors font-medium">Calculadora</a>
             <a href="/admin/materiales" class="py-2 px-2 rounded hover:bg-surface transition-colors font-medium">Materiales</a>
             <div class="border-t border-brand/20 pt-2 mt-1 flex items-center justify-between gap-3">
