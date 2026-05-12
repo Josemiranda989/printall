@@ -39,14 +39,26 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
 
   const pb = locals.adminPB!;
 
+  // Necesitamos el record para calcular el total y setear paid_amount coherente.
+  let record: { unit_price?: number; units_ordered?: number };
   try {
-    await pb.collection("orders").getOne(id, { fields: "id" });
+    record = await pb.collection("orders").getOne(id, {
+      fields: "id,unit_price,units_ordered",
+    });
   } catch {
     return json({ ok: false, error: "Pedido no encontrado." }, 404);
   }
 
+  // Toggle ON: marcar pagado completo (paid_amount = total).
+  // Toggle OFF: limpiar pago (paid_amount = 0).
+  const total = (Number(record.unit_price) || 0) * (Number(record.units_ordered) || 0);
+  const newPaidAmount = validation.is_paid ? total : 0;
+
   try {
-    await pb.collection("orders").update(id, { is_paid: validation.is_paid });
+    await pb.collection("orders").update(id, {
+      is_paid: validation.is_paid,
+      paid_amount: newPaidAmount,
+    });
   } catch (err: unknown) {
     return json(
       { ok: false, error: mapPBErrorToString(err, "Error al actualizar pago.") },
@@ -54,5 +66,5 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
     );
   }
 
-  return json({ ok: true, is_paid: validation.is_paid });
+  return json({ ok: true, is_paid: validation.is_paid, paid_amount: newPaidAmount });
 };

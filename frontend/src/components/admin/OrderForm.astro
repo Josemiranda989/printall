@@ -355,15 +355,43 @@ const whatsappUrl =
       )}
     </div>
 
-    <label class="inline-flex items-center gap-2 cursor-pointer">
-      <input
-        type="checkbox"
-        name="is_paid"
-        checked={values.is_paid ?? false}
-        class="w-4 h-4 accent-accent"
-      />
-      <span class="text-sm font-medium">Pagado</span>
-    </label>
+    {/* Pago */}
+    <div>
+      <label class="block">
+        <span class="text-sm font-medium">Pagado (ARS)</span>
+        <div class="mt-1 flex items-center gap-2 flex-wrap">
+          <input
+            type="number"
+            name="paid_amount"
+            min="0"
+            step="0.01"
+            value={values.paid_amount ?? 0}
+            data-paid-amount
+            class={fieldClass + " mt-0 flex-1 min-w-[160px] font-mono"}
+          />
+          <button
+            type="button"
+            data-paid-full
+            class="px-3 py-2 border-2 border-emerald-600 text-emerald-700 rounded-md text-xs font-medium hover:bg-emerald-600 hover:text-white transition-colors whitespace-nowrap"
+          >
+            Pagado total
+          </button>
+          <button
+            type="button"
+            data-paid-clear
+            class="px-3 py-2 border-2 border-gray-400 text-gray-600 rounded-md text-xs font-medium hover:bg-gray-500 hover:text-white transition-colors whitespace-nowrap"
+          >
+            Limpiar
+          </button>
+        </div>
+        <p class="text-xs text-gray-500 mt-1">
+          <span data-paid-helper>—</span>
+        </p>
+        {errorMsg("paid_amount") && (
+          <p class="text-xs text-red-600 mt-1">{errorMsg("paid_amount")}</p>
+        )}
+      </label>
+    </div>
 
     <label class="block">
       <span class="text-sm font-medium">Notas</span>
@@ -456,17 +484,44 @@ const whatsappUrl =
   const unitsDoneEl = document.querySelector<HTMLInputElement>("[data-units-done]");
   const totalEl = document.querySelector<HTMLElement>("[data-total-display]");
   const progressHelperEl = document.querySelector<HTMLElement>("[data-progress-helper]");
+  const paidAmountEl = document.querySelector<HTMLInputElement>("[data-paid-amount]");
+  const paidHelperEl = document.querySelector<HTMLElement>("[data-paid-helper]");
+  const paidFullBtn = document.querySelector<HTMLButtonElement>("[data-paid-full]");
+  const paidClearBtn = document.querySelector<HTMLButtonElement>("[data-paid-clear]");
 
   function fmtArs(n: number): string {
     return "$" + Math.round(n).toLocaleString("es-AR");
   }
 
-  function updateTotals() {
+  function currentTotal(): number {
     const price = Number(unitPriceEl?.value ?? "0") || 0;
     const ordered = Number(unitsOrderedEl?.value ?? "0") || 0;
+    return price * ordered;
+  }
+
+  function updatePaidHelper() {
+    if (!paidHelperEl) return;
+    const total = currentTotal();
+    const paid = Number(paidAmountEl?.value ?? "0") || 0;
+    const balance = Math.max(0, total - paid);
+    if (total <= 0) {
+      paidHelperEl.textContent = "—";
+      paidHelperEl.className = "";
+      return;
+    }
+    if (balance <= 0.01) {
+      paidHelperEl.innerHTML = `<span class="text-emerald-700 font-medium">✓ Pagado completo</span> (${fmtArs(paid)} de ${fmtArs(total)})`;
+    } else if (paid > 0) {
+      paidHelperEl.innerHTML = `${fmtArs(paid)} de ${fmtArs(total)} · <span class="text-amber-700 font-medium">Saldo: ${fmtArs(balance)}</span>`;
+    } else {
+      paidHelperEl.innerHTML = `Total: ${fmtArs(total)} · <span class="text-amber-700 font-medium">Saldo: ${fmtArs(balance)}</span>`;
+    }
+  }
+
+  function updateTotals() {
+    const ordered = Number(unitsOrderedEl?.value ?? "0") || 0;
     const done = Number(unitsDoneEl?.value ?? "0") || 0;
-    const total = price * ordered;
-    if (totalEl) totalEl.textContent = fmtArs(total);
+    if (totalEl) totalEl.textContent = fmtArs(currentTotal());
 
     if (progressHelperEl) {
       if (ordered <= 0) {
@@ -476,11 +531,26 @@ const whatsappUrl =
         progressHelperEl.textContent = `${done} de ${ordered} (${pct}%)`;
       }
     }
+    updatePaidHelper();
   }
 
   unitPriceEl?.addEventListener("input", updateTotals);
   unitsOrderedEl?.addEventListener("input", updateTotals);
   unitsDoneEl?.addEventListener("input", updateTotals);
+  paidAmountEl?.addEventListener("input", updatePaidHelper);
+
+  paidFullBtn?.addEventListener("click", () => {
+    if (!paidAmountEl) return;
+    const total = currentTotal();
+    paidAmountEl.value = total > 0 ? String(total) : "0";
+    updatePaidHelper();
+  });
+  paidClearBtn?.addEventListener("click", () => {
+    if (!paidAmountEl) return;
+    paidAmountEl.value = "0";
+    updatePaidHelper();
+  });
+
   updateTotals();
 
   // ─── Confirm dialogs ───
