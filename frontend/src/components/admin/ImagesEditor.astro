@@ -54,10 +54,10 @@ const maxCount = 8;
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
           </svg>
         </div>
-        <!-- Botón delete -->
+        <!-- Botón delete: visible siempre en touch, hover-reveal en desktop -->
         <button
           type="button"
-          class="images-delete-btn absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-sm text-xs font-bold leading-none opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10 hover:bg-red-700"
+          class="images-delete-btn absolute top-1 right-1 w-8 h-8 sm:w-6 sm:h-6 bg-red-600 text-white rounded-sm text-sm sm:text-xs font-bold leading-none sm:opacity-0 sm:group-hover:opacity-100 sm:transition-opacity flex items-center justify-center z-10 hover:bg-red-700 shadow"
           data-filename={filename}
           title="Eliminar imagen"
           aria-label={`Eliminar ${filename}`}
@@ -282,7 +282,7 @@ const maxCount = 8;
         // Agregar botón para quitar el item fallido del DOM
         const removeBtn = document.createElement("button");
         removeBtn.type = "button";
-        removeBtn.className = "absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-sm text-xs font-bold leading-none flex items-center justify-center z-10";
+        removeBtn.className = "absolute top-1 right-1 w-8 h-8 sm:w-6 sm:h-6 bg-red-600 text-white rounded-sm text-sm sm:text-xs font-bold leading-none flex items-center justify-center z-10 shadow";
         removeBtn.textContent = "×";
         removeBtn.title = "Quitar";
         removeBtn.addEventListener("click", () => {
@@ -316,7 +316,7 @@ const maxCount = 8;
       // Agregar botón delete real
       const deleteBtn = document.createElement("button");
       deleteBtn.type = "button";
-      deleteBtn.className = "images-delete-btn absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-sm text-xs font-bold leading-none opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10 hover:bg-red-700";
+      deleteBtn.className = "images-delete-btn absolute top-1 right-1 w-8 h-8 sm:w-6 sm:h-6 bg-red-600 text-white rounded-sm text-sm sm:text-xs font-bold leading-none sm:opacity-0 sm:group-hover:opacity-100 sm:transition-opacity flex items-center justify-center z-10 hover:bg-red-700 shadow";
       deleteBtn.dataset.filename = addedFilename;
       deleteBtn.title = "Eliminar imagen";
       deleteBtn.setAttribute("aria-label", `Eliminar ${addedFilename}`);

@@ -56,17 +56,27 @@ const total = initialAttributes.length;
     {
       initialAttributes.map((attr) => (
         <div
-          class="attrs-row flex items-center gap-2 border-2 border-brand rounded-md px-3 py-2 bg-white relative"
+          class="attrs-row flex flex-wrap sm:flex-nowrap items-center gap-2 border-2 border-brand rounded-md px-3 py-2 bg-white relative"
           data-attr-id={attr.id}
         >
           <!-- Drag handle -->
           <button
             type="button"
-            class="attr-drag-handle cursor-grab text-gray-400 hover:text-gray-600 shrink-0 select-none"
+            class="attr-drag-handle cursor-grab text-gray-400 hover:text-gray-600 shrink-0 select-none w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center text-xl sm:text-base touch-manipulation"
             title="Arrastrar para reordenar"
             aria-label="Reordenar atributo"
           >
             ≡
+          </button>
+
+          <!-- Botón delete (a la derecha del handle en mobile, al final en desktop) -->
+          <button
+            type="button"
+            class="attr-delete-btn order-last sm:order-none shrink-0 w-8 h-8 sm:w-7 sm:h-7 bg-red-600 text-white rounded-sm text-sm font-bold leading-none hover:bg-red-700 flex items-center justify-center transition-colors ml-auto sm:ml-0"
+            title="Eliminar atributo"
+            aria-label="Eliminar atributo"
+          >
+            ×
           </button>
 
           <!-- Input key -->
@@ -76,7 +86,7 @@ const total = initialAttributes.length;
             value={attr.key}
             placeholder="Nombre"
             maxlength={ATTR_KEY_MAX}
-            class="attr-key-input flex-1 min-w-0 text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-brand font-mono"
+            class="attr-key-input w-full sm:flex-1 sm:w-auto min-w-0 text-sm border border-gray-300 rounded px-2 py-1.5 sm:py-1 focus:outline-none focus:border-brand font-mono order-2 sm:order-none"
             aria-label="Nombre del atributo"
           />
 
@@ -87,22 +97,12 @@ const total = initialAttributes.length;
             value={attr.value}
             placeholder="Valor"
             maxlength={ATTR_VALUE_MAX}
-            class="attr-value-input flex-[2] min-w-0 text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-brand"
+            class="attr-value-input w-full sm:flex-[2] sm:w-auto min-w-0 text-sm border border-gray-300 rounded px-2 py-1.5 sm:py-1 focus:outline-none focus:border-brand order-3 sm:order-none"
             aria-label="Valor del atributo"
           />
 
-          <!-- Botón delete -->
-          <button
-            type="button"
-            class="attr-delete-btn shrink-0 w-7 h-7 bg-red-600 text-white rounded-sm text-sm font-bold leading-none hover:bg-red-700 flex items-center justify-center transition-colors"
-            title="Eliminar atributo"
-            aria-label="Eliminar atributo"
-          >
-            ×
-          </button>
-
           <!-- Overlay saving -->
-          <div class="attr-overlay hidden absolute inset-0 bg-white/70 rounded-md flex items-center justify-center">
+          <div class="attr-overlay hidden absolute inset-0 bg-white/70 rounded-md flex items-center justify-center z-20">
             <span class="text-xs text-gray-600 font-mono">Guardando...</span>
           </div>
 
@@ -416,24 +416,31 @@ const total = initialAttributes.length;
   function addPendingRow() {
     const row = document.createElement("div");
     row.className =
-      "attrs-row flex items-center gap-2 border-2 border-brand rounded-md px-3 py-2 bg-white relative";
+      "attrs-row flex flex-wrap sm:flex-nowrap items-center gap-2 border-2 border-brand rounded-md px-3 py-2 bg-white relative";
     row.dataset.attrId = "";
     row.dataset.pending = "true";
 
     row.innerHTML = `
       <button
         type="button"
-        class="attr-drag-handle cursor-grab text-gray-400 hover:text-gray-600 shrink-0 select-none"
+        class="attr-drag-handle cursor-grab text-gray-400 hover:text-gray-600 shrink-0 select-none w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center text-xl sm:text-base touch-manipulation"
         title="Arrastrar para reordenar"
         aria-label="Reordenar atributo"
       >≡</button>
+
+      <button
+        type="button"
+        class="attr-delete-btn order-last sm:order-none shrink-0 w-8 h-8 sm:w-7 sm:h-7 bg-red-600 text-white rounded-sm text-sm font-bold leading-none hover:bg-red-700 flex items-center justify-center transition-colors ml-auto sm:ml-0"
+        title="Eliminar atributo"
+        aria-label="Eliminar atributo"
+      >×</button>
 
       <input
         type="text"
         name="key"
         placeholder="Nombre"
         maxlength="${KEY_MAX}"
-        class="attr-key-input flex-1 min-w-0 text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-brand font-mono"
+        class="attr-key-input w-full sm:flex-1 sm:w-auto min-w-0 text-sm border border-gray-300 rounded px-2 py-1.5 sm:py-1 focus:outline-none focus:border-brand font-mono order-2 sm:order-none"
         aria-label="Nombre del atributo"
       />
 
@@ -442,18 +449,11 @@ const total = initialAttributes.length;
         name="value"
         placeholder="Valor"
         maxlength="${VALUE_MAX}"
-        class="attr-value-input flex-[2] min-w-0 text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-brand"
+        class="attr-value-input w-full sm:flex-[2] sm:w-auto min-w-0 text-sm border border-gray-300 rounded px-2 py-1.5 sm:py-1 focus:outline-none focus:border-brand order-3 sm:order-none"
         aria-label="Valor del atributo"
       />
 
-      <button
-        type="button"
-        class="attr-delete-btn shrink-0 w-7 h-7 bg-red-600 text-white rounded-sm text-sm font-bold leading-none hover:bg-red-700 flex items-center justify-center transition-colors"
-        title="Eliminar atributo"
-        aria-label="Eliminar atributo"
-      >×</button>
-
-      <div class="attr-overlay hidden absolute inset-0 bg-white/70 rounded-md flex items-center justify-center">
+      <div class="attr-overlay hidden absolute inset-0 bg-white/70 rounded-md flex items-center justify-center z-20">
         <span class="text-xs text-gray-600 font-mono">Guardando...</span>
       </div>
 

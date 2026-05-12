@@ -24,16 +24,18 @@ const admin = Astro.locals.admin;
   <body class="min-h-screen bg-surface text-text font-sans antialiased">
     {admin && (
       <header class="sticky top-0 z-30 border-b-2 border-brand bg-white">
-        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-          <a href="/admin/productos" class="flex items-center gap-2 font-display text-lg">
-            <span class="inline-block w-2 h-2 rounded-full bg-accent"></span>
-            Admin · Print All
+        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+          <a href="/admin/productos" class="flex items-center gap-2 font-display text-base sm:text-lg min-w-0">
+            <span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0"></span>
+            <span class="truncate">Admin · Print All</span>
           </a>
-          <nav class="flex items-center gap-4 text-sm">
+
+          <!-- Desktop nav -->
+          <nav class="hidden sm:flex items-center gap-4 text-sm">
             <a href="/admin/productos" class="hover:text-accent transition-colors">Productos</a>
             <a href="/admin/categorias" class="hover:text-accent transition-colors">Categorías</a>
-            <span class="hidden sm:inline text-gray-400">|</span>
-            <span class="hidden sm:inline text-gray-600">{admin.email}</span>
+            <span class="text-gray-400">|</span>
+            <span class="text-gray-600">{admin.email}</span>
             <form method="POST" action="/admin/logout">
               <button
                 type="submit"
@@ -43,12 +45,59 @@ const admin = Astro.locals.admin;
               </button>
             </form>
           </nav>
+
+          <!-- Mobile toggle -->
+          <button
+            type="button"
+            id="admin-nav-toggle"
+            class="sm:hidden inline-flex items-center justify-center w-10 h-10 border-2 border-brand rounded-md text-brand"
+            aria-label="Abrir menú"
+            aria-expanded="false"
+            aria-controls="admin-nav-mobile"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
         </div>
+
+        <!-- Mobile nav panel -->
+        <nav
+          id="admin-nav-mobile"
+          class="hidden sm:hidden border-t-2 border-brand bg-white"
+        >
+          <div class="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-2 text-sm">
+            <a href="/admin/productos" class="py-2 px-2 rounded hover:bg-surface transition-colors font-medium">Productos</a>
+            <a href="/admin/categorias" class="py-2 px-2 rounded hover:bg-surface transition-colors font-medium">Categorías</a>
+            <div class="border-t border-brand/20 pt-2 mt-1 flex items-center justify-between gap-3">
+              <span class="text-gray-600 text-xs truncate">{admin.email}</span>
+              <form method="POST" action="/admin/logout">
+                <button
+                  type="submit"
+                  class="px-3 py-1.5 border-2 border-brand rounded-md hover:bg-brand hover:text-white transition-colors text-sm font-medium"
+                >
+                  Salir
+                </button>
+              </form>
+            </div>
+          </div>
+        </nav>
       </header>
     )}
-    <main class="max-w-6xl mx-auto px-4 py-8">
+    <main class="max-w-6xl mx-auto px-4 py-6 sm:py-8">
       <slot />
     </main>
+
+    {admin && (
+      <script>
+        const toggle = document.getElementById("admin-nav-toggle");
+        const panel = document.getElementById("admin-nav-mobile");
+        toggle?.addEventListener("click", () => {
+          const open = panel?.classList.toggle("hidden") === false;
+          toggle.setAttribute("aria-expanded", String(open));
+        });
+      </script>
+    )}
   </body>
 </html>
 
