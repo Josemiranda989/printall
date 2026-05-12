@@ -49,8 +49,8 @@ if (Astro.request.method === "POST") {
     let lastErr: unknown = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const created = await pb.collection("orders").create(payload);
-        return Astro.redirect(`/admin/pedidos/${created.id}?ok=created`);
+        await pb.collection("orders").create(payload);
+        return Astro.redirect(`/admin/pedidos?ok=created`);
       } catch (err: unknown) {
         lastErr = err;
         const fieldErrors = mapPBErrorToFieldErrors(err, "order");

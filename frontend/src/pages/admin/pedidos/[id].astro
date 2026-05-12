@@ -81,7 +81,7 @@ if (Astro.request.method === "POST") {
 
       try {
         await pb.collection("orders").update(id, payload);
-        return Astro.redirect(`/admin/pedidos/${id}?ok=saved`);
+        return Astro.redirect(`/admin/pedidos?ok=saved`);
       } catch (err: unknown) {
         errors = { ...errors, ...mapPBErrorToFieldErrors(err, "order") };
       }
