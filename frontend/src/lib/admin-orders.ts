@@ -280,18 +280,37 @@ export function validatePriorityPatch(
 
 /**
  * Valida el body de PATCH /admin/api/orders/[id]/paid.
+ *
+ * Acepta dos formatos:
+ *  - `{ is_paid: true|false }` — toggle clásico de la tabla; el endpoint setea
+ *    paid_amount = total cuando true, o 0 cuando false.
+ *  - `{ paid_amount: number }` — monto custom (p.ej. una seña parcial); el
+ *    endpoint clamps al rango [0, total] y deriva is_paid = (paid_amount >= total).
+ *
+ * Si llegan ambos, gana paid_amount.
  */
 export function validatePaidPatch(
   body: unknown,
-): { ok: true; is_paid: boolean } | { ok: false; error: string } {
+):
+  | { ok: true; is_paid?: boolean; paid_amount?: number }
+  | { ok: false; error: string } {
   if (!body || typeof body !== "object") {
     return { ok: false, error: "Body inválido." };
   }
-  const raw = (body as { is_paid?: unknown }).is_paid;
-  if (typeof raw !== "boolean") {
-    return { ok: false, error: "is_paid debe ser true o false." };
+  const obj = body as { is_paid?: unknown; paid_amount?: unknown };
+
+  if (obj.paid_amount !== undefined) {
+    if (typeof obj.paid_amount !== "number" || !Number.isFinite(obj.paid_amount) || obj.paid_amount < 0) {
+      return { ok: false, error: "paid_amount debe ser un número >= 0." };
+    }
+    return { ok: true, paid_amount: obj.paid_amount };
   }
-  return { ok: true, is_paid: raw };
+
+  if (typeof obj.is_paid === "boolean") {
+    return { ok: true, is_paid: obj.is_paid };
+  }
+
+  return { ok: false, error: "Falta is_paid o paid_amount." };
 }
 
 /**
