@@ -7,7 +7,7 @@ import OrderStatusButtons from "../../../components/admin/OrderStatusButtons.ast
 import OrderProgressBar from "../../../components/admin/OrderProgressBar.astro";
 import { extractOrderFromForm, type OrderFormData } from "../../../lib/admin-orders";
 import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
-import type { Order } from "../../../lib/types";
+import { orderBalanceDue, type Order } from "../../../lib/types";
 
 const pb = Astro.locals.adminPB!;
 const { id } = Astro.params;
@@ -126,6 +126,30 @@ const overdue =
   record.status !== "completed" &&
   record.status !== "delivered" &&
   record.status !== "cancelled";
+
+// ─── Bloque "Datos para cobrar" ─────────────────────────────────────
+// Solo se muestra si hay alias BNA configurado en el ENV y el pedido tiene
+// saldo pendiente. El botón "Copiar mensaje" copia un texto completo listo
+// para pegar donde el usuario lo necesite (WhatsApp, mail, etc).
+//
+// Usamos process.env (runtime) en lugar de import.meta.env (build-time) porque
+// las vars vienen de docker-compose en runtime. Con import.meta.env, Astro las
+// ve como undefined al compilar y tree-shake el bloque entero.
+const bnaAlias = (process.env.BNA_ALIAS as string | undefined) ?? "";
+const bnaHolder = (process.env.BNA_HOLDER_NAME as string | undefined) ?? "";
+const balanceDue = orderBalanceDue(record);
+const showCobrarBlock = bnaAlias.trim().length > 0 && balanceDue > 0;
+
+let cobrarMessage = "";
+if (showCobrarBlock) {
+  const balanceFmt = "$" + Math.round(balanceDue).toLocaleString("es-AR");
+  // Texto plano una sola línea — funciona en cualquier app sin depender de
+  // markdown / formato especial. Alias al final, así no hay punto después
+  // que pueda confundirse con parte del alias al copiar.
+  cobrarMessage =
+    `Hola! El saldo de ${record.project_name} es ${balanceFmt}. ` +
+    `¡Gracias! Alias: ${bnaAlias}`;
+}
 ---
 
 <AdminLayout title={`Pedido ${record.order_number || record.id}`}>
@@ -205,11 +229,77 @@ const overdue =
     ></div>
   </section>
 
+  {/* ─── Datos para cobrar (solo si hay saldo pendiente y BNA configurado) ─── */}
+  {showCobrarBlock && (
+    <section class="bg-amber-50 border-2 border-amber-500 rounded-lg p-4 sm:p-5 mb-5 shadow-[4px_4px_0_var(--color-brand)]">
+      <h2 class="font-display text-base sm:text-lg mb-3">💰 Datos para cobrar</h2>
+      <div class="space-y-1.5 text-sm mb-3">
+        <p>
+          <span class="text-gray-600">Alias:</span>
+          <span class="font-mono font-medium ml-1 select-all">{bnaAlias}</span>
+        </p>
+        {bnaHolder && (
+          <p>
+            <span class="text-gray-600">Titular:</span>
+            <span class="font-medium ml-1">{bnaHolder}</span>
+          </p>
+        )}
+        <p>
+          <span class="text-gray-600">Banco:</span>
+          <span class="font-medium ml-1">Banco Nación</span>
+        </p>
+        <p>
+          <span class="text-gray-600">Saldo a cobrar:</span>
+          <span class="font-mono font-bold text-amber-800 ml-1">
+            ${Math.round(balanceDue).toLocaleString("es-AR")}
+          </span>
+        </p>
+      </div>
+
+      {/* Preview del mensaje que se va a copiar */}
+      <pre class="bg-white border-2 border-amber-300 rounded-md p-3 text-xs sm:text-sm font-mono whitespace-pre-wrap break-words mb-3 select-all">{cobrarMessage}</pre>
+
+      <button
+        type="button"
+        data-copy-message
+        data-message={cobrarMessage}
+        class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-md text-sm font-medium hover:bg-accent transition-colors"
+      >
+        📋 <span data-copy-message-label>Copiar mensaje</span>
+      </button>
+    </section>
+  )}
+
   {/* ─── Form principal ─── */}
   <OrderForm values={values} errors={errors} mode="edit" orderId={id} />
 </AdminLayout>
 
 <script>
+  // ─── Copy mensaje completo al portapapeles ───
+  function initCopyMessage() {
+    const btn = document.querySelector<HTMLButtonElement>("[data-copy-message]");
+    const label = document.querySelector<HTMLElement>("[data-copy-message-label]");
+    if (!btn || !label) return;
+    const message = btn.dataset.message ?? "";
+    const original = label.textContent;
+    btn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(message);
+        label.textContent = "✓ Copiado";
+        btn.disabled = true;
+        setTimeout(() => {
+          label.textContent = original;
+          btn.disabled = false;
+        }, 1800);
+      } catch {
+        label.textContent = "Falló — copiá a mano";
+        setTimeout(() => {
+          label.textContent = original;
+        }, 2500);
+      }
+    });
+  }
+
   function init() {
     const root = document.querySelector<HTMLElement>("[data-progress-section]");
     if (!root) return;
@@ -274,8 +364,12 @@ const overdue =
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
+    document.addEventListener("DOMContentLoaded", () => {
+      init();
+      initCopyMessage();
+    });
   } else {
     init();
+    initCopyMessage();
   }
 </script>

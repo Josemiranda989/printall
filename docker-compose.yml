@@ -36,6 +36,10 @@ services:
       POCKETBASE_URL: http://pocketbase:8090
       PUBLIC_POCKETBASE_URL: ${PUBLIC_POCKETBASE_URL:-https://printall.jmlabs.app}
       PUBLIC_WHATSAPP_NUMBER: ${PUBLIC_WHATSAPP_NUMBER:-5493816563940}
+      # Datos para mostrar el bloque "Datos para cobrar" en el detalle del pedido.
+      # Si BNA_ALIAS está vacío, el bloque no se renderiza.
+      BNA_ALIAS: ${BNA_ALIAS:-}
+      BNA_HOLDER_NAME: ${BNA_HOLDER_NAME:-}
       HOST: 0.0.0.0
       PORT: "4321"
     depends_on:
