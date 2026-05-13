@@ -16,7 +16,11 @@ function requireAuth(locals: App.Locals) {
 
 /**
  * PATCH /admin/api/orders/[id]/paid
- * Body JSON: { is_paid: boolean }
+ *
+ * Acepta dos formatos en el body:
+ *  - { is_paid: boolean }     → toggle clásico de la tabla; setea paid_amount = total | 0.
+ *  - { paid_amount: number }  → monto custom (seña parcial); clamps a [0, total]
+ *                                y deriva is_paid (true si paid_amount >= total).
  */
 export const PATCH: APIRoute = async ({ params, request, locals }) => {
   const authError = requireAuth(locals);
@@ -49,14 +53,24 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
     return json({ ok: false, error: "Pedido no encontrado." }, 404);
   }
 
-  // Toggle ON: marcar pagado completo (paid_amount = total).
-  // Toggle OFF: limpiar pago (paid_amount = 0).
   const total = (Number(record.unit_price) || 0) * (Number(record.units_ordered) || 0);
-  const newPaidAmount = validation.is_paid ? total : 0;
+
+  let newPaidAmount: number;
+  let newIsPaid: boolean;
+
+  if (validation.paid_amount !== undefined) {
+    // Monto custom: clamp a [0, total] y derivar is_paid.
+    newPaidAmount = Math.max(0, Math.min(validation.paid_amount, total));
+    newIsPaid = total > 0 && newPaidAmount >= total;
+  } else {
+    // Toggle: ON = total, OFF = 0.
+    newIsPaid = !!validation.is_paid;
+    newPaidAmount = newIsPaid ? total : 0;
+  }
 
   try {
     await pb.collection("orders").update(id, {
-      is_paid: validation.is_paid,
+      is_paid: newIsPaid,
       paid_amount: newPaidAmount,
     });
   } catch (err: unknown) {
@@ -66,5 +80,5 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
     );
   }
 
-  return json({ ok: true, is_paid: validation.is_paid, paid_amount: newPaidAmount });
+  return json({ ok: true, is_paid: newIsPaid, paid_amount: newPaidAmount });
 };

@@ -385,9 +385,21 @@ const tabInactiveClass =
                     compact
                     overdue={overdue}
                   />
-                  <p class="text-xs text-gray-500 mt-1 font-mono">
-                    {o.units_done}/{o.units_ordered}
-                  </p>
+                  <div class="flex items-center gap-1 mt-1 text-xs font-mono text-gray-500">
+                    <input
+                      type="number"
+                      class="progress-inline-input w-10 border border-brand/30 rounded px-1 py-0.5 text-right text-xs font-mono focus:outline-none focus:border-brand"
+                      value={o.units_done}
+                      min="0"
+                      max={o.units_ordered}
+                      step="1"
+                      data-order-id={o.id}
+                      data-units-ordered={o.units_ordered}
+                      data-original-done={o.units_done}
+                      aria-label="Editar avance"
+                    />
+                    <span>/{o.units_ordered}</span>
+                  </div>
                 </td>
                 <td class="px-2 sm:px-3 py-3 text-right whitespace-nowrap">
                   <div class="font-mono text-sm font-medium">{fmtArs(total)}</div>
@@ -402,7 +414,7 @@ const tabInactiveClass =
                     </div>
                   )}
                 </td>
-                <td class="px-2 sm:px-3 py-3 text-center">
+                <td class="px-2 sm:px-3 py-3 text-center align-top">
                   <input
                     type="checkbox"
                     class="w-5 h-5 sm:w-4 sm:h-4 accent-emerald-600 cursor-pointer"
@@ -411,6 +423,24 @@ const tabInactiveClass =
                     data-order-id={o.id}
                     aria-label="Marcar como pagado"
                   />
+                  {!o.is_paid && total > 0 && (
+                    <div class="flex items-center justify-center gap-0.5 mt-1 text-xs">
+                      <span class="text-gray-400">$</span>
+                      <input
+                        type="number"
+                        class="paid-inline-input w-16 border border-brand/30 rounded px-1 py-0.5 text-right text-xs font-mono focus:outline-none focus:border-brand"
+                        value={o.paid_amount ?? 0}
+                        min="0"
+                        max={total}
+                        step="0.01"
+                        data-order-id={o.id}
+                        data-total={total}
+                        data-original-paid={o.paid_amount ?? 0}
+                        aria-label="Editar monto pagado"
+                        title={`Pagado de $${Math.round(total).toLocaleString("es-AR")}`}
+                      />
+                    </div>
+                  )}
                 </td>
                 <td class="px-3 py-3 hidden sm:table-cell">
                   <select
@@ -623,5 +653,109 @@ const tabInactiveClass =
     field: "priority",
     endpoint: (id) => `/admin/api/orders/${id}/priority`,
     bodyKey: "priority",
+  });
+
+  // ─── Edición inline de avance (units_done) ───
+  // Input numérico en la celda de avance. Save al blur o Enter. Optimista:
+  // si el server rechaza, revierte al valor original.
+  document.querySelectorAll<HTMLInputElement>(".progress-inline-input").forEach((input) => {
+    input.addEventListener("click", (ev) => ev.stopPropagation());
+    input.addEventListener("focus", () => input.select());
+    input.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        input.blur();
+      } else if (ev.key === "Escape") {
+        input.value = input.dataset.originalDone ?? "0";
+        input.blur();
+      }
+    });
+    input.addEventListener("blur", async () => {
+      const orderId = input.dataset.orderId!;
+      const original = Number(input.dataset.originalDone ?? "0");
+      const max = Number(input.dataset.unitsOrdered ?? "0");
+      let newValue = parseInt(input.value, 10);
+      if (!Number.isFinite(newValue) || newValue < 0) newValue = 0;
+      if (newValue > max) newValue = max;
+      input.value = String(newValue);
+      if (newValue === original) return;
+
+      input.disabled = true;
+      try {
+        const res = await fetch(`/admin/api/orders/${orderId}/progress`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ units_done: newValue }),
+        });
+        const data = (await res.json()) as { ok: boolean; units_done?: number; error?: string };
+        if (!res.ok || !data.ok) {
+          input.value = String(original);
+          alert(data.error ?? "No se pudo actualizar el avance.");
+        } else {
+          input.dataset.originalDone = String(data.units_done ?? newValue);
+        }
+      } catch {
+        input.value = String(original);
+        alert("Error de red al actualizar el avance.");
+      } finally {
+        input.disabled = false;
+      }
+    });
+  });
+
+  // ─── Edición inline del monto pagado ───
+  // Input con monto custom. Server clampea a [0, total] y deriva is_paid.
+  // Si is_paid pasa a true, refrescamos el checkbox del lado del cliente.
+  document.querySelectorAll<HTMLInputElement>(".paid-inline-input").forEach((input) => {
+    input.addEventListener("click", (ev) => ev.stopPropagation());
+    input.addEventListener("focus", () => input.select());
+    input.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        input.blur();
+      } else if (ev.key === "Escape") {
+        input.value = input.dataset.originalPaid ?? "0";
+        input.blur();
+      }
+    });
+    input.addEventListener("blur", async () => {
+      const orderId = input.dataset.orderId!;
+      const original = Number(input.dataset.originalPaid ?? "0");
+      const total = Number(input.dataset.total ?? "0");
+      let newValue = parseFloat(input.value);
+      if (!Number.isFinite(newValue) || newValue < 0) newValue = 0;
+      if (newValue > total) newValue = total;
+      // Mostrar redondeado pero mandar el valor real
+      input.value = String(newValue);
+      if (newValue === original) return;
+
+      input.disabled = true;
+      try {
+        const res = await fetch(`/admin/api/orders/${orderId}/paid`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paid_amount: newValue }),
+        });
+        const data = (await res.json()) as { ok: boolean; paid_amount?: number; is_paid?: boolean; error?: string };
+        if (!res.ok || !data.ok) {
+          input.value = String(original);
+          alert(data.error ?? "No se pudo actualizar el monto pagado.");
+        } else {
+          input.dataset.originalPaid = String(data.paid_amount ?? newValue);
+          // Si el server marca pagado total, sincronizar checkbox del lado del cliente.
+          if (data.is_paid) {
+            const checkbox = document.querySelector<HTMLInputElement>(
+              `[data-paid-toggle][data-order-id="${orderId}"]`,
+            );
+            if (checkbox) checkbox.checked = true;
+          }
+        }
+      } catch {
+        input.value = String(original);
+        alert("Error de red al actualizar el monto.");
+      } finally {
+        input.disabled = false;
+      }
+    });
   });
 </script>
