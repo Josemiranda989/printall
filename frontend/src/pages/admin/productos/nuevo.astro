@@ -1,7 +1,11 @@
 ---
 import AdminLayout from "../../../layouts/AdminLayout.astro";
 import ProductForm from "../../../components/admin/ProductForm.astro";
-import { extractProductFromForm, extractImagesFromForm } from "../../../lib/admin-products";
+import {
+  extractProductFromForm,
+  extractImagesFromForm,
+  IMAGES_MAX_COUNT,
+} from "../../../lib/admin-products";
 import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
 import type { Category } from "../../../lib/types";
 import type { ProductFormData } from "../../../lib/admin-products";
@@ -69,7 +73,7 @@ if (Astro.request.method === "POST") {
   <div class="mb-6">
     <h1 class="font-display text-3xl">Nuevo producto</h1>
     <p class="text-sm text-gray-600 mt-1">
-      Cargá los datos básicos y subí hasta 8 imágenes. Los atributos se editan después en el detalle del producto.
+      Cargá los datos básicos y subí hasta {IMAGES_MAX_COUNT} imágenes. Los atributos se editan después en el detalle del producto.
     </p>
   </div>
 
