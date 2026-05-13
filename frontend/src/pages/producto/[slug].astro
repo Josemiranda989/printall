@@ -299,7 +299,9 @@ const jsonLd = buildProductJsonLd(product, jsonLdBaseUrl);
       id="lightbox-image"
       src=""
       alt=""
-      class="max-h-[90vh] max-w-[90vw] object-contain rounded-lg"
+      class="max-h-[90vh] max-w-[90vw] object-contain rounded-lg select-none"
+      style="cursor: zoom-in; touch-action: pan-y;"
+      draggable="false"
     />
 
     <button
@@ -342,8 +344,9 @@ const jsonLd = buildProductJsonLd(product, jsonLdBaseUrl);
   #lightbox { transition: opacity 0.25s ease; }
   #lightbox:not(.hidden) { opacity: 1; }
   #lightbox.hidden { opacity: 0; pointer-events: none; }
-  #lightbox-image { transition: opacity 0.2s ease; }
+  #lightbox-image { transition: opacity 0.2s ease, transform 0.25s ease; }
   #lightbox-image.loading { opacity: 0; }
+  #lightbox-image.zoomed { cursor: zoom-out !important; }
 </style>
 
 <script>
@@ -411,10 +414,21 @@ const jsonLd = buildProductJsonLd(product, jsonLdBaseUrl);
     document.body.style.overflow = "";
   }
 
+  function resetZoom() {
+    if (!lightboxImg) return;
+    lightboxImg.classList.remove("zoomed");
+    lightboxImg.style.transform = "";
+    lightboxImg.style.cursor = "zoom-in";
+    lightboxImg.style.transformOrigin = "";
+  }
+
   function showLightboxImage(index: number) {
     if (!lightboxImg || images.length === 0) return;
     const img = images[index];
     if (!img) return;
+
+    // Reset zoom al cambiar de imagen para que la nueva arranque en tamaño normal.
+    resetZoom();
 
     lightboxImg.classList.add("loading");
     lightboxImg.src = img.full;
@@ -471,5 +485,47 @@ const jsonLd = buildProductJsonLd(product, jsonLdBaseUrl);
     if (e.key === "Escape") closeLightbox();
     if (e.key === "ArrowLeft") prevImage();
     if (e.key === "ArrowRight") nextImage();
+  });
+
+  // ─── Zoom click-toggle (1x ↔ 2x) ─────────────────────────────────
+  // Click en la imagen del lightbox alterna entre tamaño normal y zoom 2x,
+  // centrando el zoom en el punto donde clickeaste. resetZoom() está declarada
+  // arriba (cerca de showLightboxImage) para resetear también al navegar.
+  lightboxImg?.addEventListener("click", (e: MouseEvent) => {
+    if (!lightboxImg) return;
+    if (lightboxImg.classList.contains("zoomed")) {
+      resetZoom();
+      return;
+    }
+    // Calcular el punto de origen del zoom relativo a la imagen
+    const rect = lightboxImg.getBoundingClientRect();
+    const xPct = ((e.clientX - rect.left) / rect.width) * 100;
+    const yPct = ((e.clientY - rect.top) / rect.height) * 100;
+    lightboxImg.style.transformOrigin = `${xPct}% ${yPct}%`;
+    lightboxImg.style.transform = "scale(2)";
+    lightboxImg.classList.add("zoomed");
+  });
+
+  // ─── Swipe horizontal en mobile ──────────────────────────────────
+  // Si el usuario hace un swipe > 50px a la izquierda → next; a la derecha → prev.
+  // Si está zoomed, NO swipe (sería conflicto con el move dentro del zoom).
+  let touchStartX = 0;
+  let touchStartY = 0;
+  lightboxImg?.addEventListener("touchstart", (e: TouchEvent) => {
+    if (lightboxImg?.classList.contains("zoomed")) return;
+    if (e.touches.length !== 1) return;
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  lightboxImg?.addEventListener("touchend", (e: TouchEvent) => {
+    if (lightboxImg?.classList.contains("zoomed")) return;
+    if (e.changedTouches.length !== 1) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    // Solo si el movimiento es claramente horizontal (no scroll vertical)
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
+    if (dx < 0) nextImage();
+    else prevImage();
   });
 </script>
