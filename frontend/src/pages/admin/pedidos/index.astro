@@ -33,9 +33,13 @@ const pbFilter = buildOrdersFilter(filters);
 const rawPage = Astro.url.searchParams.get("page");
 const page = Math.max(1, parseInt(rawPage ?? "") || 1);
 
+// Orden: más viejos primero (ASC por fecha de creación), con priority como
+// tiebreaker en caso de empate exacto de timestamp. PocketBase ordena enums
+// alfabéticamente, así que ASC sobre priority da "high, low, medium" — en el
+// raro caso de tie, high gana, que es el comportamiento deseado.
 const result = await pb.collection("orders").getList(page, PER_PAGE, {
   filter: pbFilter,
-  sort: "-created",
+  sort: "+created,+priority",
 });
 
 const orders = result.items as unknown as Order[];
