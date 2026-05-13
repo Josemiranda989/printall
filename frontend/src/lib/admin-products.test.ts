@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { extractProductFromForm, extractImagesFromForm } from "./admin-products";
+import {
+  extractProductFromForm,
+  extractImagesFromForm,
+  IMAGES_MAX_COUNT,
+} from "./admin-products";
 
 function fd(entries: Record<string, string>): FormData {
   const f = new FormData();
@@ -219,24 +223,24 @@ describe("extractImagesFromForm", () => {
     }
   });
 
-  it("exactamente 8 archivos → ok: true", () => {
-    const files = Array.from({ length: 8 }, (_, i) =>
+  it("exactamente IMAGES_MAX_COUNT archivos → ok: true", () => {
+    const files = Array.from({ length: IMAGES_MAX_COUNT }, (_, i) =>
       makeFile(`img${i}.jpg`, 100, "image/jpeg")
     );
     const result = extractImagesFromForm(makeFormWithFiles(files));
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.files).toHaveLength(8);
+    if (result.ok) expect(result.files).toHaveLength(IMAGES_MAX_COUNT);
   });
 
-  it("más de 8 archivos → ok: false con error de cantidad", () => {
-    const files = Array.from({ length: 9 }, (_, i) =>
+  it("más de IMAGES_MAX_COUNT archivos → ok: false con error de cantidad", () => {
+    const files = Array.from({ length: IMAGES_MAX_COUNT + 1 }, (_, i) =>
       makeFile(`img${i}.jpg`, 100, "image/jpeg")
     );
     const result = extractImagesFromForm(makeFormWithFiles(files));
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.errors.length).toBeGreaterThan(0);
-      expect(result.errors[0]).toMatch(/8/);
+      expect(result.errors[0]).toMatch(new RegExp(String(IMAGES_MAX_COUNT)));
     }
   });
 
