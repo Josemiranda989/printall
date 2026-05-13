@@ -59,10 +59,67 @@ onRecordCreateRequest((e) => {
     if (!e.record.get("order_date")) {
       e.record.set("order_date", new Date().toISOString());
     }
+
+    // ── 3) Si se crea ya como "delivered" sin delivery_date, autocompletar ──
+    // El dashboard de ingresos filtra por delivery_date en el mes corriente
+    // (ver frontend/src/pages/admin/index.astro). Si entregás sin fecha, el
+    // pedido nunca entra en la suma del mes.
+    if (e.record.get("status") === "delivered") {
+      const dd = e.record.get("delivery_date");
+      if (!dd || String(dd).trim() === "") {
+        e.record.set("delivery_date", new Date().toISOString());
+      }
+    }
   } catch (err) {
     // Sin este log, un crash del hook devuelve HTTP 400 con body vacío
     // y el error queda invisible. Lo mantenemos para diagnóstico futuro.
     console.log("[orders.pb.js] hook crashed:", err);
+    throw err;
+  }
+
+  e.next();
+}, "orders");
+
+// === UPDATE: autoset delivery_date al transicionar a "delivered" ===
+//
+// Si un pedido pasa de cualquier otro status a "delivered" y no tiene
+// delivery_date cargada, la seteamos a "ahora". Esto evita el caso típico:
+// marcás el pedido como entregado por la app pero olvidás cargar la fecha,
+// y después el dashboard no lo cuenta como ingreso del mes.
+//
+// IMPORTANTE: solo actuamos en la TRANSICIÓN (original.status !== "delivered").
+// Si ya era delivered y editás otra cosa, no tocamos delivery_date — la fecha
+// original (manual) se respeta.
+onRecordUpdateRequest((e) => {
+  try {
+    const newStatus = e.record.get("status");
+    if (newStatus !== "delivered") {
+      e.next();
+      return;
+    }
+
+    let wasDelivered = false;
+    try {
+      const original = e.record.original();
+      wasDelivered = original.get("status") === "delivered";
+    } catch (origErr) {
+      // Si original() no está disponible, asumimos que NO era delivered
+      // (peor caso: sobreescribimos delivery_date vacía con la fecha actual,
+      // que es el comportamiento deseado de todas formas).
+      console.log("[orders.pb.js] original() not available on update:", origErr);
+    }
+
+    if (wasDelivered) {
+      e.next();
+      return;
+    }
+
+    const dd = e.record.get("delivery_date");
+    if (!dd || String(dd).trim() === "") {
+      e.record.set("delivery_date", new Date().toISOString());
+    }
+  } catch (err) {
+    console.log("[orders.pb.js] update hook (auto delivery_date) crashed:", err);
     throw err;
   }
 
