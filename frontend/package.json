@@ -18,7 +18,7 @@
     "@resvg/resvg-js": "^2.6.2",
     "@types/sortablejs": "^1.15.9",
     "astro": "^5.6.1",
-    "pocketbase": "^0.25.1",
+    "pocketbase": "^0.26.9",
     "satori": "^0.26.0",
     "sortablejs": "^1.15.7",
     "typescript": "^5.7.3"
