@@ -24,20 +24,21 @@
 
 - [x] 4.1 `SupplySaleForm.astro` — form reutilizable (item con autocompletado de precio, quantity, unit_price, total en vivo, status, is_paid, fechas, notas)
 - [x] 4.2 `pages/admin/insumos/index.astro` — listado de ventas (REQ-06). NOTA: listado simple sin filtros, igual que `materiales/index.astro`. Filtros pueden ser un follow-up si se vuelve tedioso.
-- [x] 4.3 `pages/admin/insumos/nuevo.astro` — alta de venta
+- [x] 4.3 `pages/admin/insumos/nuevo.astro` — alta de venta (con `sale_date` precargada al día de hoy)
 - [x] 4.4 `pages/admin/insumos/[id].astro` — edición + borrado con confirm
 - [x] 4.5 `MaterialForm.astro` — selector de `kind` con los tipos nuevos (radio buttons + `KIND_UNIT` del script + texto de ayuda)
-- [x] 4.6 `pages/admin/insumos/reporte.astro` — reporte por rango de fechas usando `sales-ledger.ts` (REQ-07): totales general/impresiones/insumos/cobrado + tabla
-- [x] 4.7 Link de navegación a `/admin/insumos` en `AdminLayout.astro` (desktop + mobile)
+- [x] 4.6 `pages/admin/insumos/reporte.astro` — "Reporte de ventas" por rango de fechas usando `sales-ledger.ts` (REQ-07): Total vendido / Cobrado / Por cobrar / Impresiones / Insumos + tabla
+- [x] 4.7 Link de navegación a `/admin/insumos` en `AdminLayout.astro` (desktop + mobile; breakpoint subido de `sm` a `lg` por overflow del nav con 7 links)
 
 ## Fase 5 - Verificación
 
 - [x] 5.1 `vitest run` — 418/418 passed ✅
 - [x] 5.2 `astro check` — 0 errors, 0 warnings ✅
-- [ ] 5.3 Prueba manual: alta de venta, transición de estado, reporte por fecha — REQUIERE rebuild del container `printall-frontend` (los `.astro` son source; el container corre el build viejo). Pendiente de hacer en navegador.
-- [ ] 5.4 Commit
+- [x] 5.3 Prueba manual — confirmada por José: alta de venta, autocompletado de precio, transición de estado, reporte con totales (incluyendo "Por cobrar")
+- [x] 5.4 Commit — `feat(admin): add supply sales tracking with unified reporting` en branch `feat/add-supply-sales`, PR abierto: https://github.com/Josemiranda989/printall/pull/21
 
-## Pendiente de deploy
+## Deploy
 
-- El container `printall-frontend` corre un build viejo. Para que los cambios estén en vivo:
-  `docker compose build frontend && docker compose up -d frontend`. Implica un blip breve del frontend.
+- Frontend rebuildeado y desplegado en el homelab (`docker compose build frontend && up -d`)
+- PocketBase reiniciado con las 2 migraciones aplicadas (1778200000, 1778200100)
+- Backup del `pb_data` previo a las migraciones: `pocketbase/pb_data_backup_20260514_220525/` (no commiteado, queda en el server hasta que se confirme estabilidad)
