@@ -235,10 +235,5 @@ const currentKind = values.kind ?? "filament";
   sellEl?.addEventListener("input", updateMargin);
   updateMargin();
 
-  document.querySelectorAll<HTMLButtonElement>("[data-confirm]").forEach((btn) => {
-    btn.addEventListener("click", (ev) => {
-      const msg = btn.dataset.confirm ?? "¿Confirmás?";
-      if (!confirm(msg)) ev.preventDefault();
-    });
-  });
+  // Confirm dialogs handled globally in AdminLayout
 </script>

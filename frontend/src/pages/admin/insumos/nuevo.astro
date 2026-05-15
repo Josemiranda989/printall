@@ -47,7 +47,8 @@ if (Astro.request.method === "POST") {
         delivery_date: result.data.delivery_date,
         notes: result.data.notes,
       });
-      return Astro.redirect("/admin/insumos");
+      const toastName = encodeURIComponent(result.data.customer_name || "sin nombre");
+      return Astro.redirect(`/admin/insumos?toast=created&name=${toastName}&collection=supply_sales`);
     } catch (err: unknown) {
       errors = { ...errors, ...mapPBErrorToFieldErrors(err, "generic") };
     }

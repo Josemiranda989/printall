@@ -49,7 +49,8 @@ if (Astro.request.method === "POST") {
   if (action === "delete") {
     try {
       await pb.collection("supply_sales").delete(id);
-      return Astro.redirect("/admin/insumos");
+      const toastName = encodeURIComponent(record.customer_name || "sin nombre");
+      return Astro.redirect(`/admin/insumos?toast=deleted&name=${toastName}&collection=supply_sales`);
     } catch (err: unknown) {
       errors = mapPBErrorToFieldErrors(err, "generic");
       if (!errors._global) errors._global = "No se pudo eliminar la venta.";
@@ -74,7 +75,8 @@ if (Astro.request.method === "POST") {
           delivery_date: result.data.delivery_date,
           notes: result.data.notes,
         });
-        return Astro.redirect("/admin/insumos");
+        const toastName = encodeURIComponent(record.customer_name || "sin nombre");
+        return Astro.redirect(`/admin/insumos?toast=saved&name=${toastName}&collection=supply_sales`);
       } catch (err: unknown) {
         errors = { ...errors, ...mapPBErrorToFieldErrors(err, "generic") };
       }
@@ -103,6 +105,19 @@ if (showCobrarBlock) {
     `¡Gracias! Alias: ${bnaAlias}`;
 }
 
+const recordForUndoJson = JSON.stringify({
+  customer_name: record.customer_name,
+  customer_whatsapp: record.customer_whatsapp,
+  item: record.item,
+  quantity: record.quantity,
+  unit_price: record.unit_price,
+  status: record.status,
+  is_paid: record.is_paid,
+  color: record.color || "",
+  sale_date: record.sale_date,
+  delivery_date: record.delivery_date,
+  notes: record.notes,
+});
 ---
 
 <AdminLayout title={`Venta: ${record.customer_name}`}>
@@ -169,16 +184,12 @@ if (showCobrarBlock) {
 </AdminLayout>
 
 {/* ─── Save record to sessionStorage before delete (for undo) ─── */}
-<script id="record-json" type="application/json">{JSON.stringify(record)}</script>
-<script>
+<script define:vars={{ recordJson: recordForUndoJson }}>
   (function() {
-    const recordEl = document.getElementById("record-json");
-    if (!recordEl) return;
-    let recordData;
-    try { recordData = JSON.parse(recordEl.textContent || ""); } catch { return; }
+    var recordData = JSON.parse(recordJson);
 
     document.addEventListener("click", (e) => {
-      const target = e.target as HTMLElement | null;
+      const target = /** @type {HTMLElement|null} */ (e.target);
       if (!target) return;
       const btn = target.closest("button[name='action'][value='delete']");
       if (!btn) return;
@@ -186,7 +197,7 @@ if (showCobrarBlock) {
         sessionStorage.setItem("lastDeleted", JSON.stringify({
           collection: "supply_sales",
           data: recordData,
-          name: recordData.customer_name || recordData.id,
+          name: recordData.customer_name || "",
         }));
       } catch {}
     }, { capture: true });

@@ -553,11 +553,5 @@ const whatsappUrl =
 
   updateTotals();
 
-  // ─── Confirm dialogs ───
-  document.querySelectorAll<HTMLButtonElement>("[data-confirm]").forEach((btn) => {
-    btn.addEventListener("click", (ev) => {
-      const msg = btn.dataset.confirm ?? "¿Confirmás?";
-      if (!confirm(msg)) ev.preventDefault();
-    });
-  });
+  // Confirm dialogs handled globally in AdminLayout
 </script>

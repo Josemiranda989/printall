@@ -51,7 +51,8 @@ if (Astro.request.method === "POST") {
   if (action === "delete") {
     try {
       await pb.collection("orders").delete(id);
-      return Astro.redirect("/admin/pedidos");
+      const toastName = encodeURIComponent(record.project_name || record.customer_name || "sin nombre");
+      return Astro.redirect(`/admin/pedidos?toast=deleted&name=${toastName}&collection=orders`);
     } catch (err: unknown) {
       errors = mapPBErrorToFieldErrors(err, "order");
       if (!errors._global) errors._global = "No se pudo eliminar el pedido.";
@@ -83,7 +84,8 @@ if (Astro.request.method === "POST") {
 
       try {
         await pb.collection("orders").update(id, payload);
-        return Astro.redirect(`/admin/pedidos?ok=saved`);
+        const toastName = encodeURIComponent((record.project_name || record.customer_name || "sin nombre"));
+        return Astro.redirect(`/admin/pedidos?toast=saved&name=${toastName}&collection=orders`);
       } catch (err: unknown) {
         errors = { ...errors, ...mapPBErrorToFieldErrors(err, "order") };
       }
@@ -151,6 +153,23 @@ if (showCobrarBlock) {
     `¡Gracias! Alias: ${bnaAlias}`;
 }
 
+const recordForUndoJson = JSON.stringify({
+  project_name: record.project_name,
+  customer_name: record.customer_name,
+  customer_whatsapp: record.customer_whatsapp,
+  material: record.material,
+  color: record.color || "",
+  priority: record.priority,
+  status: record.status,
+  is_paid: record.is_paid,
+  unit_price: record.unit_price,
+  units_ordered: record.units_ordered,
+  units_done: record.units_done,
+  paid_amount: record.paid_amount ?? 0,
+  order_date: record.order_date,
+  delivery_date: record.delivery_date,
+  notes: record.notes,
+});
 ---
 
 <AdminLayout title={`Pedido ${record.order_number || record.id}`}>
@@ -280,25 +299,20 @@ if (showCobrarBlock) {
 </AdminLayout>
 
 {/* ─── Save record to sessionStorage before delete (for undo) ─── */}
-<script id="record-json" type="application/json">{JSON.stringify(record)}</script>
-<script>
+<script define:vars={{ recordJson: recordForUndoJson }}>
   (function() {
-    const recordEl = document.getElementById("record-json");
-    if (!recordEl) return;
-    let recordData;
-    try { recordData = JSON.parse(recordEl.textContent || ""); } catch { return; }
+    var recordData = JSON.parse(recordJson);
 
     document.addEventListener("click", (e) => {
-      const target = e.target as HTMLElement | null;
+      const target = /** @type {HTMLElement|null} */ (e.target);
       if (!target) return;
       const btn = target.closest("button[name='action'][value='delete']");
       if (!btn) return;
-      // Save for undo before form submits (confirm handled globally)
       try {
         sessionStorage.setItem("lastDeleted", JSON.stringify({
           collection: "orders",
           data: recordData,
-          name: recordData.project_name || recordData.id,
+          name: recordData.project_name || "",
         }));
       } catch {}
     }, { capture: true });

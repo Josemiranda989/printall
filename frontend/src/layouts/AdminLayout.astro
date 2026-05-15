@@ -123,19 +123,221 @@ const admin = Astro.locals.admin;
         });
       </script>
     )}
-    {/* ─── Global confirm dialog for data-confirm buttons ─── */}
+    {/* ─── Toast container (global, tipo toastr) ─── */}
+    <div id="toast-container" class="fixed bottom-4 right-4 z-[60] flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
+    {/* ─── Confirm modal ─── */}
+    <div id="confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div class="bg-white border-2 border-red-500 rounded-xl shadow-2xl max-w-sm w-full p-6">
+        <p id="confirm-modal-msg" class="text-sm text-gray-800 mb-5"></p>
+        <div class="flex justify-end gap-3">
+          <button id="confirm-modal-cancel" class="px-4 py-2 border-2 border-gray-300 rounded-md text-sm font-medium hover:bg-gray-100 transition-colors">
+            Cancelar
+          </button>
+          <button id="confirm-modal-ok" class="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition-colors">
+            Eliminar
+          </button>
+        </div>
+      </div>
+    </div>
+
     <script>
-      document.addEventListener("click", (e) => {
-        const target = e.target as HTMLElement | null;
-        if (!target) return;
-        const btn = target.closest("button[data-confirm]");
-        if (!btn) return;
-        const message = btn.getAttribute("data-confirm");
-        if (message && !window.confirm(message)) {
+      (function() {
+        if ((window as any).__confirmModalWired) return;
+        (window as any).__confirmModalWired = true;
+
+        const modal = document.getElementById("confirm-modal");
+        const msg = document.getElementById("confirm-modal-msg");
+        const cancelBtn = document.getElementById("confirm-modal-cancel");
+        const okBtn = document.getElementById("confirm-modal-ok");
+        if (!modal || !msg || !cancelBtn || !okBtn) return;
+
+        let pendingBtn: HTMLButtonElement | null = null;
+
+        document.addEventListener("click", (e) => {
+          const target = e.target as HTMLElement | null;
+          if (!target) return;
+          const btn = target.closest("button[data-confirm]");
+          if (!btn) return;
+          const message = btn.getAttribute("data-confirm");
+          if (!message) return;
           e.preventDefault();
           e.stopPropagation();
+          pendingBtn = btn as HTMLButtonElement;
+          msg.textContent = message;
+          modal.classList.remove("hidden");
+        }, { capture: true });
+
+        cancelBtn.addEventListener("click", () => {
+          modal.classList.add("hidden");
+          pendingBtn = null;
+        });
+
+        okBtn.addEventListener("click", () => {
+          modal.classList.add("hidden");
+          if (pendingBtn) {
+            // Remove data-confirm temporarily so the programmatic click
+            // doesn't re-trigger the confirm modal
+            const originalConfirm = pendingBtn.getAttribute("data-confirm");
+            pendingBtn.removeAttribute("data-confirm");
+            pendingBtn.click();
+            if (originalConfirm) {
+              pendingBtn.setAttribute("data-confirm", originalConfirm);
+            }
+            pendingBtn = null;
+          }
+        });
+
+        // Close on backdrop click
+        modal.addEventListener("click", (e) => {
+          if (e.target === modal) {
+            modal.classList.add("hidden");
+            pendingBtn = null;
+          }
+        });
+      })();
+    </script>
+    {/* ─── Toast system (toastr-like) ─── */}
+    <script is:inline>
+      (function() {
+        if (window.__toastSystemWired) return;
+        window.__toastSystemWired = true;
+
+        var ICONS = { success: '✅', error: '❌', info: 'ℹ️', undo: '🔄' };
+        var BG = {
+          success: 'border-green-500 bg-green-50 text-green-900',
+          error: 'border-red-500 bg-red-50 text-red-900',
+          info: 'border-blue-500 bg-blue-50 text-blue-900',
+          undo: 'border-amber-500 bg-amber-50 text-amber-900'
+        };
+
+        function showToast(opts) {
+          var container = document.getElementById('toast-container');
+          if (!container) return null;
+
+          var type = opts.type || 'info';
+          var duration = opts.duration != null ? opts.duration : (opts.action ? 8000 : 4000);
+
+          var el = document.createElement('div');
+          el.className = 'pointer-events-auto border-2 rounded-lg px-4 py-3 shadow-lg text-sm flex items-start gap-3 toast-enter ' + BG[type];
+          el.setAttribute('role', 'alert');
+
+          var inner = '<span class="shrink-0">' + ICONS[type] + '</span>' +
+            '<span class="flex-1 min-w-0">' + opts.message + '</span>';
+
+          if (opts.action) {
+            inner += '<button class="toast-action shrink-0 px-2 py-0.5 rounded text-xs font-medium border border-current hover:opacity-80 transition-opacity ml-2">' + opts.action.label + '</button>';
+          }
+
+          inner += '<button class="toast-close shrink-0 ml-1 text-current/50 hover:text-current leading-none text-base">&times;</button>';
+          el.innerHTML = inner;
+
+          el.querySelector('.toast-close').addEventListener('click', function() { dismissToast(el); });
+
+          var actionBtn = el.querySelector('.toast-action');
+          if (actionBtn && opts.action) {
+            actionBtn.addEventListener('click', async function() {
+              actionBtn.disabled = true;
+              actionBtn.textContent = '...';
+              try {
+                await opts.action.onClick();
+                el.className = el.className.replace(BG[type], BG.success);
+                var act = el.querySelector('.toast-action');
+                if (act) act.remove();
+                el.querySelector('span:first-of-type').textContent = ICONS.success;
+                el.querySelector('span:nth-of-type(2)').textContent = '✓ Hecho';
+                setTimeout(function() { dismissToast(el); }, 2000);
+              } catch (e) {
+                actionBtn.textContent = 'Reintentar';
+                actionBtn.disabled = false;
+              }
+            });
+          }
+
+          container.appendChild(el);
+
+          if (duration > 0) {
+            setTimeout(function() { dismissToast(el); }, duration);
+          }
+
+          return el;
         }
-      });
+
+        function dismissToast(el) {
+          el.classList.add('toast-leave');
+          el.addEventListener('animationend', function() { el.remove(); }, { once: true });
+          setTimeout(function() { if (el.parentNode) el.remove(); }, 500);
+        }
+
+        // Expose globally
+        window.__showToast = showToast;
+
+        // ─── Read toast from URL params + sessionStorage ───
+        function readToastParams() {
+          var params = new URLSearchParams(window.location.search);
+          var type = params.get('toast');
+          if (!type) return;
+
+          var name = params.get('name') || '';
+          var collection = params.get('collection') || '';
+
+          var collectionLabel = collection === 'orders' ? 'Pedido' : collection === 'supply_sales' ? 'Venta de insumo' : 'Registro';
+          var messages = {
+            deleted: collectionLabel + ' \"' + name + '\" eliminado.',
+            restored: collectionLabel + ' \"' + name + '\" restaurado.',
+            saved: collectionLabel + ' \"' + name + '\" guardado.',
+            created: 'Nuevo ' + collectionLabel.toLowerCase() + ' creado.'
+          };
+
+          var msg = messages[type] || type;
+
+          if (type === 'deleted' && collection) {
+            // Try to get full record data from sessionStorage for undo
+            var raw = sessionStorage.getItem('lastDeleted');
+            var deletedData = null;
+            try { deletedData = JSON.parse(raw); } catch(e) {}
+            var canRestore = deletedData && deletedData.collection === collection;
+
+            if (canRestore) {
+              showToast({
+                type: 'undo',
+                message: msg,
+                action: {
+                  label: 'Deshacer',
+                  onClick: async function() {
+                    var res = await fetch('/admin/api/' + collection + '/restore', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(deletedData.data)
+                    });
+                    var result = await res.json();
+                    if (!result.ok) throw new Error(result.error || 'Restore failed');
+                  }
+                }
+              });
+            } else {
+              showToast({ type: 'info', message: msg });
+            }
+            sessionStorage.removeItem('lastDeleted');
+          } else {
+            showToast({ type: type === 'deleted' ? 'info' : 'success', message: msg });
+          }
+
+          // Clean URL params
+          if (window.history.replaceState) {
+            var clean = new URL(window.location.href);
+            ['toast', 'name', 'collection'].forEach(function(p) { clean.searchParams.delete(p); });
+            window.history.replaceState({}, '', clean.toString());
+          }
+        }
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', readToastParams);
+        } else {
+          readToastParams();
+        }
+        document.addEventListener('astro:page-load', readToastParams);
+      })();
     </script>
   </body>
 </html>
@@ -153,5 +355,21 @@ const admin = Astro.locals.admin;
     --color-accent-strong: #9a3412;
     --color-accent-soft: #fff7ed;
     --color-text: #17171e;
+  }
+
+  /* ─── Toast animations ─── */
+  @keyframes toast-enter {
+    from { opacity: 0; transform: translateX(100%) scale(0.95); }
+    to { opacity: 1; transform: translateX(0) scale(1); }
+  }
+  @keyframes toast-leave {
+    from { opacity: 1; transform: translateX(0) scale(1); }
+    to { opacity: 0; transform: translateX(100%) scale(0.95); }
+  }
+  .toast-enter {
+    animation: toast-enter 0.3s cubic-bezier(0.21, 1.02, 0.73, 1) forwards;
+  }
+  .toast-leave {
+    animation: toast-leave 0.25s ease-in forwards;
   }
 </style>
