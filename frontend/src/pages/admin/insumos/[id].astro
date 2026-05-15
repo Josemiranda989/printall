@@ -6,7 +6,7 @@ import {
   type SupplySaleFormData,
 } from "../../../lib/admin-supply-sales";
 import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
-import type { MaterialPrice, SupplySale } from "../../../lib/types";
+import { supplySaleTotal, type MaterialPrice, type SupplySale } from "../../../lib/types";
 
 const pb = Astro.locals.adminPB!;
 const { id } = Astro.params;
@@ -79,6 +79,36 @@ if (Astro.request.method === "POST") {
     }
   }
 }
+
+const itemMaterial = materials.find((m) => m.id === record.item) ?? null;
+
+const fmtDateOnly = (s: string) => (s ? s.slice(0, 10) : "");
+const fmtDateTime = (s: string) => {
+  if (!s) return "";
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? s : d.toISOString();
+};
+
+const copyData = {
+  id: record.id,
+  customer_name: record.customer_name,
+  customer_whatsapp: record.customer_whatsapp,
+  item: {
+    id: record.item,
+    name: itemMaterial?.name ?? null,
+  },
+  quantity: record.quantity,
+  unit_price: record.unit_price,
+  total: supplySaleTotal(record),
+  status: record.status,
+  is_paid: record.is_paid,
+  sale_date: fmtDateOnly(record.sale_date),
+  delivery_date: fmtDateOnly(record.delivery_date),
+  notes: record.notes,
+  created: fmtDateTime(record.created),
+  updated: fmtDateTime(record.updated),
+};
+const copyDataJson = JSON.stringify(copyData, null, 2);
 ---
 
 <AdminLayout title={`Venta: ${record.customer_name}`}>
@@ -91,6 +121,24 @@ if (Astro.request.method === "POST") {
     </p>
   </div>
 
+  <details class="bg-white border-2 border-brand rounded-lg mb-6 overflow-hidden">
+    <summary class="cursor-pointer px-4 py-3 font-medium text-sm hover:bg-surface/50 select-none">
+      📋 Datos para copiar
+    </summary>
+    <div class="border-t-2 border-brand/10 p-4">
+      <div class="flex justify-end mb-2">
+        <button
+          type="button"
+          id="copy-btn"
+          class="inline-flex items-center gap-2 px-3 py-1.5 bg-brand text-white rounded-md text-xs font-medium hover:bg-accent transition-colors disabled:opacity-70"
+        >
+          <span id="copy-btn-label">Copiar</span>
+        </button>
+      </div>
+      <pre id="copy-data" class="bg-surface/50 border-2 border-brand/10 rounded-md p-3 text-xs font-mono whitespace-pre-wrap break-words select-all max-h-96 overflow-auto">{copyDataJson}</pre>
+    </div>
+  </details>
+
   <SupplySaleForm
     values={values}
     errors={errors}
@@ -99,3 +147,32 @@ if (Astro.request.method === "POST") {
     materials={materials}
   />
 </AdminLayout>
+
+<script>
+  function initCopySupplySale() {
+    const btn = document.getElementById("copy-btn") as HTMLButtonElement | null;
+    const label = document.getElementById("copy-btn-label");
+    const pre = document.getElementById("copy-data");
+    if (!btn || !label || !pre) return;
+    const original = label.textContent ?? "Copiar";
+    btn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(pre.textContent ?? "");
+        label.textContent = "✓ Copiado";
+        btn.disabled = true;
+        setTimeout(() => {
+          label.textContent = original;
+          btn.disabled = false;
+        }, 2000);
+      } catch {
+        label.textContent = "Falló — copiá a mano";
+        setTimeout(() => {
+          label.textContent = original;
+        }, 2000);
+      }
+    });
+  }
+
+  initCopySupplySale();
+  document.addEventListener("astro:page-load", initCopySupplySale);
+</script>

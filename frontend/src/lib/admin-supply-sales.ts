@@ -115,3 +115,38 @@ export function extractSupplySaleFromForm(
     errors,
   };
 }
+
+/**
+ * Valida el body de PATCH /admin/api/supply_sales/[id]/status.
+ */
+export function validateSupplySaleStatusPatch(
+  body: unknown,
+): { ok: true; status: SupplySaleStatus } | { ok: false; error: string } {
+  if (!body || typeof body !== "object") {
+    return { ok: false, error: "Body inválido." };
+  }
+  const raw = (body as { status?: unknown }).status;
+  if (typeof raw !== "string" || !VALID_STATUS.has(raw)) {
+    return { ok: false, error: "Estado inválido." };
+  }
+  return { ok: true, status: raw as SupplySaleStatus };
+}
+
+/**
+ * Valida el body de PATCH /admin/api/supply_sales/[id]/paid.
+ *
+ * A diferencia de orders, supply_sales solo guarda is_paid (no hay paid_amount
+ * en la tabla), porque la operación típica es toggle: pagó / no pagó.
+ */
+export function validateSupplySalePaidPatch(
+  body: unknown,
+): { ok: true; is_paid: boolean } | { ok: false; error: string } {
+  if (!body || typeof body !== "object") {
+    return { ok: false, error: "Body inválido." };
+  }
+  const obj = body as { is_paid?: unknown };
+  if (typeof obj.is_paid !== "boolean") {
+    return { ok: false, error: "Falta is_paid." };
+  }
+  return { ok: true, is_paid: obj.is_paid };
+}

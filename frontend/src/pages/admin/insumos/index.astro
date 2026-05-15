@@ -3,6 +3,7 @@ import AdminLayout from "../../../layouts/AdminLayout.astro";
 import {
   SUPPLY_SALE_STATUS_LABELS,
   SUPPLY_SALE_STATUS_COLORS,
+  SUPPLY_SALE_STATUS_VALUES,
   supplySaleTotal,
   type SupplySaleWithItem,
 } from "../../../lib/types";
@@ -72,7 +73,7 @@ function fmtDate(d: string): string {
             <th class="text-right px-2 sm:px-4 py-3 font-medium hidden sm:table-cell">Cant.</th>
             <th class="text-right px-2 sm:px-4 py-3 font-medium">Total</th>
             <th class="text-left px-2 sm:px-4 py-3 font-medium">Estado</th>
-            <th class="text-left px-2 sm:px-4 py-3 font-medium hidden sm:table-cell">Pago</th>
+            <th class="text-center px-2 sm:px-4 py-3 font-medium hidden sm:table-cell">Pago</th>
             <th class="text-right px-2 sm:px-4 py-3 font-medium hidden md:table-cell">Fecha</th>
             <th class="text-right px-2 sm:px-4 py-3 font-medium">Acción</th>
           </tr>
@@ -99,22 +100,28 @@ function fmtDate(d: string): string {
                 {fmtMoney(supplySaleTotal(s))}
               </td>
               <td class="px-2 sm:px-4 py-3">
-                <span
-                  class={`inline-block text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded border ${SUPPLY_SALE_STATUS_COLORS[s.status]}`}
+                <select
+                  class={`status-inline-select text-[11px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded border font-medium cursor-pointer max-w-[8rem] sm:max-w-none ${SUPPLY_SALE_STATUS_COLORS[s.status]}`}
+                  data-sale-id={s.id}
+                  data-current={s.status}
+                  aria-label="Cambiar estado"
                 >
-                  {SUPPLY_SALE_STATUS_LABELS[s.status]}
-                </span>
+                  {SUPPLY_SALE_STATUS_VALUES.map((v) => (
+                    <option value={v} selected={v === s.status}>
+                      {SUPPLY_SALE_STATUS_LABELS[v]}
+                    </option>
+                  ))}
+                </select>
               </td>
-              <td class="px-2 sm:px-4 py-3 hidden sm:table-cell">
-                <span
-                  class={`inline-block text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded border ${
-                    s.is_paid
-                      ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                      : "bg-amber-100 text-amber-800 border-amber-300"
-                  }`}
-                >
-                  {s.is_paid ? "Pagado" : "Pendiente"}
-                </span>
+              <td class="px-2 sm:px-4 py-3 text-center align-middle hidden sm:table-cell">
+                <input
+                  type="checkbox"
+                  class="w-5 h-5 sm:w-4 sm:h-4 accent-emerald-600 cursor-pointer"
+                  checked={s.is_paid}
+                  data-paid-toggle
+                  data-sale-id={s.id}
+                  aria-label="Marcar como pagado"
+                />
               </td>
               <td class="px-2 sm:px-4 py-3 text-right font-mono text-gray-600 hidden md:table-cell whitespace-nowrap">
                 {fmtDate(s.sale_date)}
@@ -136,13 +143,109 @@ function fmtDate(d: string): string {
   )}
 </AdminLayout>
 
+<script
+  is:inline
+  type="application/json"
+  id="supply-sale-status-colors"
+  set:html={JSON.stringify(SUPPLY_SALE_STATUS_COLORS)}
+/>
+
 <script>
+  const colorsRaw =
+    document.getElementById("supply-sale-status-colors")?.textContent ?? "{}";
+  const STATUS_COLORS = JSON.parse(colorsRaw) as Record<string, string>;
+
+  // ─── Filas clickables (excepto sobre interactivos) ───
   document.querySelectorAll<HTMLElement>("[data-row-href]").forEach((row) => {
     row.addEventListener("click", (ev) => {
       const target = ev.target as HTMLElement;
-      if (target.closest("input, button, a, label")) return;
+      if (target.closest("input, button, a, label, select, option")) return;
       const href = row.dataset.rowHref;
       if (href) window.location.href = href;
     });
   });
+
+  // ─── Toggle pagado optimista ───
+  document.querySelectorAll<HTMLInputElement>("[data-paid-toggle]").forEach((cb) => {
+    cb.addEventListener("change", async (ev) => {
+      ev.stopPropagation();
+      const saleId = cb.dataset.saleId!;
+      const newValue = cb.checked;
+      cb.disabled = true;
+      try {
+        const res = await fetch(`/admin/api/supply_sales/${saleId}/paid`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ is_paid: newValue }),
+        });
+        const data = (await res.json()) as { ok: boolean; error?: string };
+        if (!res.ok || !data.ok) {
+          cb.checked = !newValue;
+          alert(data.error ?? "No se pudo cambiar el estado de pago.");
+        }
+      } catch {
+        cb.checked = !newValue;
+        alert("Error de red al cambiar el estado de pago.");
+      } finally {
+        cb.disabled = false;
+      }
+    });
+    cb.addEventListener("click", (ev) => ev.stopPropagation());
+  });
+
+  // ─── Inline select de estado ───
+  document
+    .querySelectorAll<HTMLSelectElement>(".status-inline-select")
+    .forEach((sel) => {
+      sel.addEventListener("click", (ev) => ev.stopPropagation());
+      sel.addEventListener("change", async (ev) => {
+        ev.stopPropagation();
+        const saleId = sel.dataset.saleId!;
+        const previous = sel.dataset.current!;
+        const newValue = sel.value;
+        if (newValue === previous) return;
+
+        if (
+          newValue === "cancelado" &&
+          !confirm("¿Marcar esta venta como cancelada?")
+        ) {
+          sel.value = previous;
+          return;
+        }
+
+        function applyClass(value: string) {
+          for (const v of Object.keys(STATUS_COLORS)) {
+            STATUS_COLORS[v].split(" ").forEach((c) => c && sel.classList.remove(c));
+          }
+          (STATUS_COLORS[value] ?? "")
+            .split(" ")
+            .forEach((c) => c && sel.classList.add(c));
+        }
+        applyClass(newValue);
+        sel.dataset.current = newValue;
+        sel.disabled = true;
+
+        try {
+          const res = await fetch(`/admin/api/supply_sales/${saleId}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: newValue }),
+          });
+          const data = (await res.json()) as { ok: boolean; error?: string };
+          if (!res.ok || !data.ok) {
+            sel.value = previous;
+            applyClass(previous);
+            sel.dataset.current = previous;
+            alert(data.error ?? "No se pudo actualizar.");
+          }
+        } catch {
+          sel.value = previous;
+          applyClass(previous);
+          sel.dataset.current = previous;
+          alert("Error de red.");
+        } finally {
+          sel.disabled = false;
+        }
+      });
+    });
 </script>
