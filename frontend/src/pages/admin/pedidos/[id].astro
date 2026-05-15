@@ -297,25 +297,20 @@ const recordForUndoJson = JSON.stringify({
 </AdminLayout>
 
 {/* ─── Save record to sessionStorage before delete (for undo) ─── */}
-<script id="record-json" type="application/json">{JSON.stringify(record)}</script>
-<script>
+<script define:vars={{ recordJson: recordForUndoJson }}>
   (function() {
-    const recordEl = document.getElementById("record-json");
-    if (!recordEl) return;
-    let recordData;
-    try { recordData = JSON.parse(recordEl.textContent || ""); } catch { return; }
+    var recordData = JSON.parse(recordJson);
 
     document.addEventListener("click", (e) => {
-      const target = e.target as HTMLElement | null;
+      const target = /** @type {HTMLElement|null} */ (e.target);
       if (!target) return;
       const btn = target.closest("button[name='action'][value='delete']");
       if (!btn) return;
-      // Save for undo before form submits (confirm handled globally)
       try {
         sessionStorage.setItem("lastDeleted", JSON.stringify({
           collection: "orders",
           data: recordData,
-          name: recordData.project_name || recordData.id,
+          name: recordData.project_name || "",
         }));
       } catch {}
     }, { capture: true });

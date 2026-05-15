@@ -182,12 +182,12 @@ const recordForUndoJson = JSON.stringify({
 </AdminLayout>
 
 {/* ─── Save record to sessionStorage before delete (for undo) ─── */}
-<script>
+<script define:vars={{ recordJson: recordForUndoJson }}>
   (function() {
-    var recordData = JSON.parse('{recordForUndoJson}');
+    var recordData = JSON.parse(recordJson);
 
     document.addEventListener("click", (e) => {
-      const target = e.target as HTMLElement | null;
+      const target = /** @type {HTMLElement|null} */ (e.target);
       if (!target) return;
       const btn = target.closest("button[name='action'][value='delete']");
       if (!btn) return;
