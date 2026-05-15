@@ -1,0 +1,188 @@
+---
+import {
+  APPLIES_TO_LABELS,
+  APPLIES_TO_VALUES,
+  TEMPLATE_BODY_MAX,
+  TEMPLATE_NAME_MAX,
+  type TemplateFormData,
+} from "../../lib/admin-templates";
+
+export interface Props {
+  values: Partial<TemplateFormData>;
+  errors?: Record<string, string>;
+  mode: "create" | "edit";
+  templateId?: string;
+}
+
+const { values, errors = {}, mode, templateId } = Astro.props;
+
+const fieldClass =
+  "mt-1 block w-full border-2 border-brand rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent disabled:bg-gray-100";
+const sectionClass =
+  "bg-white border-2 border-brand rounded-lg p-5 space-y-5 shadow-[4px_4px_0_var(--color-brand)]";
+
+function errorMsg(field: string) {
+  return errors[field];
+}
+
+// Placeholders disponibles — para el helper visual del editor.
+const PLACEHOLDERS: { key: string; desc: string; scope: string }[] = [
+  { key: "customer_name", desc: "Nombre del cliente", scope: "siempre" },
+  { key: "total", desc: "Total a pagar (ARS)", scope: "siempre" },
+  { key: "paid", desc: "Monto pagado (ARS)", scope: "siempre" },
+  { key: "saldo", desc: "Saldo pendiente (ARS)", scope: "siempre" },
+  { key: "delivery_date", desc: "Fecha de entrega", scope: "siempre" },
+  { key: "project_name", desc: "Nombre del proyecto", scope: "solo pedidos" },
+  { key: "order_number", desc: "Numero de pedido", scope: "solo pedidos" },
+  { key: "material", desc: "Material (PLA, ABS, etc)", scope: "solo pedidos" },
+  { key: "units_ordered", desc: "Unidades pedidas", scope: "solo pedidos" },
+  { key: "item_name", desc: "Nombre del insumo", scope: "solo insumos" },
+  { key: "quantity", desc: "Cantidad vendida", scope: "solo insumos" },
+  { key: "color", desc: "Color (insumo o pedido)", scope: "ambos" },
+];
+---
+
+<form method="POST" class="space-y-5">
+  {errors._global && (
+    <div class="border-2 border-red-500 bg-red-50 text-red-800 px-3 py-2 rounded-md text-sm">
+      {errors._global}
+    </div>
+  )}
+
+  <section class={sectionClass}>
+    <h2 class="font-display text-lg border-b-2 border-brand/20 pb-2">Mensaje</h2>
+
+    <label class="block">
+      <span class="text-sm font-medium">Nombre *</span>
+      <input
+        type="text"
+        name="name"
+        required
+        maxlength={TEMPLATE_NAME_MAX}
+        value={values.name ?? ""}
+        placeholder="Ej: Pedido listo para retirar"
+        class={fieldClass}
+      />
+      {errorMsg("name") && (
+        <p class="text-xs text-red-600 mt-1">{errorMsg("name")}</p>
+      )}
+    </label>
+
+    <div>
+      <span class="text-sm font-medium block mb-2">Aplica a *</span>
+      <div class="flex gap-2 flex-wrap">
+        {APPLIES_TO_VALUES.map((v) => (
+          <label class="cursor-pointer">
+            <input
+              type="radio"
+              name="applies_to"
+              value={v}
+              checked={(values.applies_to ?? "any") === v}
+              class="sr-only peer"
+            />
+            <span class="inline-block px-4 py-2 border-2 rounded-md text-sm font-medium transition-colors border-brand/30 text-brand peer-checked:bg-brand peer-checked:text-white peer-checked:border-brand hover:border-brand">
+              {APPLIES_TO_LABELS[v]}
+            </span>
+          </label>
+        ))}
+      </div>
+      {errorMsg("applies_to") && (
+        <p class="text-xs text-red-600 mt-1">{errorMsg("applies_to")}</p>
+      )}
+    </div>
+
+    <label class="block">
+      <span class="text-sm font-medium">Cuerpo del mensaje *</span>
+      <textarea
+        name="body"
+        required
+        rows="6"
+        maxlength={TEMPLATE_BODY_MAX}
+        class={fieldClass + " font-mono text-sm"}
+        placeholder="Hola {{customer_name}}, tu pedido {{project_name}} ya esta listo."
+      >{values.body ?? ""}</textarea>
+      {errorMsg("body") && (
+        <p class="text-xs text-red-600 mt-1">{errorMsg("body")}</p>
+      )}
+    </label>
+
+    {/* Helper de placeholders */}
+    <details class="bg-surface border-2 border-brand/20 rounded-md">
+      <summary class="cursor-pointer px-3 py-2 text-sm font-medium select-none">
+        Placeholders disponibles
+      </summary>
+      <div class="px-3 py-3 border-t-2 border-brand/10">
+        <p class="text-xs text-gray-600 mb-2">
+          Click en cualquiera para copiarlo al portapapeles, después pegalo en el cuerpo del mensaje.
+        </p>
+        <ul class="space-y-1 text-sm">
+          {PLACEHOLDERS.map((p) => (
+            <li>
+              <button
+                type="button"
+                data-placeholder={`{{${p.key}}}`}
+                class="font-mono text-xs bg-white border border-brand/30 rounded px-2 py-0.5 hover:bg-brand hover:text-white transition-colors cursor-pointer"
+              >
+                {`{{${p.key}}}`}
+              </button>
+              <span class="text-xs text-gray-600 ml-2">
+                {p.desc} <span class="text-gray-400">— {p.scope}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <a
+      href="/admin/mensajes"
+      class="text-sm text-gray-600 hover:text-brand underline-offset-4 hover:underline"
+    >
+      ← Volver al listado
+    </a>
+
+    <div class="flex items-center gap-3">
+      {mode === "edit" && templateId && (
+        <button
+          type="submit"
+          name="action"
+          value="delete"
+          formnovalidate
+          data-confirm="¿Seguro que querés borrar este mensaje?"
+          class="px-4 py-2 border-2 border-red-600 text-red-600 rounded-md hover:bg-red-600 hover:text-white transition-colors text-sm font-medium"
+        >
+          Eliminar
+        </button>
+      )}
+      <button
+        type="submit"
+        name="action"
+        value="save"
+        class="px-5 py-2.5 bg-accent text-white rounded-md hover:bg-accent-hover transition-colors font-medium"
+      >
+        {mode === "create" ? "Crear mensaje" : "Guardar cambios"}
+      </button>
+    </div>
+  </div>
+</form>
+
+<script>
+  // Copiar placeholder al clipboard al hacer click
+  document.querySelectorAll<HTMLButtonElement>("[data-placeholder]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const text = btn.dataset.placeholder ?? "";
+      try {
+        await navigator.clipboard.writeText(text);
+        const original = btn.textContent;
+        btn.textContent = "✓ Copiado";
+        setTimeout(() => {
+          btn.textContent = original;
+        }, 1500);
+      } catch {
+        // Fallback: nada que hacer si clipboard API no esta disponible
+      }
+    });
+  });
+</script>
