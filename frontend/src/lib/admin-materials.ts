@@ -9,6 +9,7 @@ export type MaterialFormData = {
   kind: MaterialKind;
   cost_price: number;
   sell_price: number;
+  colors?: string;
   active: boolean;
 };
 

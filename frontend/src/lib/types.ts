@@ -268,6 +268,8 @@ export interface MaterialPrice {
   cost_price: number;
   /** Lo que cobrás al cliente. Filament: $/kg. Component: $/u. */
   sell_price: number;
+  /** Colores disponibles, separados por coma. Ej: "negro, blanco". */
+  colors?: string;
   active: boolean;
   created: string;
   updated: string;
@@ -346,6 +348,8 @@ export interface SupplySale {
   unit_price: number;
   status: SupplySaleStatus;
   is_paid: boolean;
+  /** Color del insumo vendido, si el material tiene colores. */
+  color?: string;
   sale_date: string;
   delivery_date: string;
   notes: string;

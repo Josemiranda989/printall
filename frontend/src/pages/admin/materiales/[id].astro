@@ -24,6 +24,7 @@ let values: Partial<MaterialFormData> = {
   kind: record.kind,
   cost_price: record.cost_price,
   sell_price: record.sell_price,
+  colors: record.colors ?? "",
   active: record.active,
 };
 let errors: Record<string, string> = {};
@@ -52,6 +53,7 @@ if (Astro.request.method === "POST") {
           kind: result.data.kind,
           cost_price: result.data.cost_price,
           sell_price: result.data.sell_price,
+          colors: result.data.colors,
           active: result.data.active,
         });
         return Astro.redirect("/admin/materiales");

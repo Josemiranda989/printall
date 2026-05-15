@@ -78,6 +78,7 @@ const currentStatus = values.status ?? "reservado";
             value={m.id}
             selected={values.item === m.id}
             data-sell-price={m.sell_price}
+            data-colors={m.colors || ""}
           >
             {m.name}
           </option>
@@ -90,6 +91,22 @@ const currentStatus = values.status ?? "reservado";
       {errorMsg("item") && (
         <p class="text-xs text-red-600 mt-1">{errorMsg("item")}</p>
       )}
+    </label>
+
+    <label class="block" id="color-field" class:list={["hidden", !values.color]}>
+      <span class="text-sm font-medium">Color</span>
+      <input
+        type="text"
+        name="color"
+        maxlength={100}
+        value={values.color ?? ""}
+        placeholder="Ej: blanco, negro"
+        data-color-input
+        class={fieldClass}
+      />
+      <p class="text-xs text-gray-500 mt-1">
+        Solo si el insumo tiene variantes de color.
+      </p>
     </label>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -248,41 +265,47 @@ const currentStatus = values.status ?? "reservado";
 </form>
 
 <script>
-  const itemEl = document.querySelector<HTMLSelectElement>("[data-item-select]");
-  const qtyEl = document.querySelector<HTMLInputElement>("[data-quantity]");
-  const priceEl = document.querySelector<HTMLInputElement>("[data-unit-price]");
-  const totalEl = document.querySelector<HTMLElement>("[data-total-display]");
-
-  // Total en vivo: cantidad × precio unitario.
+  // Auto-fill unit price from selected material
+  const itemSelect = document.querySelector<HTMLSelectElement>("[data-item-select]");
+  const priceInput = document.querySelector<HTMLInputElement>("[data-unit-price]");
+  const totalDisplay = document.querySelector<HTMLElement>("[data-total-display]");
+  const quantityInput = document.querySelector<HTMLInputElement>("[data-quantity]");
+  const colorField = document.getElementById("color-field");
+  const colorInput = document.querySelector<HTMLInputElement>("[data-color-input]");
+  
   function updateTotal() {
-    if (!qtyEl || !priceEl || !totalEl) return;
-    const qty = Number(qtyEl.value);
-    const price = Number(priceEl.value);
-    if (!Number.isFinite(qty) || !Number.isFinite(price)) {
-      totalEl.textContent = "—";
-      return;
-    }
-    totalEl.textContent = "$" + Math.round(qty * price).toLocaleString("es-AR");
+    if (!totalDisplay) return;
+    const qty = Number(quantityInput?.value) || 0;
+    const price = Number(priceInput?.value) || 0;
+    totalDisplay.textContent = "$" + (qty * price).toLocaleString("es-AR");
   }
-
-  // Autocompletar precio unitario al elegir un insumo (sugerido, editable).
-  itemEl?.addEventListener("change", () => {
-    const opt = itemEl.selectedOptions[0];
-    const sell = Number(opt?.dataset.sellPrice);
-    if (priceEl && Number.isFinite(sell)) {
-      priceEl.value = String(sell);
-      updateTotal();
+  
+  quantityInput?.addEventListener("input", updateTotal);
+  priceInput?.addEventListener("input", updateTotal);
+  
+  itemSelect?.addEventListener("change", () => {
+    const option = itemSelect.selectedOptions[0];
+    if (option) {
+      const sellPrice = option.dataset.sellPrice;
+      if (sellPrice && priceInput) {
+        priceInput.value = sellPrice;
+      }
+      // Show/hide color field
+      const colors = option.dataset.colors || "";
+      if (colorField) {
+        colorField.classList.toggle("hidden", !colors);
+        if (!colors && colorInput) colorInput.value = "";
+      }
     }
+    updateTotal();
   });
-
-  qtyEl?.addEventListener("input", updateTotal);
-  priceEl?.addEventListener("input", updateTotal);
+  
+  // Initial state: show color field if material already has colors
+  if (itemSelect && colorField) {
+    const selected = itemSelect.selectedOptions[0];
+    const colors = selected?.dataset.colors || "";
+    colorField.classList.toggle("hidden", !colors);
+  }
+  
   updateTotal();
-
-  document.querySelectorAll<HTMLButtonElement>("[data-confirm]").forEach((btn) => {
-    btn.addEventListener("click", (ev) => {
-      const msg = btn.dataset.confirm ?? "¿Confirmás?";
-      if (!confirm(msg)) ev.preventDefault();
-    });
-  });
 </script>
