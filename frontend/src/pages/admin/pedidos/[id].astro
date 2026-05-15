@@ -150,6 +150,35 @@ if (showCobrarBlock) {
     `Hola! El saldo de ${record.project_name} es ${balanceFmt}. ` +
     `¡Gracias! Alias: ${bnaAlias}`;
 }
+
+// ─── Bloque "Datos para copiar" ─────────────────────────────────────
+// Siempre visible, colapsable. Texto plano con los datos clave del pedido.
+const orderTotal = record.unit_price * record.units_ordered;
+const priceFmt3 = (n: number) => "$" + n.toLocaleString("es-AR");
+const paidAmount = record.paid_amount ?? 0;
+const priorityLabel = record.priority.charAt(0).toUpperCase() + record.priority.slice(1);
+const statusLabel3 = record.status.charAt(0).toUpperCase() + record.status.slice(1);
+const dateFmt3 = (s: string) => {
+  if (!s) return "—";
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
+};
+const colorInfo3 = record.color ? ` / ${record.color}` : "";
+
+const copyData = [
+  `🧾 Pedido: ${record.project_name}`,
+  ``,
+  `Cliente: ${record.customer_name}`,
+  `WhatsApp: ${record.customer_whatsapp || "—"}`,
+  `Material: ${record.material || "—"}${colorInfo3}`,
+  `Cantidad: ${record.units_ordered} x ${priceFmt3(record.unit_price)}`,
+  `Estado: ${statusLabel3}  |  Prioridad: ${priorityLabel}`,
+  `Pagado: ${priceFmt3(paidAmount)} de ${priceFmt3(orderTotal)}`,
+  `Pedido: ${dateFmt3(record.order_date)}`,
+  `Entrega: ${dateFmt3(record.delivery_date)}`,
+  record.notes ? `Notas: ${record.notes}` : "",
+].filter(Boolean).join("\n");
 ---
 
 <AdminLayout title={`Pedido ${record.order_number || record.id}`}>
@@ -229,6 +258,26 @@ if (showCobrarBlock) {
     ></div>
   </section>
 
+  {/* ─── Datos para copiar (siempre visible, colapsable) ─── */}
+  <details class="bg-white border-2 border-brand rounded-lg mb-5 overflow-hidden">
+    <summary class="cursor-pointer px-4 py-3 font-medium text-sm hover:bg-surface/50 select-none">
+      📋 Datos para copiar
+    </summary>
+    <div class="border-t-2 border-brand/10 p-4">
+      <div class="flex justify-end mb-2">
+        <button
+          type="button"
+          data-copy-details
+          data-copy-text={copyData}
+          class="inline-flex items-center gap-2 px-3 py-1.5 bg-brand text-white rounded-md text-xs font-medium hover:bg-accent transition-colors disabled:opacity-70"
+        >
+          <span data-copy-details-label>Copiar</span>
+        </button>
+      </div>
+      <pre class="bg-surface/50 border-2 border-brand/10 rounded-md p-3 text-xs font-mono whitespace-pre-wrap break-words select-all max-h-96 overflow-auto">{copyData}</pre>
+    </div>
+  </details>
+
   {/* ─── Datos para cobrar (solo si hay saldo pendiente y BNA configurado) ─── */}
   {showCobrarBlock && (
     <section class="bg-amber-50 border-2 border-amber-500 rounded-lg p-4 sm:p-5 mb-5 shadow-[4px_4px_0_var(--color-brand)]">
@@ -275,6 +324,31 @@ if (showCobrarBlock) {
 </AdminLayout>
 
 <script>
+  // ─── Copy datos para copiar ───
+  function initCopyDetails() {
+    const btn = document.querySelector<HTMLButtonElement>("[data-copy-details]");
+    const label = document.querySelector<HTMLElement>("[data-copy-details-label]");
+    if (!btn || !label) return;
+    const text = btn.dataset.copyText ?? "";
+    const original = label.textContent;
+    btn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(text);
+        label.textContent = "✓ Copiado";
+        btn.disabled = true;
+        setTimeout(() => {
+          label.textContent = original;
+          btn.disabled = false;
+        }, 1800);
+      } catch {
+        label.textContent = "Falló — copiá a mano";
+        setTimeout(() => {
+          label.textContent = original;
+        }, 2500);
+      }
+    });
+  }
+
   // ─── Copy mensaje completo al portapapeles ───
   function initCopyMessage() {
     const btn = document.querySelector<HTMLButtonElement>("[data-copy-message]");
@@ -366,10 +440,12 @@ if (showCobrarBlock) {
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
       init();
+      initCopyDetails();
       initCopyMessage();
     });
   } else {
     init();
+    initCopyDetails();
     initCopyMessage();
   }
 </script>
