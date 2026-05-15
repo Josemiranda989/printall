@@ -5,8 +5,10 @@ import OrderStatusBadge from "../../../components/admin/OrderStatusBadge.astro";
 import OrderPriorityBadge from "../../../components/admin/OrderPriorityBadge.astro";
 import OrderStatusButtons from "../../../components/admin/OrderStatusButtons.astro";
 import OrderProgressBar from "../../../components/admin/OrderProgressBar.astro";
+import WhatsAppTemplateMenu from "../../../components/admin/WhatsAppTemplateMenu.astro";
 import { extractOrderFromForm, type OrderFormData } from "../../../lib/admin-orders";
 import { fetchClientsForAutocomplete } from "../../../lib/admin-clients";
+import { fetchTemplatesFor, getOrderContext } from "../../../lib/admin-templates";
 import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
 import { orderBalanceDue, type Order } from "../../../lib/types";
 
@@ -21,7 +23,12 @@ try {
   return new Response("Pedido no encontrado", { status: 404 });
 }
 
-const clients = await fetchClientsForAutocomplete(pb);
+const [clients, templates] = await Promise.all([
+  fetchClientsForAutocomplete(pb),
+  fetchTemplatesFor(pb, "order"),
+]);
+
+const templateContext = getOrderContext(record);
 
 let values: Partial<OrderFormData> = {
   project_name: record.project_name,
@@ -296,6 +303,15 @@ const recordForUndoJson = JSON.stringify({
       </div>
     </details>
   )}
+
+  {/* ─── Mensajes de WhatsApp ─── */}
+  <div class="mb-5">
+    <WhatsAppTemplateMenu
+      templates={templates}
+      context={templateContext}
+      customerWhatsapp={record.customer_whatsapp ?? ""}
+    />
+  </div>
 
   {/* ─── Form principal ─── */}
   <OrderForm values={values} errors={errors} mode="edit" orderId={id} clients={clients} />

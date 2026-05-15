@@ -1,0 +1,73 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import TemplateForm from "../../../components/admin/TemplateForm.astro";
+import {
+  extractTemplateFromForm,
+  fetchTemplateById,
+  type TemplateFormData,
+} from "../../../lib/admin-templates";
+import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
+
+const pb = Astro.locals.adminPB!;
+const { id } = Astro.params;
+if (!id) return Astro.redirect("/admin/mensajes");
+
+const record = await fetchTemplateById(pb, id);
+if (!record) {
+  return new Response("Mensaje no encontrado", { status: 404 });
+}
+
+let values: Partial<TemplateFormData> = {
+  name: record.name,
+  body: record.body,
+  applies_to: record.applies_to,
+};
+let errors: Record<string, string> = {};
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const action = String(form.get("action") ?? "save");
+
+  if (action === "delete") {
+    try {
+      await pb.collection("whatsapp_templates").delete(id);
+      const toastName = encodeURIComponent(record.name || "mensaje");
+      return Astro.redirect(
+        `/admin/mensajes?toast=deleted&name=${toastName}&collection=whatsapp_templates`,
+      );
+    } catch (err: unknown) {
+      errors = mapPBErrorToFieldErrors(err, "generic");
+      if (!errors._global) errors._global = "No se pudo eliminar el mensaje.";
+    }
+  } else {
+    const result = extractTemplateFromForm(form);
+    values = result.data;
+    errors = result.errors;
+
+    if (Object.keys(errors).length === 0) {
+      try {
+        await pb.collection("whatsapp_templates").update(id, {
+          name: result.data.name,
+          body: result.data.body,
+          applies_to: result.data.applies_to,
+        });
+        const toastName = encodeURIComponent(result.data.name || "mensaje");
+        return Astro.redirect(
+          `/admin/mensajes/${id}?toast=saved&name=${toastName}&collection=whatsapp_templates`,
+        );
+      } catch (err: unknown) {
+        errors = { ...errors, ...mapPBErrorToFieldErrors(err, "generic") };
+      }
+    }
+  }
+}
+---
+
+<AdminLayout title={`Mensaje: ${record.name}`}>
+  <div class="mb-5">
+    <h1 class="font-display text-2xl sm:text-3xl break-words">{record.name}</h1>
+    <p class="text-xs sm:text-sm text-gray-600 mt-1 font-mono">id: {id}</p>
+  </div>
+
+  <TemplateForm values={values} errors={errors} mode="edit" templateId={id} />
+</AdminLayout>

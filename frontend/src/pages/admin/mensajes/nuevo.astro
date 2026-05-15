@@ -1,0 +1,52 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import TemplateForm from "../../../components/admin/TemplateForm.astro";
+import {
+  extractTemplateFromForm,
+  type TemplateFormData,
+} from "../../../lib/admin-templates";
+import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
+
+const pb = Astro.locals.adminPB!;
+
+let values: Partial<TemplateFormData> = {
+  name: "",
+  body: "",
+  applies_to: "any",
+};
+let errors: Record<string, string> = {};
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const result = extractTemplateFromForm(form);
+  values = result.data;
+  errors = result.errors;
+
+  if (Object.keys(errors).length === 0) {
+    try {
+      const created = await pb.collection("whatsapp_templates").create({
+        name: result.data.name,
+        body: result.data.body,
+        applies_to: result.data.applies_to,
+      });
+      const toastName = encodeURIComponent(result.data.name || "mensaje");
+      return Astro.redirect(
+        `/admin/mensajes/${created.id}?toast=created&name=${toastName}&collection=whatsapp_templates`,
+      );
+    } catch (err: unknown) {
+      errors = { ...errors, ...mapPBErrorToFieldErrors(err, "generic") };
+    }
+  }
+}
+---
+
+<AdminLayout title="Nuevo mensaje">
+  <div class="mb-5">
+    <h1 class="font-display text-2xl sm:text-3xl">Nuevo mensaje</h1>
+    <p class="text-xs sm:text-sm text-gray-600 mt-1">
+      Una plantilla reutilizable de WhatsApp. Usá placeholders entre dobles llaves para insertar datos del pedido/cliente.
+    </p>
+  </div>
+
+  <TemplateForm values={values} errors={errors} mode="create" />
+</AdminLayout>
