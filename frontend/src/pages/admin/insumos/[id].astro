@@ -1,0 +1,101 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import SupplySaleForm from "../../../components/admin/SupplySaleForm.astro";
+import {
+  extractSupplySaleFromForm,
+  type SupplySaleFormData,
+} from "../../../lib/admin-supply-sales";
+import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
+import type { MaterialPrice, SupplySale } from "../../../lib/types";
+
+const pb = Astro.locals.adminPB!;
+const { id } = Astro.params;
+if (!id) return Astro.redirect("/admin/insumos");
+
+let record: SupplySale;
+try {
+  record = (await pb
+    .collection("supply_sales")
+    .getOne(id)) as unknown as SupplySale;
+} catch {
+  return new Response("Venta no encontrada", { status: 404 });
+}
+
+const materials = (await pb.collection("materials").getFullList({
+  filter: "active = true",
+  sort: "name",
+  batch: 200,
+})) as unknown as MaterialPrice[];
+
+let values: Partial<SupplySaleFormData> = {
+  customer_name: record.customer_name,
+  customer_whatsapp: record.customer_whatsapp,
+  item: record.item,
+  quantity: record.quantity,
+  unit_price: record.unit_price,
+  status: record.status,
+  is_paid: record.is_paid,
+  sale_date: record.sale_date ? record.sale_date.slice(0, 10) : "",
+  delivery_date: record.delivery_date ? record.delivery_date.slice(0, 10) : "",
+  notes: record.notes,
+};
+let errors: Record<string, string> = {};
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const action = String(form.get("action") ?? "save");
+
+  if (action === "delete") {
+    try {
+      await pb.collection("supply_sales").delete(id);
+      return Astro.redirect("/admin/insumos");
+    } catch (err: unknown) {
+      errors = mapPBErrorToFieldErrors(err, "generic");
+      if (!errors._global) errors._global = "No se pudo eliminar la venta.";
+    }
+  } else {
+    const result = extractSupplySaleFromForm(form);
+    values = result.data;
+    errors = result.errors;
+
+    if (Object.keys(errors).length === 0) {
+      try {
+        await pb.collection("supply_sales").update(id, {
+          customer_name: result.data.customer_name,
+          customer_whatsapp: result.data.customer_whatsapp,
+          item: result.data.item,
+          quantity: result.data.quantity,
+          unit_price: result.data.unit_price,
+          status: result.data.status,
+          is_paid: result.data.is_paid,
+          sale_date: result.data.sale_date,
+          delivery_date: result.data.delivery_date,
+          notes: result.data.notes,
+        });
+        return Astro.redirect("/admin/insumos");
+      } catch (err: unknown) {
+        errors = { ...errors, ...mapPBErrorToFieldErrors(err, "generic") };
+      }
+    }
+  }
+}
+---
+
+<AdminLayout title={`Venta: ${record.customer_name}`}>
+  <div class="mb-6">
+    <h1 class="font-display text-2xl sm:text-3xl break-words">
+      Venta a {record.customer_name}
+    </h1>
+    <p class="text-xs sm:text-sm text-gray-600 mt-1 font-mono break-all">
+      id: {id}
+    </p>
+  </div>
+
+  <SupplySaleForm
+    values={values}
+    errors={errors}
+    mode="edit"
+    saleId={id}
+    materials={materials}
+  />
+</AdminLayout>

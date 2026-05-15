@@ -1,0 +1,72 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import SupplySaleForm from "../../../components/admin/SupplySaleForm.astro";
+import {
+  extractSupplySaleFromForm,
+  type SupplySaleFormData,
+} from "../../../lib/admin-supply-sales";
+import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
+import type { MaterialPrice } from "../../../lib/types";
+
+const pb = Astro.locals.adminPB!;
+
+const materials = (await pb.collection("materials").getFullList({
+  filter: "active = true",
+  sort: "name",
+  batch: 200,
+})) as unknown as MaterialPrice[];
+
+const today = new Date().toLocaleDateString("en-CA");
+
+let values: Partial<SupplySaleFormData> = {
+  quantity: 1,
+  unit_price: 0,
+  status: "reservado",
+  is_paid: false,
+  sale_date: today,
+};
+let errors: Record<string, string> = {};
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const result = extractSupplySaleFromForm(form);
+  values = result.data;
+  errors = result.errors;
+
+  if (Object.keys(errors).length === 0) {
+    try {
+      await pb.collection("supply_sales").create({
+        customer_name: result.data.customer_name,
+        customer_whatsapp: result.data.customer_whatsapp,
+        item: result.data.item,
+        quantity: result.data.quantity,
+        unit_price: result.data.unit_price,
+        status: result.data.status,
+        is_paid: result.data.is_paid,
+        sale_date: result.data.sale_date,
+        delivery_date: result.data.delivery_date,
+        notes: result.data.notes,
+      });
+      return Astro.redirect("/admin/insumos");
+    } catch (err: unknown) {
+      errors = { ...errors, ...mapPBErrorToFieldErrors(err, "generic") };
+    }
+  }
+}
+---
+
+<AdminLayout title="Nueva venta de insumo">
+  <div class="mb-6">
+    <h1 class="font-display text-2xl sm:text-3xl">Nueva venta de insumo</h1>
+    <p class="text-xs sm:text-sm text-gray-600 mt-1">
+      Registrá la venta de un filamento, adhesivo, accesorio u otro insumo.
+    </p>
+  </div>
+
+  <SupplySaleForm
+    values={values}
+    errors={errors}
+    mode="create"
+    materials={materials}
+  />
+</AdminLayout>

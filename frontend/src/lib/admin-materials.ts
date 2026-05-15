@@ -52,7 +52,7 @@ export function extractMaterialFromForm(form: FormData): ExtractMaterialResult {
 
   let kind: MaterialKind = "filament";
   if (!kindRaw) {
-    errors.kind = "Elegí un tipo (filamento o componente).";
+    errors.kind = "Elegí un tipo de material.";
   } else if (!VALID_KIND.has(kindRaw)) {
     errors.kind = "Tipo inválido.";
   } else {

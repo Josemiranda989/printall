@@ -73,7 +73,8 @@ const currentKind = values.kind ?? "filament";
       </div>
       <p class="text-xs text-gray-500 mt-1">
         <strong>Filamento</strong>: la calculadora usa <strong>costo/kg × multiplicador del proceso</strong> por gramos impresos.
-        <strong>Componente</strong>: la calculadora suma <strong>cantidad × precio venta</strong> directo (argollas, vasos, pegamento, bolsas, etc).
+        <strong>Componente</strong>: la calculadora suma <strong>cantidad × precio venta</strong> directo.
+        <strong>Adhesivo</strong> y <strong>Accesorio</strong>: no entran en la calculadora; se venden como insumos sueltos.
       </p>
       {errorMsg("kind") && <p class="text-xs text-red-600 mt-1">{errorMsg("kind")}</p>}
     </div>
@@ -170,6 +171,8 @@ const currentKind = values.kind ?? "filament";
   const KIND_UNIT: Record<string, string> = {
     filament: "$/kg",
     component: "$/u",
+    adhesive: "$/u",
+    accessory: "$/u",
   };
 
   // Update unit labels (cost + sell) cuando cambia kind
