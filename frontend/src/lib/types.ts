@@ -258,7 +258,7 @@ export const COLOR_HEX: Record<Color, string> = {
 
 // ─── MATERIALS (calculadora de costos) ────────────────────────────────────
 
-export type MaterialKind = "filament" | "component";
+export type MaterialKind = "filament" | "component" | "adhesive" | "accessory";
 
 export interface MaterialPrice {
   id: string;
@@ -282,16 +282,22 @@ export function materialMargin(m: Pick<MaterialPrice, "cost_price" | "sell_price
 export const MATERIAL_KIND_VALUES: readonly MaterialKind[] = [
   "filament",
   "component",
+  "adhesive",
+  "accessory",
 ] as const;
 
 export const MATERIAL_KIND_LABELS: Record<MaterialKind, string> = {
   filament: "Filamento",
   component: "Componente",
+  adhesive: "Adhesivo",
+  accessory: "Accesorio",
 };
 
 export const MATERIAL_KIND_UNIT: Record<MaterialKind, string> = {
   filament: "$/kg",
   component: "$/u",
+  adhesive: "$/u",
+  accessory: "$/u",
 };
 
 /**
@@ -324,3 +330,73 @@ export function componentCost(material: Pick<MaterialPrice, "sell_price">, qty: 
 
 /** Default del multiplicador del proceso (errores + luz + tiempo + desgaste). */
 export const DEFAULT_PROCESS_MULTIPLIER = 5;
+
+// ─── SUPPLY SALES (ventas de insumos) ─────────────────────────────────────
+
+export type SupplySaleStatus = "reservado" | "entregado" | "cancelado";
+
+export interface SupplySale {
+  id: string;
+  customer_name: string;
+  customer_whatsapp: string;
+  /** Relación a `materials`. */
+  item: string;
+  quantity: number;
+  /** Foto del precio al momento de la venta — no se deriva de sell_price. */
+  unit_price: number;
+  status: SupplySaleStatus;
+  is_paid: boolean;
+  sale_date: string;
+  delivery_date: string;
+  notes: string;
+  created: string;
+  updated: string;
+}
+
+export interface SupplySaleWithItem extends SupplySale {
+  expand: {
+    item: MaterialPrice;
+  };
+}
+
+/** Total de la venta: cantidad × precio unitario. */
+export function supplySaleTotal(
+  s: Pick<SupplySale, "unit_price" | "quantity">,
+): number {
+  return (s.unit_price ?? 0) * (s.quantity ?? 0);
+}
+
+export const SUPPLY_SALE_STATUS_VALUES: readonly SupplySaleStatus[] = [
+  "reservado",
+  "entregado",
+  "cancelado",
+] as const;
+
+export const SUPPLY_SALE_STATUS_LABELS: Record<SupplySaleStatus, string> = {
+  reservado: "Reservado",
+  entregado: "Entregado",
+  cancelado: "Cancelado",
+};
+
+export const SUPPLY_SALE_STATUS_COLORS: Record<SupplySaleStatus, string> = {
+  reservado: "bg-amber-100 text-amber-800 border-amber-300",
+  entregado: "bg-emerald-100 text-emerald-800 border-emerald-300",
+  cancelado: "bg-gray-100 text-gray-600 border-gray-300",
+};
+
+// ─── SALES LEDGER (reporting unificado) ───────────────────────────────────
+
+export type SalesLedgerTipo = "impresion" | "insumo";
+
+export interface SalesLedgerEntry {
+  /** Id del record de origen (orders o supply_sales). */
+  id: string;
+  tipo: SalesLedgerTipo;
+  /** project_name para impresiones, materials.name para insumos. */
+  concepto: string;
+  customer_name: string;
+  total: number;
+  is_paid: boolean;
+  /** order_date para impresiones, sale_date para insumos. */
+  fecha: string;
+}

@@ -31,13 +31,14 @@ const admin = Astro.locals.admin;
           </a>
 
           <!-- Desktop nav -->
-          <nav class="hidden sm:flex items-center gap-4 text-sm">
+          <nav class="hidden lg:flex items-center gap-4 text-sm">
             <a href="/admin" class="hover:text-accent transition-colors">Dashboard</a>
             <a href="/admin/pedidos" class="hover:text-accent transition-colors">Pedidos</a>
             <a href="/admin/productos" class="hover:text-accent transition-colors">Productos</a>
             <a href="/admin/categorias" class="hover:text-accent transition-colors">Categorías</a>
             <a href="/admin/calculadora" class="hover:text-accent transition-colors">Calculadora</a>
             <a href="/admin/materiales" class="hover:text-accent transition-colors">Materiales</a>
+            <a href="/admin/insumos" class="hover:text-accent transition-colors">Insumos</a>
             <span class="text-gray-400">|</span>
             <span class="text-gray-600">{admin.email}</span>
             <form method="POST" action="/admin/logout">
@@ -54,7 +55,7 @@ const admin = Astro.locals.admin;
           <button
             type="button"
             id="admin-nav-toggle"
-            class="sm:hidden inline-flex items-center justify-center w-10 h-10 border-2 border-brand rounded-md text-brand"
+            class="lg:hidden inline-flex items-center justify-center w-10 h-10 border-2 border-brand rounded-md text-brand"
             aria-label="Abrir menú"
             aria-expanded="false"
             aria-controls="admin-nav-mobile"
@@ -68,7 +69,7 @@ const admin = Astro.locals.admin;
         <!-- Mobile nav panel -->
         <nav
           id="admin-nav-mobile"
-          class="hidden sm:hidden border-t-2 border-brand bg-white"
+          class="hidden lg:hidden border-t-2 border-brand bg-white"
         >
           <div class="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-2 text-sm">
             <a href="/admin" class="py-2 px-2 rounded hover:bg-surface transition-colors font-medium">Dashboard</a>
@@ -77,6 +78,7 @@ const admin = Astro.locals.admin;
             <a href="/admin/categorias" class="py-2 px-2 rounded hover:bg-surface transition-colors font-medium">Categorías</a>
             <a href="/admin/calculadora" class="py-2 px-2 rounded hover:bg-surface transition-colors font-medium">Calculadora</a>
             <a href="/admin/materiales" class="py-2 px-2 rounded hover:bg-surface transition-colors font-medium">Materiales</a>
+            <a href="/admin/insumos" class="py-2 px-2 rounded hover:bg-surface transition-colors font-medium">Insumos</a>
             <div class="border-t border-brand/20 pt-2 mt-1 flex items-center justify-between gap-3">
               <span class="text-gray-600 text-xs truncate">{admin.email}</span>
               <form method="POST" action="/admin/logout">

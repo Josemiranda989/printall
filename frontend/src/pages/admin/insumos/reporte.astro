@@ -1,0 +1,165 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import { getSalesLedger } from "../../../lib/sales-ledger";
+
+const pb = Astro.locals.adminPB!;
+
+const url = new URL(Astro.request.url);
+const from = url.searchParams.get("from") ?? "";
+const to = url.searchParams.get("to") ?? "";
+
+const entries = await getSalesLedger(pb, {
+  from: from || undefined,
+  to: to || undefined,
+});
+
+const totalGeneral = entries.reduce((acc, e) => acc + e.total, 0);
+const totalImpresiones = entries
+  .filter((e) => e.tipo === "impresion")
+  .reduce((acc, e) => acc + e.total, 0);
+const totalInsumos = entries
+  .filter((e) => e.tipo === "insumo")
+  .reduce((acc, e) => acc + e.total, 0);
+const totalCobrado = entries
+  .filter((e) => e.is_paid)
+  .reduce((acc, e) => acc + e.total, 0);
+const totalPorCobrar = totalGeneral - totalCobrado;
+
+function fmtMoney(n: number): string {
+  return "$" + Math.round(n).toLocaleString("es-AR");
+}
+
+const fieldClass =
+  "mt-1 block w-full border-2 border-brand rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent";
+---
+
+<AdminLayout title="Reporte de ventas">
+  <div class="flex items-center justify-between gap-3 mb-5 flex-wrap">
+    <div class="min-w-0">
+      <h1 class="font-display text-2xl sm:text-3xl">Reporte de ventas</h1>
+      <p class="text-xs sm:text-sm text-gray-600 mt-1">
+        Impresiones e insumos unificados. Excluye ventas canceladas.
+      </p>
+    </div>
+    <a
+      href="/admin/insumos"
+      class="text-sm text-gray-600 hover:text-brand underline-offset-4 hover:underline shrink-0"
+    >
+      ← Volver a insumos
+    </a>
+  </div>
+
+  <form
+    method="GET"
+    class="bg-white border-2 border-brand rounded-lg p-4 mb-5 shadow-[4px_4px_0_var(--color-brand)]"
+  >
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+      <label class="block">
+        <span class="text-sm font-medium">Desde</span>
+        <input type="date" name="from" value={from} class={fieldClass} />
+      </label>
+      <label class="block">
+        <span class="text-sm font-medium">Hasta</span>
+        <input type="date" name="to" value={to} class={fieldClass} />
+      </label>
+      <button
+        type="submit"
+        class="px-5 py-2.5 bg-accent text-white rounded-md hover:bg-accent-hover transition-colors font-medium"
+      >
+        Filtrar
+      </button>
+    </div>
+  </form>
+
+  <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+    <div class="bg-white border-2 border-brand rounded-lg p-4">
+      <div class="text-xs text-gray-500">Total vendido</div>
+      <div class="font-mono font-bold text-lg sm:text-xl mt-1">
+        {fmtMoney(totalGeneral)}
+      </div>
+    </div>
+    <div class="bg-white border-2 border-brand rounded-lg p-4">
+      <div class="text-xs text-gray-500">Cobrado</div>
+      <div class="font-mono font-bold text-lg sm:text-xl mt-1 text-emerald-700">
+        {fmtMoney(totalCobrado)}
+      </div>
+    </div>
+    <div class="bg-white border-2 border-brand rounded-lg p-4">
+      <div class="text-xs text-gray-500">Por cobrar</div>
+      <div class="font-mono font-bold text-lg sm:text-xl mt-1 text-amber-700">
+        {fmtMoney(totalPorCobrar)}
+      </div>
+    </div>
+    <div class="bg-white border-2 border-brand rounded-lg p-4">
+      <div class="text-xs text-gray-500">Impresiones</div>
+      <div class="font-mono font-bold text-lg sm:text-xl mt-1">
+        {fmtMoney(totalImpresiones)}
+      </div>
+    </div>
+    <div class="bg-white border-2 border-brand rounded-lg p-4">
+      <div class="text-xs text-gray-500">Insumos</div>
+      <div class="font-mono font-bold text-lg sm:text-xl mt-1">
+        {fmtMoney(totalInsumos)}
+      </div>
+    </div>
+  </div>
+
+  {entries.length === 0 ? (
+    <div class="border-2 border-dashed border-brand/30 rounded-lg p-12 text-center bg-white">
+      <p class="text-gray-600">No hay ventas en el período seleccionado.</p>
+    </div>
+  ) : (
+    <div class="bg-white border-2 border-brand rounded-lg overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-surface border-b-2 border-brand">
+          <tr>
+            <th class="text-right px-2 sm:px-4 py-3 font-medium">Fecha</th>
+            <th class="text-left px-2 sm:px-4 py-3 font-medium">Tipo</th>
+            <th class="text-left px-2 sm:px-4 py-3 font-medium">Concepto</th>
+            <th class="text-left px-4 py-3 font-medium hidden sm:table-cell">Cliente</th>
+            <th class="text-left px-2 sm:px-4 py-3 font-medium">Pago</th>
+            <th class="text-right px-2 sm:px-4 py-3 font-medium">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {entries.map((e) => (
+            <tr class="border-b border-brand/10">
+              <td class="px-2 sm:px-4 py-3 text-right font-mono text-gray-600 whitespace-nowrap">
+                {e.fecha.slice(0, 10)}
+              </td>
+              <td class="px-2 sm:px-4 py-3">
+                <span
+                  class={`inline-block text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded border ${
+                    e.tipo === "impresion"
+                      ? "bg-blue-100 text-blue-800 border-blue-300"
+                      : "bg-purple-100 text-purple-800 border-purple-300"
+                  }`}
+                >
+                  {e.tipo === "impresion" ? "Impresión" : "Insumo"}
+                </span>
+              </td>
+              <td class="px-2 sm:px-4 py-3 break-words">{e.concepto}</td>
+              <td class="px-4 py-3 text-gray-700 hidden sm:table-cell break-words">
+                {e.customer_name}
+              </td>
+              <td class="px-2 sm:px-4 py-3">
+                <span
+                  class={`inline-block text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded border ${
+                    e.is_paid
+                      ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                      : "bg-amber-100 text-amber-800 border-amber-300"
+                  }`}
+                >
+                  {e.is_paid ? "Pagado" : "Pendiente"}
+                </span>
+              </td>
+              <td class="px-2 sm:px-4 py-3 text-right font-mono font-medium whitespace-nowrap">
+                {fmtMoney(e.total)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+</AdminLayout>
