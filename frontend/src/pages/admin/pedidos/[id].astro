@@ -151,6 +151,23 @@ if (showCobrarBlock) {
     `¡Gracias! Alias: ${bnaAlias}`;
 }
 
+const recordForUndoJson = JSON.stringify({
+  project_name: record.project_name,
+  customer_name: record.customer_name,
+  customer_whatsapp: record.customer_whatsapp,
+  material: record.material,
+  color: record.color || "",
+  priority: record.priority,
+  status: record.status,
+  is_paid: record.is_paid,
+  unit_price: record.unit_price,
+  units_ordered: record.units_ordered,
+  units_done: record.units_done,
+  paid_amount: record.paid_amount ?? 0,
+  order_date: record.order_date,
+  delivery_date: record.delivery_date,
+  notes: record.notes,
+});
 ---
 
 <AdminLayout title={`Pedido ${record.order_number || record.id}`}>

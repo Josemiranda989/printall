@@ -536,53 +536,59 @@ const tabInactiveClass =
   )}
 <script>
   (function() {
-    const toast = document.getElementById("undo-toast");
-    const msg = document.getElementById("undo-toast-msg");
-    const btn = document.getElementById("undo-toast-btn") as HTMLButtonElement | null;
-    if (!toast || !msg || !btn) return;
+    function showUndoToast() {
+      const toast = document.getElementById("undo-toast");
+      const msg = document.getElementById("undo-toast-msg");
+      const btn = document.getElementById("undo-toast-btn") as HTMLButtonElement | null;
+      if (!toast || !msg || !btn) return;
 
-    const raw = sessionStorage.getItem("lastDeleted");
-    if (!raw) return;
-    
-    let deleted;
-    try { deleted = JSON.parse(raw); } catch { return; }
-    if (deleted.collection !== "orders") return;
+      const raw = sessionStorage.getItem("lastDeleted");
+      if (!raw) return;
+      
+      let deleted;
+      try { deleted = JSON.parse(raw); } catch { return; }
+      if (!deleted || deleted.collection !== "orders") return;
 
-    // Show toast
-    msg.textContent = `Pedido \"${deleted.name}\" eliminado.`;
-    toast.classList.remove("hidden");
-    sessionStorage.removeItem("lastDeleted");
+      msg.textContent = `Pedido \"${deleted.name}\" eliminado.`;
+      toast.classList.remove("hidden");
+      sessionStorage.removeItem("lastDeleted");
 
-    // Auto-hide after 8s
-    const timeout = setTimeout(() => toast.classList.add("hidden"), 8000);
+      let timeout = setTimeout(() => toast.classList.add("hidden"), 8000);
 
-    // Undo
-    btn.addEventListener("click", async () => {
-      btn.disabled = true;
-      btn.textContent = "Restaurando...";
-      try {
-        const res = await fetch("/admin/api/orders/restore", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(deleted.data),
-        });
-        const result = await res.json();
-        if (result.ok) {
-          msg.textContent = "✅ Pedido restaurado.";
-          btn.remove();
-          clearTimeout(timeout);
-          setTimeout(() => location.reload(), 800);
-        } else {
-          msg.textContent = "❌ No se pudo restaurar.";
+      btn.addEventListener("click", async function undo() {
+        btn.disabled = true;
+        btn.textContent = "Restaurando...";
+        try {
+          const res = await fetch("/admin/api/orders/restore", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(deleted.data),
+          });
+          const result = await res.json();
+          if (result.ok) {
+            msg.textContent = "✅ Pedido restaurado.";
+            btn.remove();
+            clearTimeout(timeout);
+            setTimeout(() => location.reload(), 800);
+          } else {
+            msg.textContent = "❌ No se pudo restaurar.";
+            btn.textContent = "Reintentar";
+            btn.disabled = false;
+          }
+        } catch {
+          msg.textContent = "❌ Error de red.";
           btn.textContent = "Reintentar";
           btn.disabled = false;
         }
-      } catch {
-        msg.textContent = "❌ Error de red.";
-        btn.textContent = "Reintentar";
-        btn.disabled = false;
-      }
-    });
+      }, { once: true });
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", showUndoToast);
+    } else {
+      showUndoToast();
+    }
+    document.addEventListener("astro:page-load", showUndoToast);
   })();
 </script>
 </AdminLayout>

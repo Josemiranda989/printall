@@ -123,19 +123,76 @@ const admin = Astro.locals.admin;
         });
       </script>
     )}
-    {/* ─── Global confirm dialog for data-confirm buttons ─── */}
+    {/* ─── Confirm modal ─── */}
+    <div id="confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div class="bg-white border-2 border-red-500 rounded-xl shadow-2xl max-w-sm w-full p-6">
+        <p id="confirm-modal-msg" class="text-sm text-gray-800 mb-5"></p>
+        <div class="flex justify-end gap-3">
+          <button id="confirm-modal-cancel" class="px-4 py-2 border-2 border-gray-300 rounded-md text-sm font-medium hover:bg-gray-100 transition-colors">
+            Cancelar
+          </button>
+          <button id="confirm-modal-ok" class="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition-colors">
+            Eliminar
+          </button>
+        </div>
+      </div>
+    </div>
+
     <script>
-      document.addEventListener("click", (e) => {
-        const target = e.target as HTMLElement | null;
-        if (!target) return;
-        const btn = target.closest("button[data-confirm]");
-        if (!btn) return;
-        const message = btn.getAttribute("data-confirm");
-        if (message && !window.confirm(message)) {
+      (function() {
+        if ((window as any).__confirmModalWired) return;
+        (window as any).__confirmModalWired = true;
+
+        const modal = document.getElementById("confirm-modal");
+        const msg = document.getElementById("confirm-modal-msg");
+        const cancelBtn = document.getElementById("confirm-modal-cancel");
+        const okBtn = document.getElementById("confirm-modal-ok");
+        if (!modal || !msg || !cancelBtn || !okBtn) return;
+
+        let pendingBtn: HTMLButtonElement | null = null;
+
+        document.addEventListener("click", (e) => {
+          const target = e.target as HTMLElement | null;
+          if (!target) return;
+          const btn = target.closest("button[data-confirm]");
+          if (!btn) return;
+          const message = btn.getAttribute("data-confirm");
+          if (!message) return;
           e.preventDefault();
           e.stopPropagation();
-        }
-      });
+          pendingBtn = btn as HTMLButtonElement;
+          msg.textContent = message;
+          modal.classList.remove("hidden");
+        }, { capture: true });
+
+        cancelBtn.addEventListener("click", () => {
+          modal.classList.add("hidden");
+          pendingBtn = null;
+        });
+
+        okBtn.addEventListener("click", () => {
+          modal.classList.add("hidden");
+          if (pendingBtn) {
+            // Remove data-confirm temporarily so the programmatic click
+            // doesn't re-trigger the confirm modal
+            const originalConfirm = pendingBtn.getAttribute("data-confirm");
+            pendingBtn.removeAttribute("data-confirm");
+            pendingBtn.click();
+            if (originalConfirm) {
+              pendingBtn.setAttribute("data-confirm", originalConfirm);
+            }
+            pendingBtn = null;
+          }
+        });
+
+        // Close on backdrop click
+        modal.addEventListener("click", (e) => {
+          if (e.target === modal) {
+            modal.classList.add("hidden");
+            pendingBtn = null;
+          }
+        });
+      })();
     </script>
   </body>
 </html>
