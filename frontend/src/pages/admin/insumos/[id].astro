@@ -102,6 +102,31 @@ if (showCobrarBlock) {
     `Hola! El saldo de ${materialName}${colorHint} es ${balanceFmt}. ` +
     `¡Gracias! Alias: ${bnaAlias}`;
 }
+
+// ─── Bloque "Datos para copiar" ─────────────────────────────────────
+// Siempre visible, colapsable. Texto plano con los datos clave.
+const colorInfo = record.color ? ` (${record.color})` : "";
+const priceFmt2 = (n: number) => "$" + n.toLocaleString("es-AR");
+const dateFmt2 = (s: string) => {
+  if (!s) return "—";
+  const [y, m, d] = s.split("-");
+  return `${d}/${m}/${y}`;
+};
+const paidLabel2 = record.is_paid ? "Sí" : "No";
+const statusLabel2 = record.status.charAt(0).toUpperCase() + record.status.slice(1);
+
+const copyData = [
+  `🧾 Venta de insumos`,
+  ``,
+  `Cliente: ${record.customer_name}`,
+  `WhatsApp: ${record.customer_whatsapp || "—"}`,
+  `Material: ${materialName}${colorInfo}`,
+  `Cantidad: ${record.quantity} x ${priceFmt2(record.unit_price)} = ${priceFmt2(total)}`,
+  `Estado: ${statusLabel2}  |  Pagado: ${paidLabel2}`,
+  `Fecha venta: ${dateFmt2(record.sale_date)}`,
+  `Entrega: ${dateFmt2(record.delivery_date)}`,
+  record.notes ? `Notas: ${record.notes}` : "",
+].filter(Boolean).join("\n");
 ---
 
 <AdminLayout title={`Venta: ${record.customer_name}`}>
@@ -113,6 +138,26 @@ if (showCobrarBlock) {
       id: {id}
     </p>
   </div>
+
+  {/* ─── Datos para copiar (siempre visible, colapsable) ─── */}
+  <details class="bg-white border-2 border-brand rounded-lg mb-5 overflow-hidden">
+    <summary class="cursor-pointer px-4 py-3 font-medium text-sm hover:bg-surface/50 select-none">
+      📋 Datos para copiar
+    </summary>
+    <div class="border-t-2 border-brand/10 p-4">
+      <div class="flex justify-end mb-2">
+        <button
+          type="button"
+          data-copy-details
+          data-copy-text={copyData}
+          class="inline-flex items-center gap-2 px-3 py-1.5 bg-brand text-white rounded-md text-xs font-medium hover:bg-accent transition-colors disabled:opacity-70"
+        >
+          <span data-copy-details-label>Copiar</span>
+        </button>
+      </div>
+      <pre class="bg-surface/50 border-2 border-brand/10 rounded-md p-3 text-xs font-mono whitespace-pre-wrap break-words select-all max-h-96 overflow-auto">{copyData}</pre>
+    </div>
+  </details>
 
   {/* ─── Datos para cobrar (solo si no está pago y BNA configurado) ─── */}
   {showCobrarBlock && (
