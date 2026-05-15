@@ -1,0 +1,228 @@
+---
+/**
+ * Modal de búsqueda global. Se abre con Ctrl/Cmd + K o "/" (cuando no
+ * estás escribiendo en otro input). Llama a /admin/api/search?q=...
+ * y muestra los resultados navegables con flechas + Enter.
+ */
+---
+
+<div
+  id="global-search-modal"
+  class="hidden fixed inset-0 z-[55] bg-black/40 flex items-start justify-center pt-[10vh] px-4"
+  aria-hidden="true"
+>
+  <div class="w-full max-w-xl bg-white border-2 border-brand rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+    <div class="flex items-center gap-2 px-4 py-3 border-b-2 border-brand bg-surface">
+      <span class="text-brand text-xl">🔍</span>
+      <input
+        id="global-search-input"
+        type="search"
+        autocomplete="off"
+        placeholder="Buscar pedidos, clientes, productos…"
+        class="flex-1 bg-transparent outline-none text-base"
+      />
+      <kbd class="text-xs text-gray-500 font-mono border border-gray-300 rounded px-1.5 py-0.5">
+        Esc
+      </kbd>
+    </div>
+    <div
+      id="global-search-results"
+      class="flex-1 overflow-y-auto min-h-[80px]"
+    >
+      <p class="text-sm text-gray-500 p-5 text-center">
+        Escribí al menos 2 caracteres para buscar.
+      </p>
+    </div>
+    <div class="px-4 py-2 border-t border-gray-200 bg-gray-50 text-xs text-gray-500 flex items-center gap-3 flex-wrap">
+      <span><kbd class="font-mono border border-gray-300 rounded px-1">↑↓</kbd> navegar</span>
+      <span><kbd class="font-mono border border-gray-300 rounded px-1">↵</kbd> ir</span>
+      <span><kbd class="font-mono border border-gray-300 rounded px-1">Ctrl+K</kbd> abrir</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  interface SearchResult {
+    type: "order" | "sale" | "client" | "product";
+    id: string;
+    title: string;
+    subtitle: string;
+    href: string;
+  }
+
+  const TYPE_LABEL: Record<SearchResult["type"], string> = {
+    order: "Pedido",
+    sale: "Insumo",
+    client: "Cliente",
+    product: "Producto",
+  };
+  const TYPE_BADGE: Record<SearchResult["type"], string> = {
+    order: "bg-blue-100 text-blue-700",
+    sale: "bg-amber-100 text-amber-700",
+    client: "bg-purple-100 text-purple-700",
+    product: "bg-emerald-100 text-emerald-700",
+  };
+
+  const modal = document.getElementById("global-search-modal");
+  const input = document.getElementById("global-search-input") as HTMLInputElement | null;
+  const resultsEl = document.getElementById("global-search-results");
+
+  if (!modal || !input || !resultsEl) {
+    // Componente no se renderizó (no debería pasar, pero defensivo)
+  } else {
+    let currentResults: SearchResult[] = [];
+    let activeIndex = 0;
+    let inflightController: AbortController | null = null;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function openModal() {
+      modal!.classList.remove("hidden");
+      modal!.setAttribute("aria-hidden", "false");
+      input!.value = "";
+      currentResults = [];
+      activeIndex = 0;
+      renderEmpty();
+      requestAnimationFrame(() => input!.focus());
+    }
+
+    function closeModal() {
+      modal!.classList.add("hidden");
+      modal!.setAttribute("aria-hidden", "true");
+      inflightController?.abort();
+    }
+
+    function renderEmpty() {
+      resultsEl!.innerHTML =
+        '<p class="text-sm text-gray-500 p-5 text-center">Escribí al menos 2 caracteres para buscar.</p>';
+    }
+
+    function renderLoading() {
+      resultsEl!.innerHTML =
+        '<p class="text-sm text-gray-500 p-5 text-center">Buscando…</p>';
+    }
+
+    function renderNoResults(q: string) {
+      const escaped = q.replace(/</g, "&lt;");
+      resultsEl!.innerHTML =
+        '<p class="text-sm text-gray-500 p-5 text-center">Sin resultados para "<span class="font-mono">' +
+        escaped +
+        '</span>".</p>';
+    }
+
+    function renderResults() {
+      if (currentResults.length === 0) {
+        renderEmpty();
+        return;
+      }
+      const html = currentResults
+        .map((r, i) => {
+          const active = i === activeIndex;
+          return (
+            '<a href="' +
+            r.href +
+            '" data-idx="' +
+            i +
+            '" class="block px-4 py-3 border-b border-gray-100 last:border-b-0 hover:bg-surface transition-colors ' +
+            (active ? "bg-surface" : "") +
+            '">' +
+            '<div class="flex items-center gap-2">' +
+            '<span class="text-[10px] uppercase tracking-wide font-bold px-1.5 py-0.5 rounded ' +
+            TYPE_BADGE[r.type] +
+            '">' +
+            TYPE_LABEL[r.type] +
+            "</span>" +
+            '<span class="font-medium break-words">' +
+            (r.title || "(sin título)") +
+            "</span>" +
+            "</div>" +
+            '<div class="text-xs text-gray-500 mt-0.5 break-words">' +
+            r.subtitle +
+            "</div>" +
+            "</a>"
+          );
+        })
+        .join("");
+      resultsEl!.innerHTML = html;
+    }
+
+    async function runSearch(q: string) {
+      if (q.length < 2) {
+        renderEmpty();
+        currentResults = [];
+        return;
+      }
+      inflightController?.abort();
+      inflightController = new AbortController();
+      renderLoading();
+      try {
+        const res = await fetch(
+          "/admin/api/search?q=" + encodeURIComponent(q),
+          { signal: inflightController.signal },
+        );
+        const data = (await res.json()) as { ok: boolean; results: SearchResult[] };
+        if (!data.ok) {
+          renderNoResults(q);
+          currentResults = [];
+          return;
+        }
+        currentResults = data.results;
+        activeIndex = 0;
+        if (currentResults.length === 0) {
+          renderNoResults(q);
+        } else {
+          renderResults();
+        }
+      } catch (err) {
+        if ((err as Error).name === "AbortError") return;
+        renderNoResults(q);
+        currentResults = [];
+      }
+    }
+
+    input.addEventListener("input", () => {
+      const q = input.value.trim();
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => runSearch(q), 180);
+    });
+
+    input.addEventListener("keydown", (ev) => {
+      if (ev.key === "ArrowDown") {
+        ev.preventDefault();
+        if (currentResults.length === 0) return;
+        activeIndex = (activeIndex + 1) % currentResults.length;
+        renderResults();
+      } else if (ev.key === "ArrowUp") {
+        ev.preventDefault();
+        if (currentResults.length === 0) return;
+        activeIndex = (activeIndex - 1 + currentResults.length) % currentResults.length;
+        renderResults();
+      } else if (ev.key === "Enter") {
+        ev.preventDefault();
+        const r = currentResults[activeIndex];
+        if (r) window.location.href = r.href;
+      } else if (ev.key === "Escape") {
+        closeModal();
+      }
+    });
+
+    modal.addEventListener("click", (ev) => {
+      if (ev.target === modal) closeModal();
+    });
+
+    document.addEventListener("keydown", (ev) => {
+      const isMod = ev.ctrlKey || ev.metaKey;
+      if (isMod && ev.key.toLowerCase() === "k") {
+        ev.preventDefault();
+        openModal();
+        return;
+      }
+      // "/" abre solo si no estamos escribiendo en otro input/textarea
+      if (ev.key === "/" && !ev.ctrlKey && !ev.metaKey && !ev.altKey) {
+        const t = ev.target as HTMLElement;
+        if (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable) return;
+        ev.preventDefault();
+        openModal();
+      }
+    });
+  }
+</script>

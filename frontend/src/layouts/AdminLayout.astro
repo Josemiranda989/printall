@@ -4,6 +4,7 @@ import "@fontsource/dm-sans/400.css";
 import "@fontsource/dm-sans/500.css";
 import "@fontsource/dm-sans/600.css";
 import "@fontsource/dm-sans/700.css";
+import GlobalSearch from "../components/admin/GlobalSearch.astro";
 
 export interface Props {
   title: string;
@@ -118,6 +119,8 @@ const admin = Astro.locals.admin;
     <main class="max-w-6xl mx-auto px-4 py-6 sm:py-8">
       <slot />
     </main>
+
+    {admin && <GlobalSearch />}
 
     {admin && (
       <script>
