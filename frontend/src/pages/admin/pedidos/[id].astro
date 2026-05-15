@@ -6,11 +6,13 @@ import OrderPriorityBadge from "../../../components/admin/OrderPriorityBadge.ast
 import OrderStatusButtons from "../../../components/admin/OrderStatusButtons.astro";
 import OrderProgressBar from "../../../components/admin/OrderProgressBar.astro";
 import WhatsAppTemplateMenu from "../../../components/admin/WhatsAppTemplateMenu.astro";
+import PaymentsSection from "../../../components/admin/PaymentsSection.astro";
 import { extractOrderFromForm, type OrderFormData } from "../../../lib/admin-orders";
 import { fetchClientsForAutocomplete } from "../../../lib/admin-clients";
 import { fetchTemplatesFor, getOrderContext } from "../../../lib/admin-templates";
+import { fetchPaymentsForTarget } from "../../../lib/admin-payments";
 import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
-import { orderBalanceDue, type Order } from "../../../lib/types";
+import { orderBalanceDue, orderTotalAmount, type Order } from "../../../lib/types";
 
 const pb = Astro.locals.adminPB!;
 const { id } = Astro.params;
@@ -23,12 +25,14 @@ try {
   return new Response("Pedido no encontrado", { status: 404 });
 }
 
-const [clients, templates] = await Promise.all([
+const [clients, templates, payments] = await Promise.all([
   fetchClientsForAutocomplete(pb),
   fetchTemplatesFor(pb, "order"),
+  fetchPaymentsForTarget(pb, "order", record.id),
 ]);
 
 const templateContext = getOrderContext(record);
+const orderTotal = orderTotalAmount(record);
 
 let values: Partial<OrderFormData> = {
   project_name: record.project_name,
@@ -310,6 +314,16 @@ const recordForUndoJson = JSON.stringify({
       templates={templates}
       context={templateContext}
       customerWhatsapp={record.customer_whatsapp ?? ""}
+    />
+  </div>
+
+  {/* ─── Pagos detallados ─── */}
+  <div class="mb-5">
+    <PaymentsSection
+      targetType="order"
+      targetId={record.id}
+      payments={payments}
+      total={orderTotal}
     />
   </div>
 
