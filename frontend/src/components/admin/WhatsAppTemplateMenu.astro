@@ -1,0 +1,126 @@
+---
+import {
+  renderTemplate,
+  type TemplateContext,
+  type WhatsAppTemplate,
+} from "../../lib/admin-templates";
+import { getWhatsAppUrl } from "../../lib/pocketbase";
+
+export interface Props {
+  templates: WhatsAppTemplate[];
+  context: TemplateContext;
+  /** WhatsApp del destinatario, ya con formato (puede tener +, espacios, etc). */
+  customerWhatsapp: string;
+  /** Si openByDefault=true, el details abre al renderizar. */
+  openByDefault?: boolean;
+}
+
+const { templates, context, customerWhatsapp, openByDefault = false } = Astro.props;
+
+// Normalizamos el numero (solo digitos) para el deeplink de wa.me
+const phoneNorm = (customerWhatsapp ?? "").replace(/\D/g, "");
+
+// Renderizamos cada template server-side. La URL ya viene lista para clickear.
+const items = templates.map((t) => {
+  const rendered = renderTemplate(t.body, context);
+  return {
+    id: t.id,
+    name: t.name,
+    rendered,
+    href: phoneNorm ? getWhatsAppUrl(phoneNorm, rendered) : null,
+  };
+});
+
+const hasPhone = phoneNorm.length > 0;
+const hasTemplates = templates.length > 0;
+---
+
+<details
+  class="bg-white border-2 border-emerald-500 rounded-lg shadow-[4px_4px_0_var(--color-brand)] overflow-hidden"
+  open={openByDefault}
+>
+  <summary class="cursor-pointer px-4 py-3 font-medium text-sm sm:text-base hover:bg-emerald-50 select-none flex items-center gap-2">
+    <span class="text-emerald-600">💬</span>
+    <span>Enviar mensaje de WhatsApp</span>
+    {hasTemplates && (
+      <span class="text-xs font-mono bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+        {templates.length}
+      </span>
+    )}
+  </summary>
+
+  <div class="border-t-2 border-emerald-300 p-4 sm:p-5 space-y-3">
+    {!hasPhone && (
+      <p class="text-sm text-amber-700 bg-amber-50 border-2 border-amber-300 rounded-md px-3 py-2">
+        Este cliente no tiene WhatsApp cargado. Cargá el número en el formulario para habilitar el envío directo.
+      </p>
+    )}
+
+    {!hasTemplates && (
+      <p class="text-sm text-gray-600">
+        Todavía no hay plantillas creadas.
+        <a href="/admin/mensajes/nuevo" class="text-accent hover:underline ml-1">
+          Crear una →
+        </a>
+      </p>
+    )}
+
+    {hasTemplates && (
+      <ul class="space-y-2">
+        {items.map((item) => (
+          <li class="border-2 border-emerald-200 rounded-md p-3 hover:border-emerald-400 transition-colors">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="font-medium text-sm">{item.name}</div>
+                <pre class="mt-1 text-xs text-gray-700 font-mono whitespace-pre-wrap break-words bg-surface/50 rounded px-2 py-1">{item.rendered}</pre>
+              </div>
+              {item.href ? (
+                <a
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener"
+                  class="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white rounded-md text-xs font-medium hover:bg-emerald-700 transition-colors whitespace-nowrap"
+                >
+                  Enviar ↗
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  data-copy-rendered
+                  data-message={item.rendered}
+                  class="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 border-2 border-emerald-600 text-emerald-700 rounded-md text-xs font-medium hover:bg-emerald-50 transition-colors whitespace-nowrap"
+                  title="Copiar al portapapeles (no hay WhatsApp cargado)"
+                >
+                  📋 Copiar
+                </button>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    )}
+
+    <p class="text-xs text-gray-500 pt-1 border-t border-emerald-100">
+      Las plantillas se administran en <a href="/admin/mensajes" class="text-accent hover:underline">/admin/mensajes</a>.
+    </p>
+  </div>
+</details>
+
+<script>
+  // Fallback para clientes sin telefono: boton "Copiar" copia al portapapeles
+  document.querySelectorAll<HTMLButtonElement>("[data-copy-rendered]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const text = btn.dataset.message ?? "";
+      try {
+        await navigator.clipboard.writeText(text);
+        const original = btn.textContent;
+        btn.textContent = "✓ Copiado";
+        setTimeout(() => {
+          btn.textContent = original;
+        }, 1500);
+      } catch {
+        // Fallback silencioso
+      }
+    });
+  });
+</script>
