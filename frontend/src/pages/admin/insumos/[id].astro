@@ -12,7 +12,7 @@ const pb = Astro.locals.adminPB!;
 const { id } = Astro.params;
 if (!id) return Astro.redirect("/admin/insumos");
 
-let record: SupplySale;
+let record: SupplySale & { color?: string };
 try {
   record = (await pb
     .collection("supply_sales")
@@ -83,35 +83,25 @@ if (Astro.request.method === "POST") {
 }
 
 const itemMaterial = materials.find((m) => m.id === record.item) ?? null;
+const materialName = itemMaterial?.name ?? record.item;
+const total = supplySaleTotal(record);
 
-const fmtDateOnly = (s: string) => (s ? s.slice(0, 10) : "");
-const fmtDateTime = (s: string) => {
-  if (!s) return "";
-  const d = new Date(s);
-  return Number.isNaN(d.getTime()) ? s : d.toISOString();
-};
+// ─── Bloque "Datos para cobrar" ─────────────────────────────────────
+// Solo se muestra si hay alias BNA configurado y la venta no está paga.
+// El botón "Copiar mensaje" copia texto plano listo para WhatsApp.
+const bnaAlias = (process.env.BNA_ALIAS as string | undefined) ?? "";
+const bnaHolder = (process.env.BNA_HOLDER_NAME as string | undefined) ?? "";
+const balanceDue = record.is_paid ? 0 : total;
+const showCobrarBlock = bnaAlias.trim().length > 0 && balanceDue > 0;
 
-const copyData = {
-  id: record.id,
-  customer_name: record.customer_name,
-  customer_whatsapp: record.customer_whatsapp,
-  item: {
-    id: record.item,
-    name: itemMaterial?.name ?? null,
-  },
-  quantity: record.quantity,
-  unit_price: record.unit_price,
-  color: record.color || null,
-  total: supplySaleTotal(record),
-  status: record.status,
-  is_paid: record.is_paid,
-  sale_date: fmtDateOnly(record.sale_date),
-  delivery_date: fmtDateOnly(record.delivery_date),
-  notes: record.notes,
-  created: fmtDateTime(record.created),
-  updated: fmtDateTime(record.updated),
-};
-const copyDataJson = JSON.stringify(copyData, null, 2);
+let cobrarMessage = "";
+if (showCobrarBlock) {
+  const colorHint = record.color ? ` (${record.color})` : "";
+  const balanceFmt = "$" + Math.round(balanceDue).toLocaleString("es-AR");
+  cobrarMessage =
+    `Hola! El saldo de ${materialName}${colorHint} es ${balanceFmt}. ` +
+    `¡Gracias! Alias: ${bnaAlias}`;
+}
 ---
 
 <AdminLayout title={`Venta: ${record.customer_name}`}>
@@ -124,23 +114,45 @@ const copyDataJson = JSON.stringify(copyData, null, 2);
     </p>
   </div>
 
-  <details class="bg-white border-2 border-brand rounded-lg mb-6 overflow-hidden">
-    <summary class="cursor-pointer px-4 py-3 font-medium text-sm hover:bg-surface/50 select-none">
-      📋 Datos para copiar
-    </summary>
-    <div class="border-t-2 border-brand/10 p-4">
-      <div class="flex justify-end mb-2">
-        <button
-          type="button"
-          id="copy-btn"
-          class="inline-flex items-center gap-2 px-3 py-1.5 bg-brand text-white rounded-md text-xs font-medium hover:bg-accent transition-colors disabled:opacity-70"
-        >
-          <span id="copy-btn-label">Copiar</span>
-        </button>
+  {/* ─── Datos para cobrar (solo si no está pago y BNA configurado) ─── */}
+  {showCobrarBlock && (
+    <section class="bg-amber-50 border-2 border-amber-500 rounded-lg p-4 sm:p-5 mb-5 shadow-[4px_4px_0_var(--color-brand)]">
+      <h2 class="font-display text-base sm:text-lg mb-3">💰 Datos para cobrar</h2>
+      <div class="space-y-1.5 text-sm mb-3">
+        <p>
+          <span class="text-gray-600">Alias:</span>
+          <span class="font-mono font-medium ml-1 select-all">{bnaAlias}</span>
+        </p>
+        {bnaHolder && (
+          <p>
+            <span class="text-gray-600">Titular:</span>
+            <span class="font-medium ml-1">{bnaHolder}</span>
+          </p>
+        )}
+        <p>
+          <span class="text-gray-600">Banco:</span>
+          <span class="font-medium ml-1">Banco Nación</span>
+        </p>
+        <p>
+          <span class="text-gray-600">Saldo a cobrar:</span>
+          <span class="font-mono font-bold text-amber-800 ml-1">
+            ${Math.round(balanceDue).toLocaleString("es-AR")}
+          </span>
+        </p>
       </div>
-      <pre id="copy-data" class="bg-surface/50 border-2 border-brand/10 rounded-md p-3 text-xs font-mono whitespace-pre-wrap break-words select-all max-h-96 overflow-auto">{copyDataJson}</pre>
-    </div>
-  </details>
+
+      <pre class="bg-white border-2 border-amber-300 rounded-md p-3 text-xs sm:text-sm font-mono whitespace-pre-wrap break-words mb-3 select-all">{cobrarMessage}</pre>
+
+      <button
+        type="button"
+        data-copy-message
+        data-message={cobrarMessage}
+        class="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-md text-sm font-medium hover:bg-accent transition-colors"
+      >
+        📋 <span data-copy-message-label>Copiar mensaje</span>
+      </button>
+    </section>
+  )}
 
   <SupplySaleForm
     values={values}
