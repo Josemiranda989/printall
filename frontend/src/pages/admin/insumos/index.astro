@@ -67,14 +67,6 @@ function fmtDate(d: string): string {
     </div>
   </div>
 
-  {/* ─── Undo toast (restaura venta eliminada) ─── */}
-  <div id="undo-toast" class="hidden border-2 border-amber-500 bg-amber-50 text-amber-900 px-3 py-2 rounded-md text-sm mb-4 flex items-center justify-between gap-3">
-    <span id="undo-toast-msg"></span>
-    <button id="undo-toast-btn" class="px-3 py-1 bg-amber-500 text-white rounded text-xs font-medium hover:bg-amber-600 transition-colors whitespace-nowrap">
-      Deshacer
-    </button>
-  </div>
-
   <!-- Toggle mostrar pagados -->
   <div class="flex items-center gap-4 mb-4 flex-wrap">
     <label class="inline-flex items-center gap-2 cursor-pointer text-sm">
@@ -187,65 +179,6 @@ function fmtDate(d: string): string {
       </table>
     </div>
   )}
-<script>
-  (function() {
-    function showUndoToast() {
-      const toast = document.getElementById("undo-toast");
-      const msg = document.getElementById("undo-toast-msg");
-      const btn = document.getElementById("undo-toast-btn") as HTMLButtonElement | null;
-      if (!toast || !msg || !btn) return;
-
-      const raw = sessionStorage.getItem("lastDeleted");
-      if (!raw) return;
-      
-      let deleted;
-      try { deleted = JSON.parse(raw); } catch { return; }
-      if (!deleted || deleted.collection !== "supply_sales") return;
-
-      msg.textContent = `Venta \"${deleted.name}\" eliminada.`;
-      toast.classList.remove("hidden");
-      sessionStorage.removeItem("lastDeleted");
-
-      let timeout = setTimeout(() => toast.classList.add("hidden"), 8000);
-
-      btn.addEventListener("click", async function undo() {
-        btn.disabled = true;
-        btn.textContent = "Restaurando...";
-        try {
-          const res = await fetch("/admin/api/supply_sales/restore", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(deleted.data),
-          });
-          const result = await res.json();
-          if (result.ok) {
-            msg.textContent = "✅ Venta restaurada.";
-            btn.remove();
-            clearTimeout(timeout);
-            setTimeout(() => location.reload(), 800);
-          } else {
-            msg.textContent = "❌ No se pudo restaurar.";
-            btn.textContent = "Reintentar";
-            btn.disabled = false;
-          }
-        } catch {
-          msg.textContent = "❌ Error de red.";
-          btn.textContent = "Reintentar";
-          btn.disabled = false;
-        }
-      }, { once: true });
-    }
-
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", showUndoToast);
-    } else {
-      showUndoToast();
-    }
-    document.addEventListener("astro:page-load", showUndoToast);
-  })();
-</script>
-</AdminLayout>
-
 <script
   is:inline
   type="application/json"
@@ -284,11 +217,11 @@ function fmtDate(d: string): string {
         const data = (await res.json()) as { ok: boolean; error?: string };
         if (!res.ok || !data.ok) {
           cb.checked = !newValue;
-          alert(data.error ?? "No se pudo cambiar el estado de pago.");
+          (window as any).__showToast && (window as any).__showToast({ type: 'error', message: data.error || "No se pudo cambiar el estado de pago." });
         }
       } catch {
         cb.checked = !newValue;
-        alert("Error de red al cambiar el estado de pago.");
+        (window as any).__showToast && (window as any).__showToast({ type: 'error', message: "Error de red al cambiar el estado de pago." });
       } finally {
         cb.disabled = false;
       }
@@ -339,13 +272,13 @@ function fmtDate(d: string): string {
             sel.value = previous;
             applyClass(previous);
             sel.dataset.current = previous;
-            alert(data.error ?? "No se pudo actualizar.");
+            (window as any).__showToast && (window as any).__showToast({ type: 'error', message: data.error || "No se pudo actualizar." });
           }
         } catch {
           sel.value = previous;
           applyClass(previous);
           sel.dataset.current = previous;
-          alert("Error de red.");
+          (window as any).__showToast && (window as any).__showToast({ type: 'error', message: "Error de red." });
         } finally {
           sel.disabled = false;
         }

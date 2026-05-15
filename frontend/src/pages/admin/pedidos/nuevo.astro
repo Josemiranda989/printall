@@ -52,7 +52,8 @@ if (Astro.request.method === "POST") {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         await pb.collection("orders").create(payload);
-        return Astro.redirect(`/admin/pedidos?ok=created`);
+        const toastName = encodeURIComponent((result.data.project_name || result.data.customer_name || "sin nombre"));
+        return Astro.redirect(`/admin/pedidos?toast=created&name=${toastName}&collection=orders`);
       } catch (err: unknown) {
         lastErr = err;
         const fieldErrors = mapPBErrorToFieldErrors(err, "order");

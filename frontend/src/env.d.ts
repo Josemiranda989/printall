@@ -17,3 +17,15 @@ declare namespace App {
     admin?: import("pocketbase").RecordModel;
   }
 }
+
+declare global {
+  interface Window {
+    __showToast?: (opts: {
+      type?: 'success' | 'error' | 'info' | 'undo';
+      message: string;
+      action?: { label: string; onClick: () => void | Promise<void> };
+      duration?: number;
+    }) => HTMLElement | null;
+    __toastSystemWired?: boolean;
+  }
+}

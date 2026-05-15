@@ -49,7 +49,8 @@ if (Astro.request.method === "POST") {
   if (action === "delete") {
     try {
       await pb.collection("supply_sales").delete(id);
-      return Astro.redirect("/admin/insumos");
+      const toastName = encodeURIComponent(record.customer_name || "sin nombre");
+      return Astro.redirect(`/admin/insumos?toast=deleted&name=${toastName}&collection=supply_sales`);
     } catch (err: unknown) {
       errors = mapPBErrorToFieldErrors(err, "generic");
       if (!errors._global) errors._global = "No se pudo eliminar la venta.";
@@ -74,7 +75,8 @@ if (Astro.request.method === "POST") {
           delivery_date: result.data.delivery_date,
           notes: result.data.notes,
         });
-        return Astro.redirect("/admin/insumos");
+        const toastName = encodeURIComponent(record.customer_name || "sin nombre");
+        return Astro.redirect(`/admin/insumos?toast=saved&name=${toastName}&collection=supply_sales`);
       } catch (err: unknown) {
         errors = { ...errors, ...mapPBErrorToFieldErrors(err, "generic") };
       }

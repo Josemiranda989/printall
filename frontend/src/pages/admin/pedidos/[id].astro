@@ -51,7 +51,8 @@ if (Astro.request.method === "POST") {
   if (action === "delete") {
     try {
       await pb.collection("orders").delete(id);
-      return Astro.redirect("/admin/pedidos");
+      const toastName = encodeURIComponent(record.project_name || record.customer_name || "sin nombre");
+      return Astro.redirect(`/admin/pedidos?toast=deleted&name=${toastName}&collection=orders`);
     } catch (err: unknown) {
       errors = mapPBErrorToFieldErrors(err, "order");
       if (!errors._global) errors._global = "No se pudo eliminar el pedido.";
@@ -83,7 +84,8 @@ if (Astro.request.method === "POST") {
 
       try {
         await pb.collection("orders").update(id, payload);
-        return Astro.redirect(`/admin/pedidos?ok=saved`);
+        const toastName = encodeURIComponent((record.project_name || record.customer_name || "sin nombre"));
+        return Astro.redirect(`/admin/pedidos?toast=saved&name=${toastName}&collection=orders`);
       } catch (err: unknown) {
         errors = { ...errors, ...mapPBErrorToFieldErrors(err, "order") };
       }

@@ -146,20 +146,6 @@ const tabInactiveClass =
     </div>
   )}
 
-  {/* ─── Undo toast (restaura pedido eliminado) ─── */}
-  <div id="undo-toast" class="hidden border-2 border-amber-500 bg-amber-50 text-amber-900 px-3 py-2 rounded-md text-sm mb-4 flex items-center justify-between gap-3">
-    <span id="undo-toast-msg"></span>
-    <button id="undo-toast-btn" class="px-3 py-1 bg-amber-500 text-white rounded text-xs font-medium hover:bg-amber-600 transition-colors whitespace-nowrap">
-      Deshacer
-    </button>
-  </div>
-
-  {/* ─── Tabs de vista ─── */}
-  <div class="flex items-center gap-2 mb-5 flex-wrap">
-    <a href="/admin/pedidos" class={`${tabBaseClass} ${tabActiveClass}`}>📋 Tabla</a>
-    <a href="/admin/pedidos/kanban" class={`${tabBaseClass} ${tabInactiveClass}`}>📊 Kanban</a>
-    <a href="/admin/pedidos/calendario" class={`${tabBaseClass} ${tabInactiveClass}`}>📅 Calendario</a>
-  </div>
 
   {/* ─── Filtros (colapsable) ─── */}
   <details
@@ -534,63 +520,6 @@ const tabInactiveClass =
       )}
     </div>
   )}
-<script>
-  (function() {
-    function showUndoToast() {
-      const toast = document.getElementById("undo-toast");
-      const msg = document.getElementById("undo-toast-msg");
-      const btn = document.getElementById("undo-toast-btn") as HTMLButtonElement | null;
-      if (!toast || !msg || !btn) return;
-
-      const raw = sessionStorage.getItem("lastDeleted");
-      if (!raw) return;
-      
-      let deleted;
-      try { deleted = JSON.parse(raw); } catch { return; }
-      if (!deleted || deleted.collection !== "orders") return;
-
-      msg.textContent = `Pedido \"${deleted.name}\" eliminado.`;
-      toast.classList.remove("hidden");
-      sessionStorage.removeItem("lastDeleted");
-
-      let timeout = setTimeout(() => toast.classList.add("hidden"), 8000);
-
-      btn.addEventListener("click", async function undo() {
-        btn.disabled = true;
-        btn.textContent = "Restaurando...";
-        try {
-          const res = await fetch("/admin/api/orders/restore", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(deleted.data),
-          });
-          const result = await res.json();
-          if (result.ok) {
-            msg.textContent = "✅ Pedido restaurado.";
-            btn.remove();
-            clearTimeout(timeout);
-            setTimeout(() => location.reload(), 800);
-          } else {
-            msg.textContent = "❌ No se pudo restaurar.";
-            btn.textContent = "Reintentar";
-            btn.disabled = false;
-          }
-        } catch {
-          msg.textContent = "❌ Error de red.";
-          btn.textContent = "Reintentar";
-          btn.disabled = false;
-        }
-      }, { once: true });
-    }
-
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", showUndoToast);
-    } else {
-      showUndoToast();
-    }
-    document.addEventListener("astro:page-load", showUndoToast);
-  })();
-</script>
 </AdminLayout>
 
 <script
@@ -637,11 +566,11 @@ const tabInactiveClass =
         const data = (await res.json()) as { ok: boolean; error?: string };
         if (!res.ok || !data.ok) {
           cb.checked = !newValue;
-          alert(data.error ?? "No se pudo cambiar el estado de pago.");
+          (window as any).__showToast && (window as any).__showToast({ type: "error", message: data.error || "No se pudo cambiar el estado de pago." });
         }
       } catch {
         cb.checked = !newValue;
-        alert("Error de red al cambiar el estado de pago.");
+        (window as any).__showToast && (window as any).__showToast({ type: "error", message: "Error de red al cambiar el estado de pago." });
       } finally {
         cb.disabled = false;
       }
@@ -697,13 +626,13 @@ const tabInactiveClass =
             sel.value = previous;
             applyClass(previous);
             sel.dataset.current = previous;
-            alert(data.error ?? "No se pudo actualizar.");
+            (window as any).__showToast && (window as any).__showToast({ type: "error", message: data.error || "No se pudo actualizar." });
           }
         } catch {
           sel.value = previous;
           applyClass(previous);
           sel.dataset.current = previous;
-          alert("Error de red.");
+          (window as any).__showToast && (window as any).__showToast({ type: "error", message: "Error de red." });
         } finally {
           sel.disabled = false;
         }
@@ -760,13 +689,13 @@ const tabInactiveClass =
         const data = (await res.json()) as { ok: boolean; units_done?: number; error?: string };
         if (!res.ok || !data.ok) {
           input.value = String(original);
-          alert(data.error ?? "No se pudo actualizar el avance.");
+          (window as any).__showToast && (window as any).__showToast({ type: "error", message: data.error || "No se pudo actualizar el avance." });
         } else {
           input.dataset.originalDone = String(data.units_done ?? newValue);
         }
       } catch {
         input.value = String(original);
-        alert("Error de red al actualizar el avance.");
+        (window as any).__showToast && (window as any).__showToast({ type: "error", message: "Error de red al actualizar el avance." });
       } finally {
         input.disabled = false;
       }
@@ -809,7 +738,7 @@ const tabInactiveClass =
         const data = (await res.json()) as { ok: boolean; paid_amount?: number; is_paid?: boolean; error?: string };
         if (!res.ok || !data.ok) {
           input.value = String(original);
-          alert(data.error ?? "No se pudo actualizar el monto pagado.");
+          (window as any).__showToast && (window as any).__showToast({ type: "error", message: data.error || "No se pudo actualizar el monto pagado." });
         } else {
           input.dataset.originalPaid = String(data.paid_amount ?? newValue);
           // Si el server marca pagado total, sincronizar checkbox del lado del cliente.
@@ -822,7 +751,7 @@ const tabInactiveClass =
         }
       } catch {
         input.value = String(original);
-        alert("Error de red al actualizar el monto.");
+        (window as any).__showToast && (window as any).__showToast({ type: "error", message: "Error de red al actualizar el monto." });
       } finally {
         input.disabled = false;
       }
