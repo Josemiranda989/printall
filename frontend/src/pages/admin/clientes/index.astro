@@ -1,11 +1,24 @@
 ---
 import AdminLayout from "../../../layouts/AdminLayout.astro";
-import { fetchClientsWithStats } from "../../../lib/admin-clients";
+import {
+  collectAllTags,
+  fetchClientsWithStats,
+  parseTags,
+  clientHasTag,
+} from "../../../lib/admin-clients";
 import { getWhatsAppUrl } from "../../../lib/pocketbase";
 
 const pb = Astro.locals.adminPB!;
 
-const clients = await fetchClientsWithStats(pb);
+const url = new URL(Astro.request.url);
+const tagFilter = url.searchParams.get("tag") ?? "";
+
+const allClients = await fetchClientsWithStats(pb);
+const allTags = collectAllTags(allClients);
+
+const clients = tagFilter
+  ? allClients.filter((c) => clientHasTag(c, tagFilter))
+  : allClients;
 
 // Orden por defecto: mas reciente actividad primero (clientes sin actividad al final).
 clients.sort((a, b) => {
@@ -61,6 +74,26 @@ function clientWhatsAppUrl(name: string, whatsappNorm: string): string | null {
     />
   </div>
 
+  {allTags.length > 0 && (
+    <div class="flex items-center gap-2 mb-4 flex-wrap">
+      <span class="text-xs text-gray-600 uppercase tracking-wide font-semibold">Etiquetas:</span>
+      <a
+        href="/admin/clientes"
+        class={`px-2 py-1 border-2 rounded-md text-xs font-medium transition-colors ${tagFilter === "" ? "bg-brand text-white border-brand" : "border-brand/30 text-brand hover:border-brand"}`}
+      >
+        Todas
+      </a>
+      {allTags.map((t) => (
+        <a
+          href={`?tag=${encodeURIComponent(t)}`}
+          class={`px-2 py-1 border-2 rounded-md text-xs font-medium transition-colors ${tagFilter === t ? "bg-brand text-white border-brand" : "border-brand/30 text-brand hover:border-brand"}`}
+        >
+          {t}
+        </a>
+      ))}
+    </div>
+  )}
+
   {clients.length === 0 ? (
     <div class="border-2 border-dashed border-brand/30 rounded-lg p-12 text-center bg-white">
       <p class="text-gray-600 mb-2">Todavía no hay clientes.</p>
@@ -98,6 +131,15 @@ function clientWhatsAppUrl(name: string, whatsappNorm: string): string | null {
               >
                 <td class="px-2 sm:px-4 py-3">
                   <div class="font-medium break-words">{c.name}</div>
+                  {parseTags(c.tags).length > 0 && (
+                    <div class="flex flex-wrap gap-1 mt-1">
+                      {parseTags(c.tags).map((t) => (
+                        <span class="text-[10px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded bg-brand/10 text-brand">
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <div class="sm:hidden text-xs text-gray-500 mt-0.5 font-mono">
                     {c.whatsapp || "—"} · {totalActivity} mov.
                   </div>

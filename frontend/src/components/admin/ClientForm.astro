@@ -86,6 +86,27 @@ const whatsappUrl =
     </label>
 
     <label class="block">
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-sm font-medium">Etiquetas</span>
+        <span class="text-xs text-gray-500">Separadas por coma</span>
+      </div>
+      <input
+        type="text"
+        name="tags"
+        maxlength="200"
+        value={values.tags ?? ""}
+        placeholder="vip, mayorista, moroso"
+        class={fieldClass + " font-mono text-sm"}
+      />
+      <p class="text-xs text-gray-500 mt-1">
+        Se guardan en minúscula y sin duplicados. Útil para filtrar después.
+      </p>
+      {errorMsg("tags") && (
+        <p class="text-xs text-red-600 mt-1">{errorMsg("tags")}</p>
+      )}
+    </label>
+
+    <label class="block">
       <span class="text-sm font-medium">Notas</span>
       <textarea
         name="notes"

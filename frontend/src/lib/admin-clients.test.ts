@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   aggregateStatsByClient,
   attachStats,
+  clientHasTag,
+  collectAllTags,
   extractClientFromForm,
   normalizeName,
+  normalizeTags,
   normalizeWhatsapp,
+  parseTags,
   type Client,
   type OrderMinimal,
   type SupplySaleMinimal,
@@ -219,13 +223,19 @@ describe("extractClientFromForm", () => {
 
   it("acepta datos validos", () => {
     const result = extractClientFromForm(
-      form({ name: "Juan Perez", whatsapp: "+54 9 381 456", notes: "Cliente VIP" }),
+      form({
+        name: "Juan Perez",
+        whatsapp: "+54 9 381 456",
+        notes: "Cliente VIP",
+        tags: "vip, mayorista",
+      }),
     );
     expect(result.errors).toEqual({});
     expect(result.data).toEqual({
       name: "Juan Perez",
       whatsapp: "+54 9 381 456",
       notes: "Cliente VIP",
+      tags: "vip, mayorista",
     });
   });
 
@@ -243,5 +253,47 @@ describe("extractClientFromForm", () => {
   it("rechaza nombre demasiado largo", () => {
     const result = extractClientFromForm(form({ name: "A".repeat(121) }));
     expect(result.errors.name).toBeDefined();
+  });
+
+  it("normaliza tags al extraer", () => {
+    const result = extractClientFromForm(
+      form({ name: "X", tags: "VIP, mayorista,  VIP , " }),
+    );
+    expect(result.data.tags).toBe("vip, mayorista");
+  });
+});
+
+// ─── tags helpers ──────────────────────────────────────────────────
+describe("parseTags / normalizeTags / clientHasTag / collectAllTags", () => {
+  it("parseTags: lowercase, trim, dedupe, omite vacíos", () => {
+    expect(parseTags("VIP, mayorista, VIP,, ")).toEqual(["vip", "mayorista"]);
+  });
+
+  it("parseTags: null/undefined/empty → []", () => {
+    expect(parseTags(null)).toEqual([]);
+    expect(parseTags(undefined)).toEqual([]);
+    expect(parseTags("")).toEqual([]);
+  });
+
+  it("normalizeTags: produce string canónico separado por ', '", () => {
+    expect(normalizeTags("VIP, mayorista,VIP")).toBe("vip, mayorista");
+    expect(normalizeTags("")).toBe("");
+  });
+
+  it("clientHasTag: case-insensitive, true solo si está", () => {
+    const c = { tags: "vip, mayorista" };
+    expect(clientHasTag(c, "VIP")).toBe(true);
+    expect(clientHasTag(c, "vip")).toBe(true);
+    expect(clientHasTag(c, "moroso")).toBe(false);
+    expect(clientHasTag(c, "")).toBe(false);
+  });
+
+  it("collectAllTags: tags únicos de varios clientes, ordenado alfa", () => {
+    const result = collectAllTags([
+      { tags: "vip, mayorista" },
+      { tags: "moroso, vip" },
+      { tags: "" },
+    ]);
+    expect(result).toEqual(["mayorista", "moroso", "vip"]);
   });
 });

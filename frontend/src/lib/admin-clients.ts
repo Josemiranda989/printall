@@ -14,9 +14,49 @@ export type Client = {
   whatsapp_norm: string;
   name_norm: string;
   notes: string;
+  tags: string;
   created: string;
   updated: string;
 };
+
+// ─── Tags helpers (puros) ─────────────────────────────────────────────
+
+/** Parsea "vip, mayorista, moroso" → array normalizado (lowercase, trim, dedup). */
+export function parseTags(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  return Array.from(
+    new Set(
+      String(raw)
+        .split(",")
+        .map((t) => t.trim().toLowerCase())
+        .filter((t) => t.length > 0),
+    ),
+  );
+}
+
+/** Normaliza al guardar: lowercase, trim, dedupe, joineado con ", ". */
+export function normalizeTags(raw: string | null | undefined): string {
+  return parseTags(raw).join(", ");
+}
+
+/** True si el client tiene el tag (case-insensitive). */
+export function clientHasTag(
+  client: Pick<Client, "tags">,
+  tag: string,
+): boolean {
+  const norm = tag.trim().toLowerCase();
+  if (!norm) return false;
+  return parseTags(client.tags).includes(norm);
+}
+
+/** Recolecta todos los tags únicos de una lista de clients. Ordenado alfa. */
+export function collectAllTags(clients: Pick<Client, "tags">[]): string[] {
+  const set = new Set<string>();
+  for (const c of clients) {
+    for (const t of parseTags(c.tags)) set.add(t);
+  }
+  return Array.from(set).sort();
+}
 
 /** Stats agregadas calculadas on-the-fly (no persistidas). */
 export type ClientStats = {
@@ -163,6 +203,7 @@ export type ClientFormData = {
   name: string;
   whatsapp: string;
   notes: string;
+  tags: string;
 };
 
 export type ExtractClientResult = {
@@ -181,6 +222,7 @@ export function extractClientFromForm(form: FormData): ExtractClientResult {
   const name = str(form, "name");
   const whatsapp = str(form, "whatsapp");
   const notes = str(form, "notes");
+  const tags = normalizeTags(str(form, "tags"));
 
   if (!name) {
     errors.name = "El nombre es obligatorio.";
@@ -196,7 +238,11 @@ export function extractClientFromForm(form: FormData): ExtractClientResult {
     errors.notes = `Maximo ${CLIENT_NOTES_MAX} caracteres.`;
   }
 
-  return { data: { name, whatsapp, notes }, errors };
+  if (tags.length > 200) {
+    errors.tags = `Maximo 200 caracteres.`;
+  }
+
+  return { data: { name, whatsapp, notes, tags }, errors };
 }
 
 // ─── IO (fetches contra PB) ──────────────────────────────────────────────

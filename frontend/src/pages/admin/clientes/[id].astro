@@ -6,6 +6,7 @@ import {
   fetchClientDetail,
   normalizeName,
   normalizeWhatsapp,
+  parseTags,
   type ClientFormData,
 } from "../../../lib/admin-clients";
 import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
@@ -24,6 +25,7 @@ let values: Partial<ClientFormData> = {
   name: detail.client.name,
   whatsapp: detail.client.whatsapp,
   notes: detail.client.notes,
+  tags: detail.client.tags ?? "",
 };
 let errors: Record<string, string> = {};
 
@@ -55,6 +57,7 @@ if (Astro.request.method === "POST") {
           whatsapp_norm: normalizeWhatsapp(result.data.whatsapp),
           name_norm: normalizeName(result.data.name),
           notes: result.data.notes,
+          tags: result.data.tags,
         });
         const toastName = encodeURIComponent(result.data.name || "sin nombre");
         return Astro.redirect(`/admin/clientes/${id}?toast=saved&name=${toastName}&collection=clients`);
@@ -126,6 +129,18 @@ const waUrl = detail.client.whatsapp_norm
         <p class="text-xs sm:text-sm text-gray-600 mt-1 font-mono">
           {detail.client.whatsapp}
         </p>
+      )}
+      {parseTags(detail.client.tags).length > 0 && (
+        <div class="flex flex-wrap gap-1.5 mt-2">
+          {parseTags(detail.client.tags).map((t) => (
+            <a
+              href={`/admin/clientes?tag=${encodeURIComponent(t)}`}
+              class="text-[10px] uppercase tracking-wide font-semibold px-2 py-0.5 rounded bg-brand/10 text-brand hover:bg-brand hover:text-white transition-colors"
+            >
+              {t}
+            </a>
+          ))}
+        </div>
       )}
     </div>
     {waUrl && (
