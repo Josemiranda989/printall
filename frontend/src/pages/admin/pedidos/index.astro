@@ -337,6 +337,14 @@ const tabInactiveClass =
       <table class="w-full text-sm">
         <thead class="bg-surface border-b-2 border-brand">
           <tr>
+            <th class="px-2 py-3 w-8">
+              <input
+                type="checkbox"
+                id="bulk-select-all"
+                class="w-4 h-4 accent-accent cursor-pointer"
+                aria-label="Seleccionar todos"
+              />
+            </th>
             <th class="text-left px-2 sm:px-3 py-3 font-medium">Proyecto</th>
             <th class="text-left px-3 py-3 font-medium hidden md:table-cell">Cliente</th>
             <th class="text-left px-3 py-3 font-medium hidden lg:table-cell">Mat / Color</th>
@@ -359,6 +367,15 @@ const tabInactiveClass =
                 class="border-b border-brand/10 hover:bg-surface/50 transition-colors cursor-pointer"
                 data-row-href={`/admin/pedidos/${o.id}`}
               >
+                <td class="px-2 py-3 align-top w-8">
+                  <input
+                    type="checkbox"
+                    class="bulk-select-row w-4 h-4 accent-accent cursor-pointer"
+                    data-order-id={o.id}
+                    aria-label={`Seleccionar pedido ${o.order_number || o.id}`}
+                    onclick="event.stopPropagation()"
+                  />
+                </td>
                 <td class="px-2 sm:px-3 py-3">
                   <div class="font-medium break-words">{o.project_name}</div>
                   <div class="text-xs text-gray-400 font-mono mt-0.5">
@@ -520,6 +537,36 @@ const tabInactiveClass =
       )}
     </div>
   )}
+
+  {/* ─── Barra de bulk actions (sticky inferior) ─── */}
+  <div
+    id="bulk-bar"
+    class="hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-brand text-white shadow-xl rounded-xl px-4 py-3 flex items-center gap-3 border-2 border-brand"
+  >
+    <span class="text-sm font-medium" id="bulk-count">0 seleccionados</span>
+    <button
+      type="button"
+      data-bulk-action="paid"
+      class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 rounded-md text-sm font-medium transition-colors"
+    >
+      💵 Marcar pagados
+    </button>
+    <button
+      type="button"
+      data-bulk-action="delivered"
+      class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium transition-colors"
+    >
+      📦 Marcar entregados
+    </button>
+    <button
+      type="button"
+      id="bulk-clear"
+      class="px-2 py-1 text-white/80 hover:text-white text-sm"
+      title="Limpiar selección"
+    >
+      ✕
+    </button>
+  </div>
 </AdminLayout>
 
 <script
@@ -547,6 +594,88 @@ const tabInactiveClass =
       if (target.closest("input, button, a, label, select, option")) return;
       const href = row.dataset.rowHref;
       if (href) window.location.href = href;
+    });
+  });
+
+  // ─── Bulk actions ───
+  const bulkBar = document.getElementById("bulk-bar");
+  const bulkCount = document.getElementById("bulk-count");
+  const selectAll = document.getElementById("bulk-select-all") as HTMLInputElement | null;
+  const rowChecks = document.querySelectorAll<HTMLInputElement>(".bulk-select-row");
+
+  function getSelectedIds(): string[] {
+    return Array.from(rowChecks)
+      .filter((cb) => cb.checked)
+      .map((cb) => cb.dataset.orderId ?? "")
+      .filter(Boolean);
+  }
+
+  function updateBulkBar() {
+    const ids = getSelectedIds();
+    if (ids.length === 0) {
+      bulkBar?.classList.add("hidden");
+      return;
+    }
+    bulkBar?.classList.remove("hidden");
+    if (bulkCount) {
+      bulkCount.textContent = `${ids.length} seleccionado${ids.length === 1 ? "" : "s"}`;
+    }
+  }
+
+  rowChecks.forEach((cb) => cb.addEventListener("change", updateBulkBar));
+
+  selectAll?.addEventListener("change", () => {
+    rowChecks.forEach((cb) => {
+      cb.checked = selectAll.checked;
+    });
+    updateBulkBar();
+  });
+
+  document.getElementById("bulk-clear")?.addEventListener("click", () => {
+    rowChecks.forEach((cb) => (cb.checked = false));
+    if (selectAll) selectAll.checked = false;
+    updateBulkBar();
+  });
+
+  document.querySelectorAll<HTMLButtonElement>("[data-bulk-action]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const action = btn.dataset.bulkAction ?? "";
+      const ids = getSelectedIds();
+      if (ids.length === 0) return;
+      const label = action === "paid" ? "marcar como pagados" : action === "delivered" ? "marcar como entregados" : "actualizar";
+      if (!confirm(`¿${label.charAt(0).toUpperCase() + label.slice(1)} ${ids.length} pedido${ids.length === 1 ? "" : "s"}?`)) return;
+
+      btn.disabled = true;
+      try {
+        const res = await fetch("/admin/api/orders/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids, action }),
+        });
+        const data = (await res.json()) as {
+          ok: boolean;
+          updated_count: number;
+          failed_count: number;
+          error?: string;
+        };
+        if (!data.ok && data.failed_count === 0) {
+          (window as any).__showToast?.({ type: "error", message: data.error || "Error en la operación." });
+          return;
+        }
+        const msg =
+          data.failed_count > 0
+            ? `Actualizados ${data.updated_count}/${ids.length} (fallaron ${data.failed_count})`
+            : `${data.updated_count} pedido${data.updated_count === 1 ? "" : "s"} actualizado${data.updated_count === 1 ? "" : "s"}.`;
+        (window as any).__showToast?.({
+          type: data.failed_count > 0 ? "error" : "success",
+          message: msg,
+        });
+        setTimeout(() => window.location.reload(), 600);
+      } catch {
+        (window as any).__showToast?.({ type: "error", message: "Error de red." });
+      } finally {
+        btn.disabled = false;
+      }
     });
   });
 
