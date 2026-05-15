@@ -168,6 +168,31 @@ if (showCobrarBlock) {
   />
 </AdminLayout>
 
+{/* ─── Save record to sessionStorage before delete (for undo) ─── */}
+<script id="record-json" type="application/json">{JSON.stringify(record)}</script>
+<script>
+  (function() {
+    const recordEl = document.getElementById("record-json");
+    if (!recordEl) return;
+    let recordData;
+    try { recordData = JSON.parse(recordEl.textContent || ""); } catch { return; }
+
+    document.addEventListener("click", (e) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const btn = target.closest("button[name='action'][value='delete']");
+      if (!btn) return;
+      try {
+        sessionStorage.setItem("lastDeleted", JSON.stringify({
+          collection: "supply_sales",
+          data: recordData,
+          name: recordData.customer_name || recordData.id,
+        }));
+      } catch {}
+    }, { capture: true });
+  })();
+</script>
+
 <script>
   function initCopySupplySale() {
     const btn = document.getElementById("copy-btn") as HTMLButtonElement | null;

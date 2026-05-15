@@ -123,6 +123,20 @@ const admin = Astro.locals.admin;
         });
       </script>
     )}
+    {/* ─── Global confirm dialog for data-confirm buttons ─── */}
+    <script>
+      document.addEventListener("click", (e) => {
+        const target = e.target as HTMLElement | null;
+        if (!target) return;
+        const btn = target.closest("button[data-confirm]");
+        if (!btn) return;
+        const message = btn.getAttribute("data-confirm");
+        if (message && !window.confirm(message)) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      });
+    </script>
   </body>
 </html>
 
