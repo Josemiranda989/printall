@@ -279,6 +279,32 @@ if (showCobrarBlock) {
   <OrderForm values={values} errors={errors} mode="edit" orderId={id} />
 </AdminLayout>
 
+{/* ─── Save record to sessionStorage before delete (for undo) ─── */}
+<script id="record-json" type="application/json">{JSON.stringify(record)}</script>
+<script>
+  (function() {
+    const recordEl = document.getElementById("record-json");
+    if (!recordEl) return;
+    let recordData;
+    try { recordData = JSON.parse(recordEl.textContent || ""); } catch { return; }
+
+    document.addEventListener("click", (e) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const btn = target.closest("button[name='action'][value='delete']");
+      if (!btn) return;
+      // Save for undo before form submits (confirm handled globally)
+      try {
+        sessionStorage.setItem("lastDeleted", JSON.stringify({
+          collection: "orders",
+          data: recordData,
+          name: recordData.project_name || recordData.id,
+        }));
+      } catch {}
+    }, { capture: true });
+  })();
+</script>
+
 <script>
   // ─── Copy mensaje completo al portapapeles ───
   function initCopyMessage() {

@@ -146,6 +146,14 @@ const tabInactiveClass =
     </div>
   )}
 
+  {/* ─── Undo toast (restaura pedido eliminado) ─── */}
+  <div id="undo-toast" class="hidden border-2 border-amber-500 bg-amber-50 text-amber-900 px-3 py-2 rounded-md text-sm mb-4 flex items-center justify-between gap-3">
+    <span id="undo-toast-msg"></span>
+    <button id="undo-toast-btn" class="px-3 py-1 bg-amber-500 text-white rounded text-xs font-medium hover:bg-amber-600 transition-colors whitespace-nowrap">
+      Deshacer
+    </button>
+  </div>
+
   {/* ─── Tabs de vista ─── */}
   <div class="flex items-center gap-2 mb-5 flex-wrap">
     <a href="/admin/pedidos" class={`${tabBaseClass} ${tabActiveClass}`}>📋 Tabla</a>
@@ -526,6 +534,57 @@ const tabInactiveClass =
       )}
     </div>
   )}
+<script>
+  (function() {
+    const toast = document.getElementById("undo-toast");
+    const msg = document.getElementById("undo-toast-msg");
+    const btn = document.getElementById("undo-toast-btn") as HTMLButtonElement | null;
+    if (!toast || !msg || !btn) return;
+
+    const raw = sessionStorage.getItem("lastDeleted");
+    if (!raw) return;
+    
+    let deleted;
+    try { deleted = JSON.parse(raw); } catch { return; }
+    if (deleted.collection !== "orders") return;
+
+    // Show toast
+    msg.textContent = `Pedido \"${deleted.name}\" eliminado.`;
+    toast.classList.remove("hidden");
+    sessionStorage.removeItem("lastDeleted");
+
+    // Auto-hide after 8s
+    const timeout = setTimeout(() => toast.classList.add("hidden"), 8000);
+
+    // Undo
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      btn.textContent = "Restaurando...";
+      try {
+        const res = await fetch("/admin/api/orders/restore", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(deleted.data),
+        });
+        const result = await res.json();
+        if (result.ok) {
+          msg.textContent = "✅ Pedido restaurado.";
+          btn.remove();
+          clearTimeout(timeout);
+          setTimeout(() => location.reload(), 800);
+        } else {
+          msg.textContent = "❌ No se pudo restaurar.";
+          btn.textContent = "Reintentar";
+          btn.disabled = false;
+        }
+      } catch {
+        msg.textContent = "❌ Error de red.";
+        btn.textContent = "Reintentar";
+        btn.disabled = false;
+      }
+    });
+  })();
+</script>
 </AdminLayout>
 
 <script
