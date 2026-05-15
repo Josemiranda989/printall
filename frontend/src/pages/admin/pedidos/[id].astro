@@ -6,6 +6,7 @@ import OrderPriorityBadge from "../../../components/admin/OrderPriorityBadge.ast
 import OrderStatusButtons from "../../../components/admin/OrderStatusButtons.astro";
 import OrderProgressBar from "../../../components/admin/OrderProgressBar.astro";
 import { extractOrderFromForm, type OrderFormData } from "../../../lib/admin-orders";
+import { fetchClientsForAutocomplete } from "../../../lib/admin-clients";
 import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
 import { orderBalanceDue, type Order } from "../../../lib/types";
 
@@ -19,6 +20,8 @@ try {
 } catch {
   return new Response("Pedido no encontrado", { status: 404 });
 }
+
+const clients = await fetchClientsForAutocomplete(pb);
 
 let values: Partial<OrderFormData> = {
   project_name: record.project_name,
@@ -295,7 +298,7 @@ const recordForUndoJson = JSON.stringify({
   )}
 
   {/* ─── Form principal ─── */}
-  <OrderForm values={values} errors={errors} mode="edit" orderId={id} />
+  <OrderForm values={values} errors={errors} mode="edit" orderId={id} clients={clients} />
 </AdminLayout>
 
 {/* ─── Save record to sessionStorage before delete (for undo) ─── */}

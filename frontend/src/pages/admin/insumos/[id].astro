@@ -5,6 +5,7 @@ import {
   extractSupplySaleFromForm,
   type SupplySaleFormData,
 } from "../../../lib/admin-supply-sales";
+import { fetchClientsForAutocomplete } from "../../../lib/admin-clients";
 import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
 import { supplySaleTotal, type MaterialPrice, type SupplySale } from "../../../lib/types";
 
@@ -21,11 +22,14 @@ try {
   return new Response("Venta no encontrada", { status: 404 });
 }
 
-const materials = (await pb.collection("materials").getFullList({
-  filter: "active = true",
-  sort: "name",
-  batch: 200,
-})) as unknown as MaterialPrice[];
+const [materials, clients] = await Promise.all([
+  pb.collection("materials").getFullList({
+    filter: "active = true",
+    sort: "name",
+    batch: 200,
+  }) as unknown as Promise<MaterialPrice[]>,
+  fetchClientsForAutocomplete(pb),
+]);
 
 let values: Partial<SupplySaleFormData> = {
   customer_name: record.customer_name,
@@ -180,6 +184,7 @@ const recordForUndoJson = JSON.stringify({
     mode="edit"
     saleId={id}
     materials={materials}
+    clients={clients}
   />
 </AdminLayout>
 

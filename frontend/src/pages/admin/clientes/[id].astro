@@ -1,0 +1,209 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import ClientForm from "../../../components/admin/ClientForm.astro";
+import {
+  extractClientFromForm,
+  fetchClientDetail,
+  normalizeName,
+  normalizeWhatsapp,
+  type ClientFormData,
+} from "../../../lib/admin-clients";
+import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
+import { getWhatsAppUrl } from "../../../lib/pocketbase";
+
+const pb = Astro.locals.adminPB!;
+const { id } = Astro.params;
+if (!id) return Astro.redirect("/admin/clientes");
+
+const detail = await fetchClientDetail(pb, id);
+if (!detail) {
+  return new Response("Cliente no encontrado", { status: 404 });
+}
+
+let values: Partial<ClientFormData> = {
+  name: detail.client.name,
+  whatsapp: detail.client.whatsapp,
+  notes: detail.client.notes,
+};
+let errors: Record<string, string> = {};
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const action = String(form.get("action") ?? "save");
+
+  if (action === "delete") {
+    try {
+      await pb.collection("clients").delete(id);
+      const toastName = encodeURIComponent(detail.client.name || "sin nombre");
+      return Astro.redirect(`/admin/clientes?toast=deleted&name=${toastName}&collection=clients`);
+    } catch (err: unknown) {
+      errors = mapPBErrorToFieldErrors(err, "generic");
+      if (!errors._global) errors._global = "No se pudo eliminar el cliente.";
+    }
+  } else {
+    const result = extractClientFromForm(form);
+    values = result.data;
+    errors = result.errors;
+
+    if (Object.keys(errors).length === 0) {
+      try {
+        // Re-normalizamos los campos derivados para mantener consistencia
+        // con lo que hace el hook al crear/actualizar un order o sale.
+        await pb.collection("clients").update(id, {
+          name: result.data.name,
+          whatsapp: result.data.whatsapp,
+          whatsapp_norm: normalizeWhatsapp(result.data.whatsapp),
+          name_norm: normalizeName(result.data.name),
+          notes: result.data.notes,
+        });
+        const toastName = encodeURIComponent(result.data.name || "sin nombre");
+        return Astro.redirect(`/admin/clientes/${id}?toast=saved&name=${toastName}&collection=clients`);
+      } catch (err: unknown) {
+        errors = { ...errors, ...mapPBErrorToFieldErrors(err, "generic") };
+      }
+    }
+  }
+}
+
+// ─── Historial unificado de orders + supply_sales ──────────────────────
+type HistoryItem = {
+  id: string;
+  type: "order" | "sale";
+  date: string;
+  label: string;
+  total: number;
+  href: string;
+};
+
+const history: HistoryItem[] = [
+  ...detail.orders.map((o) => {
+    const r = o as Record<string, unknown>;
+    return {
+      id: String(r.id),
+      type: "order" as const,
+      date: String(r.order_date ?? r.created ?? ""),
+      label: String(r.project_name ?? "(sin proyecto)"),
+      total: (Number(r.unit_price) || 0) * (Number(r.units_ordered) || 0),
+      href: `/admin/pedidos/${r.id}`,
+    };
+  }),
+  ...detail.sales.map((s) => {
+    const r = s as Record<string, unknown>;
+    return {
+      id: String(r.id),
+      type: "sale" as const,
+      date: String(r.sale_date ?? r.created ?? ""),
+      label: "Venta de insumo",
+      total: (Number(r.unit_price) || 0) * (Number(r.quantity) || 0),
+      href: `/admin/insumos/${r.id}`,
+    };
+  }),
+].sort((a, b) => b.date.localeCompare(a.date));
+
+function fmtMoney(n: number): string {
+  return "$" + Math.round(n).toLocaleString("es-AR");
+}
+function fmtDate(iso: string | null): string {
+  if (!iso) return "—";
+  return iso.slice(0, 10);
+}
+
+const waUrl = detail.client.whatsapp_norm
+  ? getWhatsAppUrl(
+      detail.client.whatsapp_norm,
+      `¡Hola ${detail.client.name}! 👋`,
+    )
+  : null;
+---
+
+<AdminLayout title={`Cliente: ${detail.client.name}`}>
+  <div class="mb-5 flex items-start justify-between gap-3 flex-wrap">
+    <div class="min-w-0">
+      <h1 class="font-display text-2xl sm:text-3xl break-words">
+        {detail.client.name}
+      </h1>
+      {detail.client.whatsapp && (
+        <p class="text-xs sm:text-sm text-gray-600 mt-1 font-mono">
+          {detail.client.whatsapp}
+        </p>
+      )}
+    </div>
+    {waUrl && (
+      <a
+        href={waUrl}
+        target="_blank"
+        rel="noopener"
+        class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors text-sm font-medium whitespace-nowrap shrink-0"
+      >
+        💬 Abrir WhatsApp
+      </a>
+    )}
+  </div>
+
+  {/* ─── Stats ─── */}
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+    <div class="bg-white border-2 border-brand rounded-lg p-3 sm:p-4">
+      <div class="text-xs text-gray-600">Pedidos</div>
+      <div class="text-2xl sm:text-3xl font-display font-bold mt-1">
+        {detail.stats.total_orders}
+      </div>
+    </div>
+    <div class="bg-white border-2 border-brand rounded-lg p-3 sm:p-4">
+      <div class="text-xs text-gray-600">Insumos</div>
+      <div class="text-2xl sm:text-3xl font-display font-bold mt-1">
+        {detail.stats.total_supply_sales}
+      </div>
+    </div>
+    <div class="bg-white border-2 border-brand rounded-lg p-3 sm:p-4">
+      <div class="text-xs text-gray-600">Total gastado</div>
+      <div class="text-base sm:text-xl font-mono font-bold mt-1 break-words">
+        {fmtMoney(detail.stats.total_spent)}
+      </div>
+    </div>
+    <div class="bg-white border-2 border-brand rounded-lg p-3 sm:p-4">
+      <div class="text-xs text-gray-600">Último</div>
+      <div class="text-base sm:text-xl font-mono font-bold mt-1">
+        {fmtDate(detail.stats.last_seen_at)}
+      </div>
+    </div>
+  </div>
+
+  {/* ─── Form de edicion ─── */}
+  <ClientForm values={values} errors={errors} mode="edit" clientId={id} />
+
+  {/* ─── Historial ─── */}
+  <section class="mt-8 bg-white border-2 border-brand rounded-lg shadow-[4px_4px_0_var(--color-brand)] overflow-hidden">
+    <h2 class="font-display text-lg px-5 py-3 border-b-2 border-brand bg-surface">
+      Historial ({history.length})
+    </h2>
+    {history.length === 0 ? (
+      <p class="p-5 text-sm text-gray-500">
+        Este cliente todavía no tiene pedidos ni ventas registrados.
+      </p>
+    ) : (
+      <ul class="divide-y divide-brand/10">
+        {history.map((h) => (
+          <li>
+            <a
+              href={h.href}
+              class="flex items-center justify-between gap-3 px-5 py-3 hover:bg-surface/50 transition-colors"
+            >
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                  <span class={`text-[10px] uppercase font-bold tracking-wide px-1.5 py-0.5 rounded ${h.type === "order" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
+                    {h.type === "order" ? "Pedido" : "Insumo"}
+                  </span>
+                  <span class="font-medium text-sm break-words">{h.label}</span>
+                </div>
+                <div class="text-xs text-gray-500 font-mono mt-0.5">{fmtDate(h.date)}</div>
+              </div>
+              <div class="font-mono text-sm font-medium whitespace-nowrap">
+                {fmtMoney(h.total)}
+              </div>
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
+</AdminLayout>

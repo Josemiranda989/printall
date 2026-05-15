@@ -1,0 +1,197 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import { fetchClientsWithStats } from "../../../lib/admin-clients";
+import { getWhatsAppUrl } from "../../../lib/pocketbase";
+
+const pb = Astro.locals.adminPB!;
+
+const clients = await fetchClientsWithStats(pb);
+
+// Orden por defecto: mas reciente actividad primero (clientes sin actividad al final).
+clients.sort((a, b) => {
+  if (a.last_seen_at && b.last_seen_at) {
+    return b.last_seen_at.localeCompare(a.last_seen_at);
+  }
+  if (a.last_seen_at) return -1;
+  if (b.last_seen_at) return 1;
+  return a.name.localeCompare(b.name);
+});
+
+function fmtMoney(n: number): string {
+  return "$" + Math.round(n).toLocaleString("es-AR");
+}
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return "—";
+  return iso.slice(0, 10);
+}
+
+function clientWhatsAppUrl(name: string, whatsappNorm: string): string | null {
+  if (!whatsappNorm) return null;
+  return getWhatsAppUrl(whatsappNorm, `¡Hola ${name}! 👋`);
+}
+---
+
+<AdminLayout title="Clientes">
+  <div class="flex items-center justify-between gap-3 mb-5 flex-wrap">
+    <div class="min-w-0">
+      <h1 class="font-display text-2xl sm:text-3xl">Clientes</h1>
+      <p class="text-xs sm:text-sm text-gray-600 mt-1">
+        Agenda derivada de pedidos y ventas de insumos.
+      </p>
+    </div>
+    <div class="flex items-center gap-2 shrink-0">
+      <a
+        href="/admin/clientes/nuevo"
+        class="bg-accent text-white font-medium px-3 sm:px-4 py-2 rounded-md hover:bg-accent-hover transition-colors text-sm whitespace-nowrap"
+      >
+        <span class="sm:hidden">+ Nuevo</span>
+        <span class="hidden sm:inline">+ Nuevo cliente</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Buscador client-side -->
+  <div class="mb-4">
+    <input
+      type="search"
+      id="client-search"
+      placeholder="Buscar por nombre o WhatsApp..."
+      class="w-full sm:max-w-md border-2 border-brand rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
+    />
+  </div>
+
+  {clients.length === 0 ? (
+    <div class="border-2 border-dashed border-brand/30 rounded-lg p-12 text-center bg-white">
+      <p class="text-gray-600 mb-2">Todavía no hay clientes.</p>
+      <p class="text-xs text-gray-500 mb-4">
+        Se crean automáticamente al registrar pedidos o ventas de insumos.
+      </p>
+      <a href="/admin/clientes/nuevo" class="text-accent hover:underline font-medium">
+        Crear uno manualmente →
+      </a>
+    </div>
+  ) : (
+    <div class="bg-white border-2 border-brand rounded-lg overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-surface border-b-2 border-brand">
+          <tr>
+            <th class="text-left px-2 sm:px-4 py-3 font-medium">Nombre</th>
+            <th class="text-left px-2 sm:px-4 py-3 font-medium hidden sm:table-cell">WhatsApp</th>
+            <th class="text-right px-2 sm:px-4 py-3 font-medium hidden md:table-cell">Pedidos</th>
+            <th class="text-right px-2 sm:px-4 py-3 font-medium hidden md:table-cell">Insumos</th>
+            <th class="text-right px-2 sm:px-4 py-3 font-medium">Total</th>
+            <th class="text-right px-2 sm:px-4 py-3 font-medium hidden lg:table-cell">Último</th>
+            <th class="text-right px-2 sm:px-4 py-3 font-medium">Acción</th>
+          </tr>
+        </thead>
+        <tbody id="clients-tbody">
+          {clients.map((c) => {
+            const waUrl = clientWhatsAppUrl(c.name, c.whatsapp_norm);
+            const totalActivity = c.total_orders + c.total_supply_sales;
+            return (
+              <tr
+                class="border-b border-brand/10 hover:bg-surface/50 transition-colors cursor-pointer client-row"
+                data-row-href={`/admin/clientes/${c.id}`}
+                data-search-name={c.name_norm}
+                data-search-whatsapp={c.whatsapp_norm}
+              >
+                <td class="px-2 sm:px-4 py-3">
+                  <div class="font-medium break-words">{c.name}</div>
+                  <div class="sm:hidden text-xs text-gray-500 mt-0.5 font-mono">
+                    {c.whatsapp || "—"} · {totalActivity} mov.
+                  </div>
+                </td>
+                <td class="px-2 sm:px-4 py-3 hidden sm:table-cell">
+                  {c.whatsapp ? (
+                    <span class="font-mono text-xs text-gray-700">{c.whatsapp}</span>
+                  ) : (
+                    <span class="text-gray-400 text-xs">—</span>
+                  )}
+                </td>
+                <td class="px-2 sm:px-4 py-3 text-right font-mono text-gray-700 hidden md:table-cell">
+                  {c.total_orders}
+                </td>
+                <td class="px-2 sm:px-4 py-3 text-right font-mono text-gray-700 hidden md:table-cell">
+                  {c.total_supply_sales}
+                </td>
+                <td class="px-2 sm:px-4 py-3 text-right font-mono font-medium whitespace-nowrap">
+                  {c.total_spent > 0 ? fmtMoney(c.total_spent) : <span class="text-gray-400">—</span>}
+                </td>
+                <td class="px-2 sm:px-4 py-3 text-right font-mono text-gray-600 hidden lg:table-cell whitespace-nowrap">
+                  {fmtDate(c.last_seen_at)}
+                </td>
+                <td class="px-2 sm:px-4 py-3 text-right">
+                  <div class="flex items-center justify-end gap-1.5">
+                    {waUrl && (
+                      <a
+                        href={waUrl}
+                        target="_blank"
+                        rel="noopener"
+                        class="inline-flex items-center px-2 py-1 border-2 border-emerald-600 text-emerald-700 rounded hover:bg-emerald-600 hover:text-white transition-colors text-xs font-medium whitespace-nowrap"
+                        title="Abrir WhatsApp"
+                        onclick="event.stopPropagation()"
+                      >
+                        WA
+                      </a>
+                    )}
+                    <a
+                      href={`/admin/clientes/${c.id}`}
+                      class="inline-block px-2 sm:px-3 py-1 border-2 border-brand rounded hover:bg-brand hover:text-white transition-colors text-xs font-medium whitespace-nowrap"
+                      onclick="event.stopPropagation()"
+                    >
+                      Ver
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <div id="empty-search-state" class="hidden p-8 text-center text-gray-500 text-sm">
+        No se encontraron clientes para esa búsqueda.
+      </div>
+    </div>
+  )}
+
+  <script>
+    // ─── Filas clickables ───
+    document.querySelectorAll<HTMLElement>("[data-row-href]").forEach((row) => {
+      row.addEventListener("click", (ev) => {
+        const target = ev.target as HTMLElement;
+        if (target.closest("input, button, a, label, select, option")) return;
+        const href = row.dataset.rowHref;
+        if (href) window.location.href = href;
+      });
+    });
+
+    // ─── Buscador client-side ───
+    const searchInput = document.getElementById("client-search") as HTMLInputElement | null;
+    const tbody = document.getElementById("clients-tbody");
+    const emptyState = document.getElementById("empty-search-state");
+
+    function normalize(s: string): string {
+      const diacritics = new RegExp("[\\u0300-\\u036f]", "g");
+      return s.normalize("NFD").replace(diacritics, "").toLowerCase().trim();
+    }
+
+    searchInput?.addEventListener("input", () => {
+      const q = normalize(searchInput.value);
+      const qDigits = q.replace(/\D/g, "");
+      let visible = 0;
+      tbody?.querySelectorAll<HTMLElement>(".client-row").forEach((row) => {
+        const name = row.dataset.searchName ?? "";
+        const wa = row.dataset.searchWhatsapp ?? "";
+        const matchName = q && name.includes(q);
+        const matchWa = qDigits && wa.includes(qDigits);
+        const show = !q || matchName || matchWa;
+        row.style.display = show ? "" : "none";
+        if (show) visible++;
+      });
+      if (emptyState) {
+        emptyState.classList.toggle("hidden", visible > 0 || !q);
+      }
+    });
+  </script>
+</AdminLayout>

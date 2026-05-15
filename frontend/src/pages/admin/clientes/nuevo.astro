@@ -1,0 +1,80 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import ClientForm from "../../../components/admin/ClientForm.astro";
+import {
+  extractClientFromForm,
+  normalizeName,
+  normalizeWhatsapp,
+  type ClientFormData,
+} from "../../../lib/admin-clients";
+import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
+
+const pb = Astro.locals.adminPB!;
+
+let values: Partial<ClientFormData> = { name: "", whatsapp: "", notes: "" };
+let errors: Record<string, string> = {};
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const result = extractClientFromForm(form);
+  values = result.data;
+  errors = result.errors;
+
+  if (Object.keys(errors).length === 0) {
+    try {
+      const wnorm = normalizeWhatsapp(result.data.whatsapp);
+      const nnorm = normalizeName(result.data.name);
+
+      // Evitar duplicados: si ya existe un cliente con el mismo whatsapp_norm,
+      // o (sin whatsapp) con el mismo name_norm, redirigir al existente.
+      let existing = null;
+      try {
+        if (wnorm) {
+          existing = await pb
+            .collection("clients")
+            .getFirstListItem(`whatsapp_norm = "${wnorm}"`);
+        } else if (nnorm) {
+          existing = await pb
+            .collection("clients")
+            .getFirstListItem(`name_norm = "${nnorm}" && (whatsapp_norm = "" || whatsapp_norm = null)`);
+        }
+      } catch {
+        existing = null;
+      }
+
+      if (existing) {
+        const toastName = encodeURIComponent(result.data.name || "sin nombre");
+        return Astro.redirect(
+          `/admin/clientes/${existing.id}?toast=info&name=${toastName}&message=${encodeURIComponent("Ya existía un cliente con esos datos")}`,
+        );
+      }
+
+      const created = await pb.collection("clients").create({
+        name: result.data.name,
+        whatsapp: result.data.whatsapp,
+        whatsapp_norm: wnorm,
+        name_norm: nnorm,
+        notes: result.data.notes,
+      });
+
+      const toastName = encodeURIComponent(result.data.name || "sin nombre");
+      return Astro.redirect(
+        `/admin/clientes/${created.id}?toast=created&name=${toastName}&collection=clients`,
+      );
+    } catch (err: unknown) {
+      errors = { ...errors, ...mapPBErrorToFieldErrors(err, "generic") };
+    }
+  }
+}
+---
+
+<AdminLayout title="Nuevo cliente">
+  <div class="mb-5">
+    <h1 class="font-display text-2xl sm:text-3xl">Nuevo cliente</h1>
+    <p class="text-xs sm:text-sm text-gray-600 mt-1">
+      Normalmente los clientes se crean solos al cargar un pedido o venta de insumo. Esta pantalla sirve para agregar uno manualmente sin tener todavía un pedido asociado.
+    </p>
+  </div>
+
+  <ClientForm values={values} errors={errors} mode="create" />
+</AdminLayout>

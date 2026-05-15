@@ -18,15 +18,17 @@ import {
   PROJECT_NAME_MAX,
   type OrderFormData,
 } from "../../lib/admin-orders";
+import type { ClientForAutocomplete } from "../../lib/admin-clients";
 
 export interface Props {
   values: Partial<OrderFormData>;
   errors?: Record<string, string>;
   mode: "create" | "edit";
   orderId?: string;
+  clients?: ClientForAutocomplete[];
 }
 
-const { values, errors = {}, mode, orderId } = Astro.props;
+const { values, errors = {}, mode, orderId, clients = [] } = Astro.props;
 
 const fieldClass =
   "mt-1 block w-full border-2 border-brand rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent disabled:bg-gray-100";
@@ -144,8 +146,25 @@ const whatsappUrl =
         required
         maxlength={CUSTOMER_NAME_MAX}
         value={values.customer_name ?? ""}
+        list="client-autocomplete-list"
+        autocomplete="off"
+        data-customer-name
         class={fieldClass}
       />
+      {clients.length > 0 && (
+        <datalist id="client-autocomplete-list">
+          {clients.map((c) => (
+            <option value={c.name} data-whatsapp={c.whatsapp}>
+              {c.whatsapp ? `${c.name} · ${c.whatsapp}` : c.name}
+            </option>
+          ))}
+        </datalist>
+      )}
+      {clients.length > 0 && (
+        <p class="text-xs text-gray-500 mt-1">
+          Tipeá para buscar entre {clients.length} clientes existentes, o cargá uno nuevo.
+        </p>
+      )}
       {errorMsg("customer_name") && (
         <p class="text-xs text-red-600 mt-1">{errorMsg("customer_name")}</p>
       )}
@@ -171,6 +190,7 @@ const whatsappUrl =
         maxlength={CUSTOMER_WHATSAPP_MAX}
         value={values.customer_whatsapp ?? ""}
         placeholder="+54 9 381 ..."
+        data-customer-whatsapp
         class={fieldClass + " font-mono text-sm"}
       />
       {errorMsg("customer_whatsapp") && (
@@ -552,6 +572,32 @@ const whatsappUrl =
   });
 
   updateTotals();
+
+  // ─── Autocomplete cliente: datalist → autollena WhatsApp ───
+  const customerNameEl = document.querySelector<HTMLInputElement>("[data-customer-name]");
+  const customerWaEl = document.querySelector<HTMLInputElement>("[data-customer-whatsapp]");
+  const datalistEl = document.getElementById("client-autocomplete-list") as HTMLDataListElement | null;
+
+  function autofillWhatsAppFromName() {
+    if (!customerNameEl || !customerWaEl || !datalistEl) return;
+    const typed = customerNameEl.value.trim();
+    if (!typed) return;
+    // Buscar option con value === typed exacto
+    const opts = datalistEl.querySelectorAll<HTMLOptionElement>("option");
+    for (const opt of opts) {
+      if (opt.value === typed) {
+        const wa = opt.getAttribute("data-whatsapp") ?? "";
+        // Solo autollenar si el campo de WhatsApp esta vacio — no pisar lo que el usuario tipeo a mano
+        if (wa && !customerWaEl.value.trim()) {
+          customerWaEl.value = wa;
+        }
+        break;
+      }
+    }
+  }
+
+  customerNameEl?.addEventListener("change", autofillWhatsAppFromName);
+  customerNameEl?.addEventListener("blur", autofillWhatsAppFromName);
 
   // Confirm dialogs handled globally in AdminLayout
 </script>
