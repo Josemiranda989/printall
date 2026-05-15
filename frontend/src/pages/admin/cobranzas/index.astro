@@ -1,0 +1,193 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import { fetchPendingPayments, summarizePending } from "../../../lib/admin-pending";
+
+const pb = Astro.locals.adminPB!;
+
+const url = new URL(Astro.request.url);
+const typeFilter = url.searchParams.get("tipo") ?? "todos"; // "todos" | "order" | "sale"
+
+const allItems = await fetchPendingPayments(pb);
+const totals = summarizePending(allItems);
+
+const items =
+  typeFilter === "order"
+    ? allItems.filter((i) => i.type === "order")
+    : typeFilter === "sale"
+      ? allItems.filter((i) => i.type === "sale")
+      : allItems;
+
+function fmtMoney(n: number): string {
+  return "$" + Math.round(n).toLocaleString("es-AR");
+}
+
+function daysLabel(d: number): string {
+  if (d === 0) return "hoy";
+  if (d === 1) return "1 día";
+  return `${d} días`;
+}
+
+function daysClass(d: number): string {
+  if (d >= 30) return "text-red-700 font-bold";
+  if (d >= 14) return "text-red-600 font-medium";
+  if (d >= 7) return "text-amber-700 font-medium";
+  return "text-gray-600";
+}
+
+function typeLabel(t: "order" | "sale"): string {
+  return t === "order" ? "Pedido" : "Insumo";
+}
+
+function typeBadgeClass(t: "order" | "sale"): string {
+  return t === "order"
+    ? "bg-blue-100 text-blue-700"
+    : "bg-amber-100 text-amber-700";
+}
+---
+
+<AdminLayout title="Cobranzas">
+  <div class="mb-5">
+    <h1 class="font-display text-2xl sm:text-3xl">Cobranzas</h1>
+    <p class="text-xs sm:text-sm text-gray-600 mt-1">
+      Pedidos y ventas con saldo pendiente, ordenados por días desde la creación.
+    </p>
+  </div>
+
+  {/* ─── Stats ─── */}
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+    <div class="bg-white border-2 border-brand rounded-lg p-3 sm:p-4">
+      <div class="text-xs text-gray-600">A cobrar</div>
+      <div class="text-base sm:text-2xl font-mono font-bold mt-1 break-words">
+        {fmtMoney(totals.total_saldo)}
+      </div>
+    </div>
+    <div class="bg-white border-2 border-brand rounded-lg p-3 sm:p-4">
+      <div class="text-xs text-gray-600">Movimientos</div>
+      <div class="text-2xl sm:text-3xl font-display font-bold mt-1">
+        {totals.count}
+      </div>
+    </div>
+    <div class="bg-white border-2 border-amber-500 rounded-lg p-3 sm:p-4">
+      <div class="text-xs text-amber-700">≥ 7 días</div>
+      <div class="text-2xl sm:text-3xl font-display font-bold mt-1 text-amber-800">
+        {totals.count_overdue_7d}
+      </div>
+    </div>
+    <div class="bg-white border-2 border-gray-300 rounded-lg p-3 sm:p-4">
+      <div class="text-xs text-gray-600">Sin WhatsApp</div>
+      <div class="text-2xl sm:text-3xl font-display font-bold mt-1 text-gray-500">
+        {totals.count_no_whatsapp}
+      </div>
+    </div>
+  </div>
+
+  {/* ─── Filtro por tipo ─── */}
+  <div class="flex items-center gap-2 mb-4 flex-wrap">
+    <a
+      href="?tipo=todos"
+      class={`px-3 py-1.5 border-2 rounded-md text-sm font-medium transition-colors ${typeFilter === "todos" ? "bg-brand text-white border-brand" : "border-brand/30 text-brand hover:border-brand"}`}
+    >
+      Todos ({totals.count})
+    </a>
+    <a
+      href="?tipo=order"
+      class={`px-3 py-1.5 border-2 rounded-md text-sm font-medium transition-colors ${typeFilter === "order" ? "bg-brand text-white border-brand" : "border-brand/30 text-brand hover:border-brand"}`}
+    >
+      Pedidos ({totals.count_orders})
+    </a>
+    <a
+      href="?tipo=sale"
+      class={`px-3 py-1.5 border-2 rounded-md text-sm font-medium transition-colors ${typeFilter === "sale" ? "bg-brand text-white border-brand" : "border-brand/30 text-brand hover:border-brand"}`}
+    >
+      Insumos ({totals.count_sales})
+    </a>
+  </div>
+
+  {items.length === 0 ? (
+    <div class="border-2 border-dashed border-emerald-400 rounded-lg p-12 text-center bg-white">
+      <p class="text-emerald-700 font-medium text-lg">¡Todo cobrado!</p>
+      <p class="text-xs text-gray-500 mt-2">
+        No hay pedidos ni ventas con saldo pendiente en este filtro.
+      </p>
+    </div>
+  ) : (
+    <div class="bg-white border-2 border-brand rounded-lg overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-surface border-b-2 border-brand">
+          <tr>
+            <th class="text-left px-2 sm:px-4 py-3 font-medium">Cliente</th>
+            <th class="text-left px-2 sm:px-4 py-3 font-medium hidden md:table-cell">Detalle</th>
+            <th class="text-right px-2 sm:px-4 py-3 font-medium">Saldo</th>
+            <th class="text-right px-2 sm:px-4 py-3 font-medium hidden sm:table-cell">Antigüedad</th>
+            <th class="text-right px-2 sm:px-4 py-3 font-medium">Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((it) => (
+            <tr class="border-b border-brand/10 hover:bg-surface/50 transition-colors">
+              <td class="px-2 sm:px-4 py-3">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class={`text-[10px] uppercase font-bold tracking-wide px-1.5 py-0.5 rounded ${typeBadgeClass(it.type)}`}>
+                    {typeLabel(it.type)}
+                  </span>
+                  <span class="font-medium break-words">{it.customer_name}</span>
+                </div>
+                <div class="md:hidden text-xs text-gray-500 mt-0.5 break-words">
+                  {it.label}
+                </div>
+                {it.customer_whatsapp && (
+                  <div class="text-xs text-gray-400 font-mono mt-0.5">
+                    {it.customer_whatsapp}
+                  </div>
+                )}
+              </td>
+              <td class="px-2 sm:px-4 py-3 text-gray-700 hidden md:table-cell break-words">
+                {it.label}
+              </td>
+              <td class="px-2 sm:px-4 py-3 text-right font-mono font-medium whitespace-nowrap">
+                {fmtMoney(it.saldo)}
+                {it.paid > 0 && (
+                  <div class="text-[10px] text-gray-400 font-normal">
+                    pagó {fmtMoney(it.paid)} / {fmtMoney(it.total)}
+                  </div>
+                )}
+              </td>
+              <td class={`px-2 sm:px-4 py-3 text-right font-mono whitespace-nowrap hidden sm:table-cell ${daysClass(it.days_old)}`}>
+                {daysLabel(it.days_old)}
+              </td>
+              <td class="px-2 sm:px-4 py-3 text-right">
+                <div class="flex items-center justify-end gap-1.5 flex-wrap">
+                  {it.reminder_href ? (
+                    <a
+                      href={it.reminder_href}
+                      target="_blank"
+                      rel="noopener"
+                      class="inline-flex items-center px-2 py-1 border-2 border-emerald-600 text-emerald-700 rounded hover:bg-emerald-600 hover:text-white transition-colors text-xs font-medium whitespace-nowrap"
+                      title="Enviar recordatorio por WhatsApp"
+                    >
+                      💬 Recordar
+                    </a>
+                  ) : !it.customer_whatsapp ? (
+                    <span class="text-[10px] text-gray-400 px-2" title="No hay WhatsApp cargado">
+                      sin tel
+                    </span>
+                  ) : (
+                    <span class="text-[10px] text-gray-400 px-2" title="No hay template aplicable">
+                      sin template
+                    </span>
+                  )}
+                  <a
+                    href={it.href}
+                    class="inline-block px-2 sm:px-3 py-1 border-2 border-brand rounded hover:bg-brand hover:text-white transition-colors text-xs font-medium whitespace-nowrap"
+                  >
+                    Ver
+                  </a>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+</AdminLayout>
