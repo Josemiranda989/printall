@@ -6,8 +6,10 @@ import {
   type SupplySaleFormData,
 } from "../../../lib/admin-supply-sales";
 import WhatsAppTemplateMenu from "../../../components/admin/WhatsAppTemplateMenu.astro";
+import PaymentsSection from "../../../components/admin/PaymentsSection.astro";
 import { fetchClientsForAutocomplete } from "../../../lib/admin-clients";
 import { fetchTemplatesFor, getSaleContext } from "../../../lib/admin-templates";
+import { fetchPaymentsForTarget } from "../../../lib/admin-payments";
 import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
 import { supplySaleTotal, type MaterialPrice, type SupplySale } from "../../../lib/types";
 
@@ -24,7 +26,7 @@ try {
   return new Response("Venta no encontrada", { status: 404 });
 }
 
-const [materials, clients, templates] = await Promise.all([
+const [materials, clients, templates, payments] = await Promise.all([
   pb.collection("materials").getFullList({
     filter: "active = true",
     sort: "name",
@@ -32,11 +34,13 @@ const [materials, clients, templates] = await Promise.all([
   }) as unknown as Promise<MaterialPrice[]>,
   fetchClientsForAutocomplete(pb),
   fetchTemplatesFor(pb, "sale"),
+  fetchPaymentsForTarget(pb, "sale", record.id),
 ]);
 
 const itemMaterial = materials.find((m) => m.id === record.item) ?? null;
 const materialName = itemMaterial?.name ?? record.item;
 const templateContext = getSaleContext(record, { item_name: materialName });
+const saleTotal = supplySaleTotal(record);
 
 let values: Partial<SupplySaleFormData> = {
   customer_name: record.customer_name,
@@ -189,6 +193,16 @@ const recordForUndoJson = JSON.stringify({
       templates={templates}
       context={templateContext}
       customerWhatsapp={record.customer_whatsapp ?? ""}
+    />
+  </div>
+
+  {/* ─── Pagos detallados ─── */}
+  <div class="mb-5">
+    <PaymentsSection
+      targetType="sale"
+      targetId={record.id}
+      payments={payments}
+      total={saleTotal}
     />
   </div>
 
