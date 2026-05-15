@@ -41,3 +41,6 @@ cloudflared/cert.pem
 # Autoskills (skills-lock.json SI se commitea)
 frontend/.agents/
 frontend/.claude/
+
+# PocketBase data backups
+pocketbase/pb_data_backup*

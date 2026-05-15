@@ -98,8 +98,48 @@ const [monthCurrentList, monthPrevList, toCollectRes] = await Promise.all([
   }),
 ]);
 
+// Supply sales del mes (entregados y pagados, por sale_date)
+const supplyMonthFilter = 
+  `sale_date >= "${ymd(firstDayCurrent)} 00:00:00" && ` +
+  `sale_date <= "${ymd(lastDayCurrent)} 23:59:59" && ` +
+  `status = "entregado" && is_paid = true`;
+const supplyPrevFilter = 
+  `sale_date >= "${ymd(firstDayPrev)} 00:00:00" && ` +
+  `sale_date <= "${ymd(lastDayPrev)} 23:59:59" && ` +
+  `status = "entregado" && is_paid = true`;
+
+const [supplyCurrentList, supplyPrevList] = await Promise.all([
+  pb.collection("supply_sales").getFullList({
+    filter: supplyMonthFilter,
+    fields: "id,quantity,unit_price",
+    batch: 500,
+    requestKey: null,
+  }),
+  pb.collection("supply_sales").getFullList({
+    filter: supplyPrevFilter,
+    fields: "id,quantity,unit_price",
+    batch: 500,
+    requestKey: null,
+  }),
+]);
+
+// Unpaid supply_sales para la sección "por cobrar"
+const supplyUnpaidRes = await pb.collection("supply_sales").getList(1, 50, {
+  filter: 'status = "entregado" && is_paid = false',
+  sort: "-sale_date",
+  expand: "item",
+  requestKey: null,
+});
+const supplyUnpaidItems = supplyUnpaidRes.items as unknown as { id: string; customer_name: string; quantity: number; unit_price: number; notes?: string; expand?: { item?: { name?: string } } }[];
+
 // Agregaciones del mes actual
-function sumRevenue(list: { unit_price?: number; units_done?: number; units_ordered?: number }[]): number {
+function sumSupplyRevenue(list: { quantity?: number; unit_price?: number }[]): number {
+  return list.reduce((acc, s) => {
+    return acc + (Number(s.quantity) || 0) * (Number(s.unit_price) || 0);
+  }, 0);
+}
+
+function sumOrderRevenue(list: { unit_price?: number; units_done?: number; units_ordered?: number }[]): number {
   return list.reduce((acc, o) => {
     const price = Number(o.unit_price) || 0;
     // Si units_done = 0 pero el pedido está delivered, asumimos units_ordered.
@@ -109,12 +149,16 @@ function sumRevenue(list: { unit_price?: number; units_done?: number; units_orde
 }
 
 const monthCurrentCount = monthCurrentList.length;
-const monthCurrentRevenue = sumRevenue(monthCurrentList as unknown as { unit_price?: number; units_done?: number; units_ordered?: number }[]);
+const monthCurrentOrdersRevenue = sumOrderRevenue(monthCurrentList as unknown as { unit_price?: number; units_done?: number; units_ordered?: number }[]);
+const monthCurrentSupplyRevenue = sumSupplyRevenue(supplyCurrentList as unknown as { quantity?: number; unit_price?: number }[]);
+const monthCurrentRevenue = monthCurrentOrdersRevenue + monthCurrentSupplyRevenue;
 const monthCurrentAvg =
   monthCurrentCount > 0 ? monthCurrentRevenue / monthCurrentCount : 0;
 
 const monthPrevCount = monthPrevList.length;
-const monthPrevRevenue = sumRevenue(monthPrevList as unknown as { unit_price?: number; units_done?: number; units_ordered?: number }[]);
+const monthPrevOrdersRevenue = sumOrderRevenue(monthPrevList as unknown as { unit_price?: number; units_done?: number; units_ordered?: number }[]);
+const monthPrevSupplyRevenue = sumSupplyRevenue(supplyPrevList as unknown as { quantity?: number; unit_price?: number }[]);
+const monthPrevRevenue = monthPrevOrdersRevenue + monthPrevSupplyRevenue;
 const monthPrevAvg = monthPrevCount > 0 ? monthPrevRevenue / monthPrevCount : 0;
 
 // Material top del mes (agrupar por material y contar)
@@ -132,7 +176,7 @@ for (const [name, count] of materialCounts) {
 }
 
 const toCollectItems = toCollectRes.items as unknown as Order[];
-const toCollectCount = toCollectRes.totalItems;
+const toCollectCount = toCollectRes.totalItems + supplyUnpaidRes.totalItems;
 
 // Delta vs mes anterior — devuelve null si no comparable
 function delta(current: number, prev: number): { pct: number; isUp: boolean } | null {
@@ -235,6 +279,10 @@ const kpiClass =
       <div class={cardClass}>
         <p class="text-xs text-gray-500 mb-1">Ingresos</p>
         <p class="text-3xl font-display font-mono">{fmtArs(monthCurrentRevenue)}</p>
+        <div class="text-xs text-gray-500 mt-1 space-y-0.5">
+          <p>🖨️ Pedidos: {fmtArs(monthCurrentOrdersRevenue)}</p>
+          <p>📦 Insumos: {fmtArs(monthCurrentSupplyRevenue)}</p>
+        </div>
         {deltaRevenue !== null && (
           <p class={`text-xs mt-1 font-medium ${deltaRevenue.isUp ? "text-emerald-700" : "text-red-600"}`}>
             {deltaRevenue.isUp ? "↑" : "↓"} {deltaRevenue.pct}% vs mes anterior
@@ -336,15 +384,23 @@ const kpiClass =
     <div class="flex items-center justify-between mb-2">
       <h2 class="text-xs uppercase tracking-wider text-brand/60 font-medium">Por cobrar</h2>
       {toCollectCount > 0 && (
-        <a
-          href="/admin/pedidos?status=delivered&paid=no&show_finalized=1"
-          class="text-xs text-accent hover:underline"
-        >
-          Ver todos →
-        </a>
+        <div class="flex items-center gap-3">
+          <a
+            href="/admin/pedidos?status=delivered&paid=no&show_finalized=1"
+            class="text-xs text-accent hover:underline"
+          >
+            Pedidos →
+          </a>
+          <a
+            href="/admin/insumos"
+            class="text-xs text-accent hover:underline"
+          >
+            Insumos →
+          </a>
+        </div>
       )}
     </div>
-    {toCollectItems.length === 0 ? (
+    {toCollectItems.length === 0 && supplyUnpaidItems.length === 0 ? (
       <div class={cardClass + " text-center text-sm text-gray-500"}>
         Todo cobrado. 🎉
       </div>
@@ -382,6 +438,30 @@ const kpiClass =
                   <td class="px-3 py-2 text-right">
                     <a
                       href={`/admin/pedidos/${o.id}`}
+                      class="text-xs text-accent hover:underline whitespace-nowrap"
+                    >
+                      Ver →
+                    </a>
+                  </td>
+                </tr>
+              );
+            })}
+            {supplyUnpaidItems.slice(0, 10).map((s) => {
+              const total = (Number(s.quantity) || 0) * (Number(s.unit_price) || 0);
+              const itemName = s.expand?.item?.name ?? "Insumo";
+              return (
+                <tr class="border-b border-brand/10 hover:bg-surface/50 transition-colors">
+                  <td class="px-3 py-2">
+                    <div class="font-medium truncate max-w-[20ch] sm:max-w-none">📦 {itemName}</div>
+                    <div class="text-xs text-gray-500 sm:hidden">{s.customer_name}</div>
+                  </td>
+                  <td class="px-3 py-2 hidden sm:table-cell text-gray-700">{s.customer_name}</td>
+                  <td class="px-3 py-2 text-right whitespace-nowrap">
+                    <div class="font-mono font-medium text-amber-700">{fmtArs(total)}</div>
+                  </td>
+                  <td class="px-3 py-2 text-right">
+                    <a
+                      href={`/admin/insumos/${s.id}`}
                       class="text-xs text-accent hover:underline whitespace-nowrap"
                     >
                       Ver →

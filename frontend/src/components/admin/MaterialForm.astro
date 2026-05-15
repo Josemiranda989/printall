@@ -123,6 +123,21 @@ const currentKind = values.kind ?? "filament";
       </label>
     </div>
 
+    <label class="block">
+      <span class="text-sm font-medium">Colores</span>
+      <input
+        type="text"
+        name="colors"
+        maxlength={200}
+        value={values.colors ?? ""}
+        placeholder="Ej: negro, blanco, verde"
+        class={fieldClass}
+      />
+      <p class="text-xs text-gray-500 mt-1">
+        Separados por coma. Se usan para filtrar ventas de insumos.
+      </p>
+    </label>
+
     <label class="inline-flex items-center gap-2 cursor-pointer">
       <input
         type="checkbox"

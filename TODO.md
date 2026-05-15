@@ -52,6 +52,7 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 
 - [ ] Newsletter / suscripción de novedades
 - [ ] Blog / sección "novedades" para mostrar trabajos recientes
+- [ ] Agenda de clientes — registrar clientes recurrentes con historial de pedidos/ventas
 
 ## ✅ Lo que ya está cerrado
 

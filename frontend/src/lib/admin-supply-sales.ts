@@ -12,6 +12,7 @@ export type SupplySaleFormData = {
   unit_price: number;
   status: SupplySaleStatus;
   is_paid: boolean;
+  color?: string;
   sale_date: string;
   delivery_date: string;
   notes: string;
@@ -44,6 +45,7 @@ export function extractSupplySaleFromForm(
   const unitPriceRaw = str(form, "unit_price");
   const statusRaw = str(form, "status");
   const is_paid = checkbox(form, "is_paid");
+  const color = str(form, "color");
   const sale_date = str(form, "sale_date");
   const delivery_date = str(form, "delivery_date");
   const notes = str(form, "notes");
@@ -108,6 +110,7 @@ export function extractSupplySaleFromForm(
       unit_price,
       status,
       is_paid,
+      color,
       sale_date,
       delivery_date,
       notes,

@@ -10,11 +10,27 @@ import {
 
 const pb = Astro.locals.adminPB!;
 
+// Toggle para mostrar/ocultar pagados (default: ocultos)
+const showPaid = Astro.url.searchParams.get("mostrar_pagados") === "1";
+
+const pbFilter = showPaid ? "" : "is_paid = false";
+
 const records = (await pb.collection("supply_sales").getFullList({
+  filter: pbFilter || undefined,
   sort: "-sale_date,-created",
   expand: "item",
   batch: 200,
 })) as unknown as SupplySaleWithItem[];
+
+// Contar cuántos pagados están ocultos (para el badge del toggle)
+let hiddenPaidCount = 0;
+if (!showPaid) {
+  const countRes = await pb.collection("supply_sales").getList(1, 1, {
+    filter: "is_paid = true",
+    fields: "id",
+  });
+  hiddenPaidCount = countRes.totalItems;
+}
 
 function fmtMoney(n: number): string {
   return "$" + Math.round(n).toLocaleString("es-AR");
@@ -51,6 +67,24 @@ function fmtDate(d: string): string {
     </div>
   </div>
 
+  <!-- Toggle mostrar pagados -->
+  <div class="flex items-center gap-4 mb-4 flex-wrap">
+    <label class="inline-flex items-center gap-2 cursor-pointer text-sm">
+      <input
+        type="checkbox"
+        class="w-4 h-4 accent-accent"
+        checked={showPaid}
+        onchange={`window.location.href = this.checked ? '?mostrar_pagados=1' : '?'`}
+      />
+      <span>Mostrar pagados</span>
+      {hiddenPaidCount > 0 && !showPaid && (
+        <span class="text-xs bg-accent/10 text-accent px-2 py-0.5 rounded-full font-mono">
+          {hiddenPaidCount} ocultos
+        </span>
+      )}
+    </label>
+  </div>
+
   {records.length === 0 ? (
     <div class="border-2 border-dashed border-brand/30 rounded-lg p-12 text-center bg-white">
       <p class="text-gray-600 mb-4">
@@ -71,6 +105,7 @@ function fmtDate(d: string): string {
             <th class="text-left px-2 sm:px-4 py-3 font-medium">Cliente</th>
             <th class="text-left px-4 py-3 font-medium hidden md:table-cell">Insumo</th>
             <th class="text-right px-2 sm:px-4 py-3 font-medium hidden sm:table-cell">Cant.</th>
+            <th class="text-left px-2 sm:px-4 py-3 font-medium hidden md:table-cell">Color</th>
             <th class="text-right px-2 sm:px-4 py-3 font-medium">Total</th>
             <th class="text-left px-2 sm:px-4 py-3 font-medium">Estado</th>
             <th class="text-center px-2 sm:px-4 py-3 font-medium hidden sm:table-cell">Pago</th>
@@ -95,6 +130,9 @@ function fmtDate(d: string): string {
               </td>
               <td class="px-2 sm:px-4 py-3 text-right font-mono hidden sm:table-cell">
                 {s.quantity}
+              </td>
+              <td class="px-2 sm:px-4 py-3 text-gray-700 hidden md:table-cell">
+                {s.color || "—"}
               </td>
               <td class="px-2 sm:px-4 py-3 text-right font-mono font-medium whitespace-nowrap">
                 {fmtMoney(supplySaleTotal(s))}
