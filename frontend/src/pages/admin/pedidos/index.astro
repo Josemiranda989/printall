@@ -2,6 +2,7 @@
 import AdminLayout from "../../../layouts/AdminLayout.astro";
 import MaterialColorChip from "../../../components/admin/MaterialColorChip.astro";
 import OrderProgressBar from "../../../components/admin/OrderProgressBar.astro";
+import { fetchAllClients } from "../../../lib/admin-clients";
 import {
   buildOrdersFilter,
   buildPageUrl,
@@ -45,6 +46,8 @@ const result = await pb.collection("orders").getList(page, PER_PAGE, {
 const orders = result.items as unknown as Order[];
 const totalItems = result.totalItems;
 const totalPages = result.totalPages;
+
+const allClients = await fetchAllClients(pb);
 
 const rangeStart = totalItems === 0 ? 0 : (page - 1) * PER_PAGE + 1;
 const rangeEnd = Math.min(page * PER_PAGE, totalItems);
@@ -233,6 +236,18 @@ const tabInactiveClass =
           {COLOR_VALUES.map((c) => (
             <option value={c} selected={filters.color === c}>
               {COLOR_LABELS[c]}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label class="block">
+        <span class={labelSpanClass}>Cliente</span>
+        <select name="client" onchange="this.form.submit()" class={selectClass}>
+          <option value="">Todos</option>
+          {allClients.map((c) => (
+            <option value={c.id} selected={filters.client === c.id}>
+              {c.name}
             </option>
           ))}
         </select>

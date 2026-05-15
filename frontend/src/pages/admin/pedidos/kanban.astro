@@ -8,6 +8,7 @@ import {
   hasFilters,
   parseSearchParams,
 } from "../../../lib/admin-orders-filter";
+import { fetchAllClients } from "../../../lib/admin-clients";
 import {
   COLOR_LABELS,
   COLOR_VALUES,
@@ -26,6 +27,8 @@ const pb = Astro.locals.adminPB!;
 const filters = parseSearchParams(Astro.url.searchParams);
 const activeFilters = hasFilters(filters);
 const pbFilter = buildOrdersFilter(filters);
+
+const allClients = await fetchAllClients(pb);
 
 // Cargar TODOS los pedidos que pasan el filtro (kanban no tiene paginación)
 // pero limitamos a 500 por seguridad. Si crece más, conviene cargar por columna.
@@ -181,6 +184,18 @@ const COLUMN_HEADER_COLORS: Record<OrderStatus, string> = {
           {COLOR_VALUES.map((c) => (
             <option value={c} selected={filters.color === c}>
               {COLOR_LABELS[c]}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label class="block">
+        <span class={labelSpanClass}>Cliente</span>
+        <select name="client" onchange="this.form.submit()" class={selectClass}>
+          <option value="">Todos</option>
+          {allClients.map((c) => (
+            <option value={c.id} selected={filters.client === c.id}>
+              {c.name}
             </option>
           ))}
         </select>
