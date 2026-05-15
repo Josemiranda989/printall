@@ -11,6 +11,8 @@ export type OrdersListFilters = {
   priority?: string;
   material?: string;
   color?: string;
+  /** Id del registro de la collection `clients` para filtrar pedidos por cliente. */
+  client?: string;
   paid?: string; // "yes" | "no" | undefined
   delivery_from?: string; // YYYY-MM-DD
   delivery_to?: string; // YYYY-MM-DD
@@ -79,6 +81,15 @@ export function buildOrdersFilter(filters: OrdersListFilters): string {
     parts.push(`color = "${filters.color}"`);
   }
 
+  // Filtro por cliente — el ID de PB es alfanumérico de 15 chars; sanitizamos
+  // para descartar cualquier input no válido sin tirar error.
+  if (filters.client) {
+    const safe = String(filters.client).replace(/[^a-zA-Z0-9]/g, "");
+    if (safe.length > 0) {
+      parts.push(`client = "${safe}"`);
+    }
+  }
+
   if (filters.paid === "yes") {
     parts.push(`is_paid = true`);
   } else if (filters.paid === "no") {
@@ -116,6 +127,7 @@ export function parseSearchParams(searchParams: URLSearchParams): OrdersListFilt
     priority: get("priority"),
     material: get("material"),
     color: get("color"),
+    client: get("client"),
     paid: get("paid"),
     delivery_from: get("delivery_from"),
     delivery_to: get("delivery_to"),
