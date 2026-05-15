@@ -8,6 +8,7 @@ import {
   SUPPLY_SALE_NOTES_MAX,
   type SupplySaleFormData,
 } from "../../lib/admin-supply-sales";
+import type { ClientForAutocomplete } from "../../lib/admin-clients";
 
 export interface Props {
   values: Partial<SupplySaleFormData>;
@@ -15,9 +16,10 @@ export interface Props {
   mode: "create" | "edit";
   saleId?: string;
   materials: MaterialPrice[];
+  clients?: ClientForAutocomplete[];
 }
 
-const { values, errors = {}, mode, saleId, materials } = Astro.props;
+const { values, errors = {}, mode, saleId, materials, clients = [] } = Astro.props;
 
 const fieldClass =
   "mt-1 block w-full border-2 border-brand rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent disabled:bg-gray-100";
@@ -47,8 +49,20 @@ const currentStatus = values.status ?? "reservado";
           maxlength={120}
           value={values.customer_name ?? ""}
           placeholder="Nombre del cliente"
+          list="client-autocomplete-list"
+          autocomplete="off"
+          data-customer-name
           class={fieldClass}
         />
+        {clients.length > 0 && (
+          <datalist id="client-autocomplete-list">
+            {clients.map((c) => (
+              <option value={c.name} data-whatsapp={c.whatsapp}>
+                {c.whatsapp ? `${c.name} · ${c.whatsapp}` : c.name}
+              </option>
+            ))}
+          </datalist>
+        )}
         {errorMsg("customer_name") && (
           <p class="text-xs text-red-600 mt-1">{errorMsg("customer_name")}</p>
         )}
@@ -62,6 +76,7 @@ const currentStatus = values.status ?? "reservado";
           maxlength={30}
           value={values.customer_whatsapp ?? ""}
           placeholder="Ej: 3815551234"
+          data-customer-whatsapp
           class={fieldClass}
         />
       </label>
@@ -308,4 +323,28 @@ const currentStatus = values.status ?? "reservado";
   }
   
   updateTotal();
+
+  // ─── Autocomplete cliente: datalist → autollena WhatsApp ───
+  const customerNameEl = document.querySelector<HTMLInputElement>("[data-customer-name]");
+  const customerWaEl = document.querySelector<HTMLInputElement>("[data-customer-whatsapp]");
+  const datalistEl = document.getElementById("client-autocomplete-list") as HTMLDataListElement | null;
+
+  function autofillWhatsAppFromName() {
+    if (!customerNameEl || !customerWaEl || !datalistEl) return;
+    const typed = customerNameEl.value.trim();
+    if (!typed) return;
+    const opts = datalistEl.querySelectorAll<HTMLOptionElement>("option");
+    for (const opt of opts) {
+      if (opt.value === typed) {
+        const wa = opt.getAttribute("data-whatsapp") ?? "";
+        if (wa && !customerWaEl.value.trim()) {
+          customerWaEl.value = wa;
+        }
+        break;
+      }
+    }
+  }
+
+  customerNameEl?.addEventListener("change", autofillWhatsAppFromName);
+  customerNameEl?.addEventListener("blur", autofillWhatsAppFromName);
 </script>

@@ -5,16 +5,20 @@ import {
   extractSupplySaleFromForm,
   type SupplySaleFormData,
 } from "../../../lib/admin-supply-sales";
+import { fetchClientsForAutocomplete } from "../../../lib/admin-clients";
 import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
 import type { MaterialPrice } from "../../../lib/types";
 
 const pb = Astro.locals.adminPB!;
 
-const materials = (await pb.collection("materials").getFullList({
-  filter: "active = true",
-  sort: "name",
-  batch: 200,
-})) as unknown as MaterialPrice[];
+const [materials, clients] = await Promise.all([
+  pb.collection("materials").getFullList({
+    filter: "active = true",
+    sort: "name",
+    batch: 200,
+  }) as unknown as Promise<MaterialPrice[]>,
+  fetchClientsForAutocomplete(pb),
+]);
 
 const today = new Date().toLocaleDateString("en-CA");
 
@@ -69,5 +73,6 @@ if (Astro.request.method === "POST") {
     errors={errors}
     mode="create"
     materials={materials}
+    clients={clients}
   />
 </AdminLayout>

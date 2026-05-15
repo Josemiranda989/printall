@@ -1,0 +1,134 @@
+---
+import {
+  CLIENT_NAME_MAX,
+  CLIENT_NOTES_MAX,
+  CLIENT_WHATSAPP_MAX,
+  type ClientFormData,
+} from "../../lib/admin-clients";
+import { getWhatsAppUrl } from "../../lib/pocketbase";
+
+export interface Props {
+  values: Partial<ClientFormData>;
+  errors?: Record<string, string>;
+  mode: "create" | "edit";
+  clientId?: string;
+}
+
+const { values, errors = {}, mode, clientId } = Astro.props;
+
+const fieldClass =
+  "mt-1 block w-full border-2 border-brand rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent disabled:bg-gray-100";
+const sectionClass =
+  "bg-white border-2 border-brand rounded-lg p-5 space-y-5 shadow-[4px_4px_0_var(--color-brand)]";
+
+function errorMsg(field: string) {
+  return errors[field];
+}
+
+const phone = (values.whatsapp ?? "").replace(/[^\d+]/g, "");
+const whatsappUrl =
+  phone && values.name
+    ? getWhatsAppUrl(phone.replace(/^\+/, ""), `¡Hola ${values.name}! 👋`)
+    : null;
+---
+
+<form method="POST" class="space-y-5">
+  {errors._global && (
+    <div class="border-2 border-red-500 bg-red-50 text-red-800 px-3 py-2 rounded-md text-sm">
+      {errors._global}
+    </div>
+  )}
+
+  <section class={sectionClass}>
+    <h2 class="font-display text-lg border-b-2 border-brand/20 pb-2">Datos del cliente</h2>
+
+    <label class="block">
+      <span class="text-sm font-medium">Nombre *</span>
+      <input
+        type="text"
+        name="name"
+        required
+        maxlength={CLIENT_NAME_MAX}
+        value={values.name ?? ""}
+        class={fieldClass}
+        placeholder="Ej: Juan Pérez"
+      />
+      {errorMsg("name") && (
+        <p class="text-xs text-red-600 mt-1">{errorMsg("name")}</p>
+      )}
+    </label>
+
+    <label class="block">
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-sm font-medium">WhatsApp</span>
+        {whatsappUrl && (
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener"
+            class="text-xs text-emerald-700 hover:underline font-medium inline-flex items-center gap-1"
+          >
+            Abrir WhatsApp ↗
+          </a>
+        )}
+      </div>
+      <input
+        type="tel"
+        name="whatsapp"
+        maxlength={CLIENT_WHATSAPP_MAX}
+        value={values.whatsapp ?? ""}
+        placeholder="+54 9 381 ..."
+        class={fieldClass + " font-mono text-sm"}
+      />
+      {errorMsg("whatsapp") && (
+        <p class="text-xs text-red-600 mt-1">{errorMsg("whatsapp")}</p>
+      )}
+    </label>
+
+    <label class="block">
+      <span class="text-sm font-medium">Notas</span>
+      <textarea
+        name="notes"
+        rows="3"
+        maxlength={CLIENT_NOTES_MAX}
+        class={fieldClass}
+        placeholder="Direccion, preferencias, etc."
+      >{values.notes ?? ""}</textarea>
+      {errorMsg("notes") && (
+        <p class="text-xs text-red-600 mt-1">{errorMsg("notes")}</p>
+      )}
+    </label>
+  </section>
+
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <a
+      href="/admin/clientes"
+      class="text-sm text-gray-600 hover:text-brand underline-offset-4 hover:underline"
+    >
+      ← Volver al listado
+    </a>
+
+    <div class="flex items-center gap-3">
+      {mode === "edit" && clientId && (
+        <button
+          type="submit"
+          name="action"
+          value="delete"
+          formnovalidate
+          data-confirm="¿Seguro que querés borrar este cliente? Los pedidos y ventas quedarán intactos (el nombre y teléfono se mantienen como snapshot)."
+          class="px-4 py-2 border-2 border-red-600 text-red-600 rounded-md hover:bg-red-600 hover:text-white transition-colors text-sm font-medium"
+        >
+          Eliminar
+        </button>
+      )}
+      <button
+        type="submit"
+        name="action"
+        value="save"
+        class="px-5 py-2.5 bg-accent text-white rounded-md hover:bg-accent-hover transition-colors font-medium"
+      >
+        {mode === "create" ? "Crear cliente" : "Guardar cambios"}
+      </button>
+    </div>
+  </div>
+</form>
