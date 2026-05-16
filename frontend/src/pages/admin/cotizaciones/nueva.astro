@@ -1,0 +1,58 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import QuoteForm from "../../../components/admin/QuoteForm.astro";
+import {
+  extractQuoteFromForm,
+  type QuoteFormData,
+} from "../../../lib/admin-quotes";
+import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
+
+const pb = Astro.locals.adminPB!;
+
+let values: Partial<QuoteFormData> = {
+  status: "pending",
+  unit_price: 0,
+  quantity: 1,
+};
+let errors: Record<string, string> = {};
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const result = extractQuoteFromForm(form);
+  values = result.data;
+  errors = result.errors;
+
+  if (Object.keys(errors).length === 0) {
+    try {
+      const created = await pb.collection("quotes").create({
+        customer_name: result.data.customer_name,
+        customer_whatsapp: result.data.customer_whatsapp,
+        title: result.data.title,
+        description: result.data.description,
+        unit_price: result.data.unit_price,
+        quantity: result.data.quantity,
+        status: result.data.status,
+        valid_until: result.data.valid_until || null,
+        notes: result.data.notes,
+      });
+      const toastName = encodeURIComponent(result.data.title);
+      return Astro.redirect(
+        `/admin/cotizaciones/${created.id}?toast=created&name=${toastName}&collection=quotes`,
+      );
+    } catch (err: unknown) {
+      errors = { ...errors, ...mapPBErrorToFieldErrors(err, "generic") };
+    }
+  }
+}
+---
+
+<AdminLayout title="Nueva cotización">
+  <div class="mb-5">
+    <h1 class="font-display text-2xl sm:text-3xl">Nueva cotización</h1>
+    <p class="text-xs sm:text-sm text-gray-600 mt-1">
+      Cuando el cliente acepta, se puede convertir en un pedido con un click.
+    </p>
+  </div>
+
+  <QuoteForm values={values} errors={errors} mode="create" />
+</AdminLayout>
