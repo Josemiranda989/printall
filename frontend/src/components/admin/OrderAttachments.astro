@@ -1,0 +1,179 @@
+---
+import { getFileUrl } from "../../lib/pocketbase";
+
+export interface Props {
+  orderId: string;
+  collectionId: string;
+  attachments: string[];
+}
+
+const { orderId, collectionId, attachments } = Astro.props;
+
+function fileIcon(filename: string): string {
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  if (["jpg", "jpeg", "png", "webp", "gif"].includes(ext)) return "🖼️";
+  if (ext === "pdf") return "📄";
+  if (["stl", "3mf", "obj"].includes(ext)) return "🧊";
+  return "📎";
+}
+
+function isImage(filename: string): boolean {
+  return /\.(jpg|jpeg|png|webp|gif)$/i.test(filename);
+}
+---
+
+<details
+  class="bg-white border-2 border-amber-400 rounded-lg shadow-[4px_4px_0_var(--color-brand)] overflow-hidden"
+  open={attachments.length > 0}
+>
+  <summary class="cursor-pointer px-4 py-3 font-medium text-sm sm:text-base hover:bg-amber-50 select-none flex items-center gap-2 flex-wrap">
+    <span class="text-amber-600">📎</span>
+    <span>Archivos adjuntos</span>
+    <span class="text-xs font-mono bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+      {attachments.length}
+    </span>
+  </summary>
+
+  <div class="border-t-2 border-amber-300 p-4 sm:p-5 space-y-3">
+    {attachments.length === 0 ? (
+      <p class="text-sm text-gray-600">
+        Todavía no hay archivos. Subí STL, fotos de referencia, comprobantes, etc.
+      </p>
+    ) : (
+      <ul class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        {attachments.map((fname) => {
+          const url = getFileUrl(collectionId, orderId, fname);
+          const thumb = isImage(fname)
+            ? getFileUrl(collectionId, orderId, fname, "200x200")
+            : null;
+          return (
+            <li class="relative border-2 border-amber-200 rounded-md p-2 hover:border-amber-400 transition-colors">
+              <a href={url} target="_blank" rel="noopener" class="block">
+                {thumb ? (
+                  <img
+                    src={thumb}
+                    alt={fname}
+                    class="w-full h-24 object-cover rounded mb-1 bg-gray-100"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div class="w-full h-24 flex items-center justify-center text-4xl bg-gray-100 rounded mb-1">
+                    {fileIcon(fname)}
+                  </div>
+                )}
+                <div class="text-xs break-all text-gray-700">{fname}</div>
+              </a>
+              <button
+                type="button"
+                data-delete-attachment
+                data-filename={fname}
+                class="absolute top-1 right-1 w-6 h-6 flex items-center justify-center bg-red-600 text-white rounded-full opacity-80 hover:opacity-100 transition-opacity text-xs"
+                title="Borrar archivo"
+              >
+                ✕
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    )}
+
+    {/* ─── Form de upload ─── */}
+    <form
+      class="bg-amber-50 border-2 border-amber-300 rounded-md p-3 flex items-center gap-2 flex-wrap"
+      data-upload-form
+      data-order-id={orderId}
+    >
+      <input
+        type="file"
+        name="file"
+        accept="image/*,application/pdf,.stl,.3mf,.obj"
+        required
+        class="text-xs flex-1 min-w-0"
+      />
+      <button
+        type="submit"
+        class="px-3 py-1.5 bg-amber-600 text-white rounded-md text-xs font-medium hover:bg-amber-700 transition-colors whitespace-nowrap"
+      >
+        Subir
+      </button>
+    </form>
+
+    <p class="text-xs text-gray-500">
+      Hasta 10 archivos de 10 MB cada uno. Soporta imágenes, PDF, STL, 3MF, OBJ.
+    </p>
+  </div>
+</details>
+
+<script>
+  document.querySelectorAll<HTMLFormElement>("[data-upload-form]").forEach((form) => {
+    form.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const orderId = form.dataset.orderId ?? "";
+      const fd = new FormData(form);
+      const file = fd.get("file");
+      if (!file || !(file instanceof File) || file.size === 0) {
+        (window as any).__showToast?.({ type: "error", message: "Elegí un archivo." });
+        return;
+      }
+
+      const btn = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Subiendo…";
+      }
+
+      try {
+        const res = await fetch(`/admin/api/orders/${orderId}/attachments`, {
+          method: "POST",
+          body: fd,
+        });
+        const data = (await res.json()) as { ok: boolean; error?: string };
+        if (!res.ok || !data.ok) {
+          (window as any).__showToast?.({ type: "error", message: data.error || "Error al subir." });
+        } else {
+          (window as any).__showToast?.({ type: "success", message: "Archivo subido." });
+          setTimeout(() => window.location.reload(), 400);
+        }
+      } catch {
+        (window as any).__showToast?.({ type: "error", message: "Error de red." });
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "Subir";
+        }
+      }
+    });
+  });
+
+  document.querySelectorAll<HTMLButtonElement>("[data-delete-attachment]").forEach((btn) => {
+    btn.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const filename = btn.dataset.filename ?? "";
+      const form = btn.closest("details")?.querySelector<HTMLFormElement>("[data-upload-form]");
+      const orderId = form?.dataset.orderId ?? "";
+      if (!filename || !orderId) return;
+      if (!confirm(`¿Borrar ${filename}?`)) return;
+
+      btn.disabled = true;
+      try {
+        const res = await fetch(
+          `/admin/api/orders/${orderId}/attachments?filename=${encodeURIComponent(filename)}`,
+          { method: "DELETE" },
+        );
+        const data = (await res.json()) as { ok: boolean; error?: string };
+        if (!res.ok || !data.ok) {
+          (window as any).__showToast?.({ type: "error", message: data.error || "Error al borrar." });
+          btn.disabled = false;
+          return;
+        }
+        (window as any).__showToast?.({ type: "success", message: "Archivo eliminado." });
+        setTimeout(() => window.location.reload(), 400);
+      } catch {
+        (window as any).__showToast?.({ type: "error", message: "Error de red." });
+        btn.disabled = false;
+      }
+    });
+  });
+</script>
