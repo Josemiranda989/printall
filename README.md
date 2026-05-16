@@ -168,6 +168,18 @@ Servicios:
 | Migrations PocketBase (`pb_migrations/*.js`) | `docker compose restart pocketbase` (PB las aplica al arrancar) |
 | Hooks PocketBase (`pb_hooks/*.pb.js`) | `docker compose restart pocketbase` |
 
+### Modo desarrollo con hot reload
+
+Si vas a iterar sobre el frontend, levantá con el override de dev en vez del build de producción:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+```
+
+Eso monta `frontend/` adentro del contenedor y corre `astro dev` — cualquier cambio en un `.astro`, `.ts` o `.tsx` se refleja al instante sin rebuild. PocketBase sigue arriba con la misma config.
+
+Para volver al modo producción: `docker compose up -d --build frontend`.
+
 ---
 
 ## Estructura del proyecto

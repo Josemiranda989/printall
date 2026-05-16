@@ -1,0 +1,42 @@
+# Override de desarrollo. Uso:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Reemplaza el frontend buildeado por un Node corriendo `astro dev` con
+# source montado, hot reload activo. Pocketbase sigue igual.
+#
+# Nota Windows/WSL: el watcher de Vite necesita polling porque inotify
+# no atraviesa el bind mount con fidelidad — ya viene activado abajo.
+
+services:
+  frontend:
+    build: !reset null
+    image: node:20-alpine
+    container_name: printall-frontend-dev
+    working_dir: /app
+    command: sh -c "npm ci --no-audit --no-fund --prefer-offline && npm run dev -- --host 0.0.0.0 --port 4321"
+    ports:
+      - "4321:4321"
+    volumes:
+      - ./frontend:/app
+      # Volumen anónimo para preservar node_modules del contenedor (la copia
+      # del host puede tener binarios incompatibles con linux/alpine).
+      - /app/node_modules
+    environment:
+      POCKETBASE_URL: http://pocketbase:8090
+      PUBLIC_POCKETBASE_URL: ${PUBLIC_POCKETBASE_URL:-http://localhost:8090}
+      PUBLIC_WHATSAPP_NUMBER: ${PUBLIC_WHATSAPP_NUMBER:-5493816563940}
+      BNA_ALIAS: ${BNA_ALIAS:-}
+      BNA_HOLDER_NAME: ${BNA_HOLDER_NAME:-}
+      HOST: 0.0.0.0
+      PORT: "4321"
+      # Polling para que el watcher detecte cambios sobre bind mounts en
+      # Windows/WSL. Cuesta un poco de CPU pero asegura hot reload.
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
+    depends_on:
+      pocketbase:
+        condition: service_healthy
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+    networks:
+      - printall
