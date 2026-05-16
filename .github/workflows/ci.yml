@@ -40,3 +40,67 @@ jobs:
 
       - name: Tests (vitest)
         run: npm test
+
+  migrations:
+    name: PocketBase migrations
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Levanta PocketBase con migrations + hooks contra un pb_data limpio.
+      # pb_data usa volumen anonimo del contenedor (no del host) para evitar
+      # problemas de permisos UID/GID que matan el proceso en el runner CI.
+      - name: Run migrations against fresh DB
+        run: |
+          set -e
+          # Mounts read-only: el contenedor no debe escribir en el workspace.
+          # pb_data como tmpfs writeable (RAM, se descarta al terminar).
+          # serve explicito por si el CMD default cambia entre versiones.
+          docker run -d --name pb-test \
+            -v "$PWD/pocketbase/pb_migrations:/pb_migrations:ro" \
+            -v "$PWD/pocketbase/pb_hooks:/pb_hooks:ro" \
+            --tmpfs /pb_data:rw,size=128m \
+            -p 8090:8090 \
+            ghcr.io/muchobien/pocketbase:latest \
+            serve --http 0.0.0.0:8090 --dir /pb_data --migrationsDir /pb_migrations --hooksDir /pb_hooks
+
+          # Esperar hasta 60s, mostrar logs cada 10s para diagnostico.
+          ready=0
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8090/api/health > /dev/null 2>&1; then
+              echo "::notice::PocketBase listo en ${i}s"
+              ready=1
+              break
+            fi
+            if [ $((i % 10)) = 0 ]; then
+              echo "--- logs intermedios (t=${i}s) ---"
+              docker logs pb-test 2>&1 | tail -20 || true
+            fi
+            sleep 1
+          done
+
+          if [ "$ready" != "1" ]; then
+            echo "::error::Timeout: PocketBase no arrancó en 60s"
+            echo "--- logs completos ---"
+            docker logs pb-test 2>&1 || true
+            echo "--- inspect ---"
+            docker inspect pb-test --format '{{.State.Status}} exit={{.State.ExitCode}} err={{.State.Error}}' || true
+            docker rm -f pb-test || true
+            exit 1
+          fi
+
+          # Logs completos para inspeccionar errores de migration
+          echo "--- logs finales ---"
+          docker logs pb-test 2>&1 | tail -50 || true
+
+          # Buscar errores explicitos en logs
+          if docker logs pb-test 2>&1 | grep -E "failed to apply migration|Error: failed to" > /dev/null; then
+            echo "::error::Detectados errores en las migrations:"
+            docker logs pb-test 2>&1 | grep -E "failed to apply migration|Error: failed to"
+            docker rm -f pb-test || true
+            exit 1
+          fi
+
+          echo "✓ Migrations aplicadas sin errores"
+          docker rm -f pb-test
