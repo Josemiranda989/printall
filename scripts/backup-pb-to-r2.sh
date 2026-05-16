@@ -62,10 +62,18 @@ curl -sf -X POST "${POCKETBASE_URL}/api/backups" \
 sleep 3
 
 # ── 3) Descargar el zip ──
+# En PB 0.23+ los downloads de archivos protegidos usan un token generico
+# generado via POST /api/files/token (antes era /api/backups/:key/download-token,
+# que ya no existe). El token devuelto se pasa como query param en el GET.
 echo "→ Descargando ${BACKUP_NAME}..."
-DOWNLOAD_TOKEN=$(curl -sf -X POST "${POCKETBASE_URL}/api/backups/${BACKUP_NAME}/download-token" \
+DOWNLOAD_TOKEN=$(curl -sf -X POST "${POCKETBASE_URL}/api/files/token" \
   -H "Authorization: ${TOKEN}" \
   | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+
+if [ -z "$DOWNLOAD_TOKEN" ]; then
+  echo "✗ No se pudo generar download token"
+  exit 1
+fi
 
 curl -sf -o "${TMP_DIR}/${BACKUP_NAME}" \
   "${POCKETBASE_URL}/api/backups/${BACKUP_NAME}?token=${DOWNLOAD_TOKEN}"
