@@ -7,6 +7,7 @@ import OrderStatusButtons from "../../../components/admin/OrderStatusButtons.ast
 import OrderProgressBar from "../../../components/admin/OrderProgressBar.astro";
 import WhatsAppTemplateMenu from "../../../components/admin/WhatsAppTemplateMenu.astro";
 import PaymentsSection from "../../../components/admin/PaymentsSection.astro";
+import OrderAttachments from "../../../components/admin/OrderAttachments.astro";
 import { extractOrderFromForm, type OrderFormData } from "../../../lib/admin-orders";
 import { fetchClientsForAutocomplete } from "../../../lib/admin-clients";
 import { fetchTemplatesFor, getOrderContext } from "../../../lib/admin-templates";
@@ -324,6 +325,15 @@ const recordForUndoJson = JSON.stringify({
       targetId={record.id}
       payments={payments}
       total={orderTotal}
+    />
+  </div>
+
+  {/* ─── Archivos adjuntos ─── */}
+  <div class="mb-5">
+    <OrderAttachments
+      orderId={record.id}
+      collectionId={(record as any).collectionId ?? ""}
+      attachments={(record as any).attachments ?? []}
     />
   </div>
 
