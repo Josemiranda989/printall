@@ -5,8 +5,19 @@
 // dejando records con keys "0","1","2"... y values con bytes ASCII del JSON original.
 // Este parche borra los records corruptos y repuebla con los attributes correctos
 // reconstruidos a partir de los bytes capturados (verificados manualmente).
+//
+// IDEMPOTENTE: si el product target no existe (ej. DB nueva en CI), no hace
+// nada. Esto permite que la migration aplique limpio sobre una DB fresh.
 
 migrate((app) => {
+  // Early exit: si el product target no existe, no hay nada para reparar.
+  // Pasa en DB nuevas (CI) — la prod si lo tiene.
+  try {
+    app.findRecordById("products", "z7u54dbk8l9rixp");
+  } catch (_) {
+    return;
+  }
+
   // 1) Borrar TODOS los records actuales de product_attributes (todos están corruptos).
   const all = app.findAllRecords("product_attributes");
   for (const r of all) {
