@@ -1,0 +1,89 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import QuoteForm from "../../../components/admin/QuoteForm.astro";
+import {
+  extractQuoteFromForm,
+  fetchQuoteById,
+  type QuoteFormData,
+} from "../../../lib/admin-quotes";
+import { mapPBErrorToFieldErrors } from "../../../lib/admin-errors";
+
+const pb = Astro.locals.adminPB!;
+const { id } = Astro.params;
+if (!id) return Astro.redirect("/admin/cotizaciones");
+
+const record = await fetchQuoteById(pb, id);
+if (!record) {
+  return new Response("Cotización no encontrada", { status: 404 });
+}
+
+let values: Partial<QuoteFormData> = {
+  customer_name: record.customer_name,
+  customer_whatsapp: record.customer_whatsapp,
+  title: record.title,
+  description: record.description,
+  unit_price: record.unit_price,
+  quantity: record.quantity,
+  status: record.status,
+  valid_until: record.valid_until ? record.valid_until.slice(0, 10) : "",
+  notes: record.notes,
+};
+let errors: Record<string, string> = {};
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const action = String(form.get("action") ?? "save");
+
+  if (action === "delete") {
+    try {
+      await pb.collection("quotes").delete(id);
+      const toastName = encodeURIComponent(record.title);
+      return Astro.redirect(`/admin/cotizaciones?toast=deleted&name=${toastName}&collection=quotes`);
+    } catch (err: unknown) {
+      errors = mapPBErrorToFieldErrors(err, "generic");
+      if (!errors._global) errors._global = "No se pudo eliminar.";
+    }
+  } else {
+    const result = extractQuoteFromForm(form);
+    values = result.data;
+    errors = result.errors;
+
+    if (Object.keys(errors).length === 0) {
+      try {
+        await pb.collection("quotes").update(id, {
+          customer_name: result.data.customer_name,
+          customer_whatsapp: result.data.customer_whatsapp,
+          title: result.data.title,
+          description: result.data.description,
+          unit_price: result.data.unit_price,
+          quantity: result.data.quantity,
+          status: result.data.status,
+          valid_until: result.data.valid_until || null,
+          notes: result.data.notes,
+        });
+        const toastName = encodeURIComponent(result.data.title);
+        return Astro.redirect(
+          `/admin/cotizaciones/${id}?toast=saved&name=${toastName}&collection=quotes`,
+        );
+      } catch (err: unknown) {
+        errors = { ...errors, ...mapPBErrorToFieldErrors(err, "generic") };
+      }
+    }
+  }
+}
+---
+
+<AdminLayout title={`Cotización: ${record.title}`}>
+  <div class="mb-5">
+    <h1 class="font-display text-2xl sm:text-3xl break-words">{record.title}</h1>
+    <p class="text-xs sm:text-sm text-gray-600 mt-1 font-mono">id: {id}</p>
+  </div>
+
+  <QuoteForm
+    values={values}
+    errors={errors}
+    mode="edit"
+    quoteId={id}
+    convertedOrderId={record.converted_order_id}
+  />
+</AdminLayout>
