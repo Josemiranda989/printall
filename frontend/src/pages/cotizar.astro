@@ -1,0 +1,190 @@
+---
+/**
+ * Formulario publico de cotizacion. Se accede desde el sitio publico
+ * (sin auth). Submit crea una quote con status=pending que el admin ve
+ * en /admin/cotizaciones.
+ */
+import Layout from "../layouts/BaseLayout.astro";
+---
+
+<Layout
+  title="Cotizar un proyecto a medida | Print All"
+  description="¿Necesitás algo impreso que no está en el catálogo? Contanos qué necesitás y te pasamos un presupuesto por WhatsApp."
+>
+  <main class="max-w-2xl mx-auto px-4 py-8 sm:py-12">
+    <div class="mb-6 sm:mb-8">
+      <h1 class="font-display text-3xl sm:text-4xl mb-2">Cotizar a medida</h1>
+      <p class="text-sm sm:text-base text-gray-600">
+        ¿Querés algo impreso en 3D que no está en el catálogo? Contanos los detalles y te pasamos un presupuesto por WhatsApp.
+      </p>
+    </div>
+
+    <form
+      id="quote-form"
+      class="space-y-5 bg-white border-2 border-brand rounded-lg p-5 sm:p-6 shadow-[4px_4px_0_var(--color-brand)]"
+    >
+      <fieldset class="space-y-3">
+        <legend class="font-display text-lg border-b-2 border-brand/20 pb-2 w-full">
+          1. Qué necesitás
+        </legend>
+
+        <label class="block">
+          <span class="text-sm font-medium">Título o tipo del proyecto *</span>
+          <input
+            type="text"
+            name="title"
+            required
+            maxlength="200"
+            placeholder="Ej: Soporte para celular, llaveros personalizados, repuesto..."
+            class="mt-1 block w-full border-2 border-brand rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+        </label>
+
+        <label class="block">
+          <span class="text-sm font-medium">Detalles del pedido</span>
+          <textarea
+            name="description"
+            rows="4"
+            maxlength="2000"
+            placeholder="Material, color, dimensiones, plazo, link de MakerWorld si tenés referencia, etc."
+            class="mt-1 block w-full border-2 border-brand rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
+          ></textarea>
+          <p class="text-xs text-gray-500 mt-1">
+            Cuanto más detalle, más rápido el presupuesto.
+          </p>
+        </label>
+
+        <label class="block">
+          <span class="text-sm font-medium">Cantidad</span>
+          <input
+            type="number"
+            name="quantity"
+            min="1"
+            max="9999"
+            value="1"
+            class="mt-1 block w-32 border-2 border-brand rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+        </label>
+      </fieldset>
+
+      <fieldset class="space-y-3 pt-3">
+        <legend class="font-display text-lg border-b-2 border-brand/20 pb-2 w-full">
+          2. Cómo te contactamos
+        </legend>
+
+        <label class="block">
+          <span class="text-sm font-medium">Nombre *</span>
+          <input
+            type="text"
+            name="customer_name"
+            required
+            maxlength="120"
+            placeholder="Tu nombre"
+            class="mt-1 block w-full border-2 border-brand rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+        </label>
+
+        <label class="block">
+          <span class="text-sm font-medium">WhatsApp *</span>
+          <input
+            type="tel"
+            name="customer_whatsapp"
+            required
+            maxlength="30"
+            placeholder="+54 9 381 ..."
+            class="mt-1 block w-full border-2 border-brand rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent font-mono text-sm"
+          />
+          <p class="text-xs text-gray-500 mt-1">
+            Te respondemos por acá con el presupuesto.
+          </p>
+        </label>
+      </fieldset>
+
+      <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+        <a
+          href="/"
+          class="text-sm text-gray-600 hover:text-brand underline-offset-4 hover:underline"
+        >
+          ← Volver al catálogo
+        </a>
+        <button
+          type="submit"
+          class="px-6 py-2.5 bg-accent text-white rounded-md hover:bg-accent-hover transition-colors font-medium"
+        >
+          Enviar pedido
+        </button>
+      </div>
+    </form>
+
+    <div
+      id="quote-success"
+      class="hidden mt-6 border-2 border-emerald-500 bg-emerald-50 text-emerald-800 p-5 rounded-lg"
+    >
+      <h2 class="font-display text-xl mb-1">¡Recibido!</h2>
+      <p class="text-sm">
+        Vamos a revisar tu pedido y te pasamos el presupuesto por WhatsApp en las próximas horas.
+      </p>
+    </div>
+
+    <div
+      id="quote-error"
+      class="hidden mt-6 border-2 border-red-500 bg-red-50 text-red-800 p-5 rounded-lg"
+    >
+      <p class="text-sm" id="quote-error-msg"></p>
+    </div>
+  </main>
+</Layout>
+
+<script>
+  const form = document.getElementById("quote-form") as HTMLFormElement | null;
+  const successEl = document.getElementById("quote-success");
+  const errorEl = document.getElementById("quote-error");
+  const errorMsg = document.getElementById("quote-error-msg");
+
+  form?.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    errorEl?.classList.add("hidden");
+
+    const fd = new FormData(form);
+    const payload = {
+      customer_name: String(fd.get("customer_name") ?? "").trim(),
+      customer_whatsapp: String(fd.get("customer_whatsapp") ?? "").trim(),
+      title: String(fd.get("title") ?? "").trim(),
+      description: String(fd.get("description") ?? "").trim(),
+      quantity: Number(fd.get("quantity") ?? 1),
+    };
+
+    const btn = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Enviando…";
+    }
+
+    try {
+      const res = await fetch("/api/quote-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = (await res.json()) as { ok: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        if (errorMsg) errorMsg.textContent = data.error || "No pudimos guardar tu pedido. Probá de nuevo.";
+        errorEl?.classList.remove("hidden");
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "Enviar pedido";
+        }
+        return;
+      }
+      form.classList.add("hidden");
+      successEl?.classList.remove("hidden");
+    } catch {
+      if (errorMsg) errorMsg.textContent = "Error de red. Probá de nuevo en un momento.";
+      errorEl?.classList.remove("hidden");
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Enviar pedido";
+      }
+    }
+  });
+</script>
