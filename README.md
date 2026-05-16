@@ -168,6 +168,19 @@ Servicios:
 | Migrations PocketBase (`pb_migrations/*.js`) | `docker compose restart pocketbase` (PB las aplica al arrancar) |
 | Hooks PocketBase (`pb_hooks/*.pb.js`) | `docker compose restart pocketbase` |
 
+### Monitoring con Sentry (opcional)
+
+Para capturar errors de runtime, agregá `SENTRY_DSN` al `docker-compose.yml` del servicio `frontend`:
+
+```yaml
+environment:
+  SENTRY_DSN: ${SENTRY_DSN:-}
+  SENTRY_ENVIRONMENT: production
+  SENTRY_TRACES_SAMPLE_RATE: "0.1"
+```
+
+Si `SENTRY_DSN` está vacío, Sentry no se inicializa (no-op). Para activarlo: crear cuenta en sentry.io, crear proyecto Astro, copiar el DSN.
+
 ### Modo desarrollo con hot reload
 
 Si vas a iterar sobre el frontend, levantá con el override de dev en vez del build de producción:

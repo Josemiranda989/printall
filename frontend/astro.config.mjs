@@ -2,6 +2,22 @@ import { defineConfig } from "astro/config";
 import node from "@astrojs/node";
 import tailwindcss from "@tailwindcss/vite";
 
+// Sentry se carga solo si SENTRY_DSN está seteado en el entorno. Sin DSN,
+// no hace nada (no-op). Esto permite mergear el setup sin cuenta de Sentry
+// y activarlo después con solo agregar la env var.
+const sentryDsn = process.env.SENTRY_DSN ?? "";
+const sentryIntegrations = [];
+if (sentryDsn) {
+  const { default: sentry } = await import("@sentry/astro");
+  sentryIntegrations.push(
+    sentry({
+      dsn: sentryDsn,
+      environment: process.env.SENTRY_ENVIRONMENT ?? "production",
+      tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? "0.1"),
+    }),
+  );
+}
+
 export default defineConfig({
   site: "https://printall.jmlabs.app",
   output: "server",
@@ -17,6 +33,7 @@ export default defineConfig({
   security: {
     checkOrigin: false,
   },
+  integrations: sentryIntegrations,
   vite: {
     plugins: [tailwindcss()],
   },
