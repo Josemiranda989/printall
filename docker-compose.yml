@@ -26,6 +26,13 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      # Sentry necesita inyectarse en build time. Pasamos las mismas vars como
+      # build args ademas de environment, porque @sentry/astro se carga como
+      # integration durante `npm run build` (ver frontend/astro.config.mjs).
+      args:
+        SENTRY_DSN: ${SENTRY_DSN:-}
+        SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+        SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
     container_name: printall-frontend
     restart: unless-stopped
     labels:
@@ -40,6 +47,11 @@ services:
       # Si BNA_ALIAS está vacío, el bloque no se renderiza.
       BNA_ALIAS: ${BNA_ALIAS:-}
       BNA_HOLDER_NAME: ${BNA_HOLDER_NAME:-}
+      # Sentry runtime: necesario para capturar errores server-side en SSR.
+      # Sin SENTRY_DSN no se inicializa (no-op).
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
       HOST: 0.0.0.0
       PORT: "4321"
     depends_on:
