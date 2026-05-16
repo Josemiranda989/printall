@@ -30,11 +30,35 @@ export RETENTION_DAYS=30             # opcional
 ./scripts/backup-pb-to-r2.sh
 ```
 
-6. Cron diario (3am):
+6. Schedule diario (3am):
 
+**Linux** (cron):
 ```cron
 0 3 * * * cd /path/printall && source /path/.env.backup && ./scripts/backup-pb-to-r2.sh >> /var/log/printall-backup.log 2>&1
 ```
+
+**Windows** (Task Scheduler): usar el wrapper `scripts/run-backup-windows.sh` + el XML `scripts/printall-backup-task.xml` que define el trigger diario a las 3:00.
+
+Registrar la tarea como administrador (Run as Administrator) en PowerShell:
+
+```powershell
+$xml = Get-Content "D:\Development\printall\scripts\printall-backup-task.xml" -Raw
+Register-ScheduledTask -TaskName "Printall\BackupToR2" -Xml $xml -User "$env:USERDOMAIN\$env:USERNAME" -Password (Read-Host -AsSecureString "Password de Windows" | ConvertFrom-SecureString -AsPlainText)
+```
+
+(Si querés que la tarea SOLO corra mientras tu user esté logueado, podés saltarte la password con `-User "$env:USERDOMAIN\$env:USERNAME"` sin `-Password` — Task Scheduler asume `InteractiveToken`.)
+
+Verificar:
+```powershell
+schtasks /query /tn "Printall\BackupToR2" /v /fo LIST
+```
+
+Forzar una corrida manual para probar:
+```powershell
+schtasks /run /tn "Printall\BackupToR2"
+```
+
+Logs del wrapper: `logs/backup.log` (rota a >5 MB).
 
 ### Qué hace
 
