@@ -55,11 +55,15 @@ jobs:
         run: |
           set -e
           # Mounts read-only: el contenedor no debe escribir en el workspace.
+          # pb_data como tmpfs writeable (RAM, se descarta al terminar).
+          # serve explicito por si el CMD default cambia entre versiones.
           docker run -d --name pb-test \
             -v "$PWD/pocketbase/pb_migrations:/pb_migrations:ro" \
             -v "$PWD/pocketbase/pb_hooks:/pb_hooks:ro" \
+            --tmpfs /pb_data:rw,size=128m \
             -p 8090:8090 \
-            ghcr.io/muchobien/pocketbase:latest
+            ghcr.io/muchobien/pocketbase:latest \
+            serve --http 0.0.0.0:8090 --dir /pb_data --migrationsDir /pb_migrations --hooksDir /pb_hooks
 
           # Esperar hasta 60s, mostrar logs cada 10s para diagnostico.
           ready=0
