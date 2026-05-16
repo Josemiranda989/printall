@@ -44,3 +44,9 @@ frontend/.claude/
 
 # PocketBase data backups
 pocketbase/pb_data_backup*
+
+# Playwright artifacts
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/playwright/.cache/

@@ -168,6 +168,18 @@ Servicios:
 | Migrations PocketBase (`pb_migrations/*.js`) | `docker compose restart pocketbase` (PB las aplica al arrancar) |
 | Hooks PocketBase (`pb_hooks/*.pb.js`) | `docker compose restart pocketbase` |
 
+### Tests E2E (Playwright)
+
+Suite mínima en `frontend/tests/e2e/`. Se corre **contra el stack levantado** (no en CI por ahora):
+
+```bash
+docker compose up -d
+cd frontend
+npx playwright install chromium      # solo la primera vez
+npm run e2e                          # corre headless
+npm run e2e:ui                       # modo UI interactivo para debug
+```
+
 ### Monitoring con Sentry (opcional)
 
 Para capturar errors de runtime, agregá `SENTRY_DSN` al `docker-compose.yml` del servicio `frontend`:
