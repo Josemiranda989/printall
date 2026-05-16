@@ -40,3 +40,49 @@ jobs:
 
       - name: Tests (vitest)
         run: npm test
+
+  migrations:
+    name: PocketBase migrations
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Levanta PocketBase con migrations + hooks contra un pb_data limpio
+      # (volume anonimo, NO el del repo). Si alguna migration falla al aplicar,
+      # PB sale con exit code != 0 y el job rompe.
+      - name: Run migrations against fresh DB
+        run: |
+          set -e
+          docker run --rm -d --name pb-test \
+            -v "$PWD/pocketbase/pb_migrations:/pb_migrations" \
+            -v "$PWD/pocketbase/pb_hooks:/pb_hooks" \
+            -p 8090:8090 \
+            ghcr.io/muchobien/pocketbase:latest
+
+          # Esperar hasta 30s a que arranque limpio
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8090/api/health > /dev/null; then
+              echo "✓ PocketBase listo en ${i}s"
+              break
+            fi
+            sleep 1
+            if [ "$i" = "30" ]; then
+              echo "✗ Timeout: PocketBase no arrancó en 30s"
+              docker logs pb-test
+              docker rm -f pb-test
+              exit 1
+            fi
+          done
+
+          # Buscar errores explicitos de migration en los logs
+          LOGS=$(docker logs pb-test 2>&1)
+          if echo "$LOGS" | grep -E "failed to apply migration|Error: failed to" > /dev/null; then
+            echo "✗ Detectados errores en las migrations:"
+            echo "$LOGS" | grep -E "failed to apply migration|Error: failed to"
+            docker rm -f pb-test
+            exit 1
+          fi
+
+          echo "✓ Migrations aplicadas sin errores"
+          docker rm -f pb-test
