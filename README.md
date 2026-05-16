@@ -36,6 +36,7 @@ Print All vende productos impresos en 3D (mates, vasos, llaveros, organizadores)
 | 🛒 Catálogo por categorías | Productos heterogéneos (filamentos, mates, llaveros…) con atributos custom por producto |
 | 🖼️ Galería de hasta 16 imágenes | Thumbnails optimizados vía Cloudflare Image Resizing |
 | 💬 CTA WhatsApp con mensaje pre-armado | El cliente abre WhatsApp con el nombre del producto ya escrito |
+| ✉️ **Cotizador a medida** (`/cotizar`) | Form público para clientes que quieren algo fuera del catálogo. Crea una `quote` con status `pending` que aparece en el admin |
 | 📱 PWA-friendly | Mobile-first, instalable como app |
 | 🔍 SEO + Open Graph | Generación dinámica de OG images con Satori (`/og/producto/[slug].png`) |
 | 🌐 Sitemap XML | Auto-generado |
@@ -44,11 +45,18 @@ Print All vende productos impresos en 3D (mates, vasos, llaveros, organizadores)
 
 | | |
 |---|---|
-| 📋 Productos | CRUD con drag-drop de imágenes, atributos editables inline, filtros y paginación |
-| 📂 Categorías | CRUD con reordenamiento drag-drop |
-| 📝 **Pedidos** | Schema 3D-printing-aware (material, color, prioridad, avance), 3 vistas: tabla / kanban / calendario, edición inline desde la tabla, cambio de estado con un click |
-| 🧪 **Materiales** | Catálogo con `cost_price` / `sell_price` separados, margen calculado en vivo. Para filamentos y componentes |
-| 🧮 **Calculadora de costos** | Calcula precio sugerido por impresión: `(gramos / 1000) × costo/kg × multiplicador`. El multiplicador del proceso es ajustable y se persiste en localStorage |
+| 📝 **Pedidos** | Schema 3D-printing-aware (material, color, prioridad, avance). 3 vistas: tabla / kanban / calendario. Edición inline, cambio de estado con un click. **Bulk actions** para marcar varios como pagados/entregados en masa |
+| 🧊 **Adjuntos en pedidos** | Subí STL, 3MF, OBJ, fotos de referencia o comprobantes (hasta 10 archivos × 10 MB) |
+| 💵 **Historial de pagos detallado** | Cada pedido / venta tiene su tabla de pagos individuales con fecha + método (efectivo / transferencia / Mercado Pago / otro). `paid_amount` se sincroniza automático vía hook |
+| 🧴 **Insumos** | Ventas de filamento u otros consumibles, autocomplete de material + precio sugerido |
+| 💰 **Cobranzas** | Vista unificada de pedidos + insumos con saldo pendiente, ordenada por antigüedad. Un click manda recordatorio por WhatsApp con el template renderizado |
+| 📋 **Cotizaciones** | Pre-pedidos para clientes que piden presupuesto sin confirmar. Al aprobar, conversión a pedido en un click |
+| 👥 **Clientes** | Agenda automática derivada de pedidos + insumos. Autocomplete en forms, historial unificado, **tags** para segmentar (vip, mayorista, etc.) |
+| 💬 **Mensajes** | Templates de WhatsApp con placeholders (`{{customer_name}}`, `{{saldo}}`, `{{item_name}}`…) renderizados server-side. Dropdown directo desde el detalle del pedido / insumo |
+| 🔎 **Búsqueda global Ctrl/Cmd+K** | Modal que cruza pedidos, ventas, clientes y productos con navegación por teclado |
+| 🧪 **Materiales** | Catálogo con `cost_price` / `sell_price` separados, margen calculado en vivo |
+| 📂 **Productos / Categorías** | CRUD con drag-drop de imágenes y reordenamiento |
+| 🧮 **Calculadora de costos** | `(gramos / 1000) × costo/kg × multiplicador`, persiste el multiplicador en localStorage |
 | 🔐 Auth con cookie httpOnly | Sesión PocketBase superuser, middleware que protege `/admin/*` |
 | 📱 Responsive | Navbar mobile + paneles adaptados |
 
