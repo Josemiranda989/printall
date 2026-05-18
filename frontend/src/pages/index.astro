@@ -4,23 +4,82 @@ import ProductCard from "../components/ProductCard.astro";
 import MakerWorldCTA from "../components/MakerWorldCTA.astro";
 import { getProducts, getCategories, getWhatsAppUrl } from "../lib/pocketbase";
 
-const [allProducts, categories] = await Promise.all([
+// Filtros: leemos `categoria` server-side para que crawlers y previews
+// reciban la lista correcta por URL. `q` (búsqueda) se sigue manejando
+// client-side: refrescar el server en cada keystroke no aporta y empeora
+// la UX. Sólo validamos la categoría contra las existentes — slugs que
+// no matchean se ignoran (renderiza la home completa).
+const categoriaParam = Astro.url.searchParams.get("categoria") ?? "";
+
+const [allProductsRaw, categories] = await Promise.all([
   getProducts(),
   getCategories(),
 ]);
+const activeCategory = categories.some((c) => c.slug === categoriaParam)
+  ? categoriaParam
+  : "";
+
+// `allProducts` es lo que se renderiza en el grid (filtrado por categoría
+// si aplica). `allProductsRaw` queda disponible para calcular los contadores
+// de cada pill (queremos el count global, no el filtrado).
+const allProducts = activeCategory
+  ? allProductsRaw.filter((p) => p.expand?.category?.slug === activeCategory)
+  : allProductsRaw;
 
 const whatsappPhone = import.meta.env.PUBLIC_WHATSAPP_NUMBER || "5493816563940";
 const whatsappContactUrl = getWhatsAppUrl(
   whatsappPhone,
   "¡Hola Print All! 👋 Tengo una idea que me gustaría imprimir."
 );
+
+const siteUrl = Astro.site?.toString() ?? "https://printall.jmlabs.app";
+const ogImageUrl = new URL("og/home.png", siteUrl).toString();
+const canonicalUrl = activeCategory
+  ? new URL(`?categoria=${activeCategory}`, siteUrl).toString()
+  : siteUrl;
+
+// JSON-LD: Organization + WebSite. Da contexto a Google sobre el negocio
+// y permite que aparezca con sitelinks search box en SERPs.
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Print All",
+    url: siteUrl,
+    logo: new URL("logo.png", siteUrl).toString(),
+    description:
+      "Impresión 3D personalizada en Aguilares, Tucumán. Filamentos premium y productos únicos hechos a medida.",
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: "Aguilares",
+      addressRegion: "Tucumán",
+      addressCountry: "AR",
+    },
+    contactPoint: {
+      "@type": "ContactPoint",
+      contactType: "customer service",
+      telephone: "+5493816563940",
+      availableLanguage: ["Spanish"],
+    },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Print All",
+    url: siteUrl,
+    inLanguage: "es-AR",
+  },
+];
 ---
 
 <BaseLayout
   title="Catálogo"
   description="Catálogo online de Print All — impresión 3D en Aguilares, Tucumán. Filamentos, mates, vasos, llaveros y más."
+  ogImage={ogImageUrl}
+  canonical={canonicalUrl}
   preloadImage="/mascot.webp"
 >
+  <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
   <!-- Hero -->
   <section class="hero-section relative bg-brand overflow-hidden">
     <!-- Capa 1: Grid de puntos sutil -->
@@ -174,20 +233,26 @@ const whatsappContactUrl = getWhatsAppUrl(
 
         <button
           data-category="all"
-          class="filter-pill active shrink-0 inline-flex items-center gap-1.5 rounded-full border-2 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] transition-all duration-200"
+          class:list={[
+            "filter-pill shrink-0 inline-flex items-center gap-1.5 rounded-full border-2 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] transition-all duration-200",
+            { active: activeCategory === "" },
+          ]}
         >
           <span class="text-[10px]">✦</span>
           <span>Todos</span>
-          <span class="filter-count text-[10px] opacity-70">{allProducts.length}</span>
+          <span class="filter-count text-[10px] opacity-70">{allProductsRaw.length}</span>
         </button>
         {categories.map((cat) => {
-          const count = allProducts.filter(
+          const count = allProductsRaw.filter(
             (p) => p.expand?.category?.slug === cat.slug
           ).length;
           return (
             <button
               data-category={cat.slug}
-              class="filter-pill shrink-0 inline-flex items-center gap-1.5 rounded-full border-2 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] transition-all duration-200"
+              class:list={[
+                "filter-pill shrink-0 inline-flex items-center gap-1.5 rounded-full border-2 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] transition-all duration-200",
+                { active: activeCategory === cat.slug },
+              ]}
             >
               <span class="text-base leading-none">{cat.icon}</span>
               <span>{cat.name}</span>
@@ -515,30 +580,25 @@ const whatsappContactUrl = getWhatsAppUrl(
   const resetBtn = document.querySelector("#reset-filters") as HTMLElement | null;
   const scrollHint = document.querySelector("[data-scroll-hint]") as HTMLElement | null;
 
-  let activeCategory = "all";
+  // El filtro por categoría lo resuelve el server: cada cambio de categoría
+  // navega a una URL nueva (con o sin ?categoria=…) y el server re-renderiza
+  // sólo los productos del set. Así crawlers + previews de redes ven el
+  // contenido correcto por URL, sin duplicar la lógica en cliente.
+  //
+  // La búsqueda (search) sí queda client-side: filtra los productos ya
+  // cargados de la categoría actual. Refrescar el server en cada keystroke
+  // no aporta nada y empeora la UX.
   let searchQuery = "";
   let searchTimeout: number;
 
-  function filterProducts(category: string) {
-    activeCategory = category;
-    filterBar.querySelectorAll("[data-category]").forEach((btn) => {
-      const button = btn as HTMLElement;
-      button.classList.toggle("active", button.dataset.category === category);
-    });
-    applyFilters();
-  }
-
-  function applyFilters() {
+  function applySearch() {
     let visibleCount = 0;
     let animIndex = 0;
 
     productCards.forEach((el) => {
       const element = el as HTMLElement;
-      const matchCategory =
-        activeCategory === "all" || element.dataset.category === activeCategory;
-      const matchSearch =
+      const match =
         !searchQuery || (element.dataset.name || "").includes(searchQuery);
-      const match = matchCategory && matchSearch;
 
       element.classList.remove("entering");
       element.style.removeProperty("--enter-delay");
@@ -570,12 +630,9 @@ const whatsappContactUrl = getWhatsAppUrl(
       searchClear.classList.toggle("hidden", !searchQuery);
     }
 
+    // Persistir `q` en la URL sin recargar (la categoría ya viene
+    // resuelta server-side; sólo persistimos el search local).
     const url = new URL(window.location.href);
-    if (activeCategory === "all") {
-      url.searchParams.delete("categoria");
-    } else {
-      url.searchParams.set("categoria", activeCategory);
-    }
     if (searchQuery) {
       url.searchParams.set("q", searchQuery);
     } else {
@@ -584,36 +641,30 @@ const whatsappContactUrl = getWhatsAppUrl(
     window.history.replaceState({}, "", url);
   }
 
-  // --- Init from URL ---
+  // --- Init from URL (sólo search; el filtro de categoría ya está en el HTML) ---
   const params = new URLSearchParams(window.location.search);
-  const initialCategory = params.get("categoria");
   const initialSearch = params.get("q");
-
   if (initialSearch && searchInput) {
     searchInput.value = initialSearch;
     searchQuery = initialSearch.toLowerCase();
   }
+  applySearch();
 
-  if (initialCategory) {
-    const validPill = filterBar.querySelector(
-      `[data-category="${initialCategory}"]`
-    ) as HTMLElement | null;
-    if (validPill) {
-      filterBar.querySelector('[data-category="all"]')?.classList.remove("active");
-      validPill.classList.add("active");
-      activeCategory = initialCategory;
-    }
-  }
-
-  applyFilters();
-
-  // --- Click en pills ---
+  // --- Click en pills: navegar a la URL nueva (server re-renderiza filtrado) ---
   filterBar.addEventListener("click", (e: Event) => {
     const target = e.target as HTMLElement;
     const btn = target.closest("[data-category]") as HTMLElement | null;
-    if (btn) {
-      filterProducts(btn.dataset.category ?? "all");
+    if (!btn) return;
+    e.preventDefault();
+    const cat = btn.dataset.category ?? "all";
+    const url = new URL(window.location.href);
+    if (cat === "all") {
+      url.searchParams.delete("categoria");
+    } else {
+      url.searchParams.set("categoria", cat);
     }
+    // Preservar `q` si está activa para no perder el contexto de búsqueda.
+    window.location.href = url.toString();
   });
 
   // --- Search (debounced) ---
@@ -622,7 +673,7 @@ const whatsappContactUrl = getWhatsAppUrl(
       clearTimeout(searchTimeout);
       searchTimeout = window.setTimeout(() => {
         searchQuery = searchInput.value.toLowerCase().trim();
-        applyFilters();
+        applySearch();
       }, 150);
     });
   }
@@ -634,17 +685,23 @@ const whatsappContactUrl = getWhatsAppUrl(
         searchInput.value = "";
         searchQuery = "";
         searchInput.focus();
-        applyFilters();
+        applySearch();
       }
     });
   }
 
-  // --- Reset all ---
+  // --- Reset all: limpia search local Y navega a la home sin filtros ---
   if (resetBtn) {
     resetBtn.addEventListener("click", () => {
+      // Si ya estamos en home sin categoría, sólo limpiamos search local.
+      const hasCategoria = new URL(window.location.href).searchParams.has("categoria");
+      if (hasCategoria) {
+        window.location.href = "/";
+        return;
+      }
       if (searchInput) searchInput.value = "";
       searchQuery = "";
-      filterProducts("all");
+      applySearch();
       grid?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }
