@@ -34,6 +34,7 @@ const ogImageUrl = new URL(
   `og/producto/${product.slug}.png?v=${updatedTs}`,
   Astro.site,
 ).toString();
+const canonicalUrl = new URL(`producto/${product.slug}`, Astro.site).toString();
 
 const stockColor = STOCK_COLORS[product.stock_status] ?? "bg-gray-400";
 const stockLabel = STOCK_LABELS[product.stock_status] ?? product.stock_status;
@@ -47,6 +48,8 @@ const jsonLd = buildProductJsonLd(product, jsonLdBaseUrl);
   title={product.name}
   description={product.description?.replace(/<[^>]*>/g, "").slice(0, 160)}
   ogImage={ogImageUrl}
+  ogType="product"
+  canonical={canonicalUrl}
 >
   <!-- JSON-LD Structured Data -->
   <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
@@ -297,7 +300,7 @@ const jsonLd = buildProductJsonLd(product, jsonLdBaseUrl);
 
     <img
       id="lightbox-image"
-      src=""
+      src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="
       alt=""
       class="max-h-[90vh] max-w-[90vw] object-contain rounded-lg select-none"
       style="cursor: zoom-in; touch-action: pan-y;"
