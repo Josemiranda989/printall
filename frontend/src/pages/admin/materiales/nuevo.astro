@@ -31,6 +31,7 @@ if (Astro.request.method === "POST") {
         kind: result.data.kind,
         cost_price: result.data.cost_price,
         sell_price: result.data.sell_price,
+        colors: result.data.colors,
         active: result.data.active,
       });
       return Astro.redirect("/admin/materiales");

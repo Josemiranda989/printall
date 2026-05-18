@@ -1,5 +1,6 @@
 ---
 import {
+  COLOR_HEX,
   MATERIAL_KIND_LABELS,
   MATERIAL_KIND_UNIT,
   MATERIAL_KIND_VALUES,
@@ -26,6 +27,18 @@ function errorMsg(field: string) {
 }
 
 const currentKind = values.kind ?? "filament";
+
+const initialColors = (values.colors ?? "")
+  .split(",")
+  .map((c) => c.trim().toLowerCase())
+  .filter(Boolean);
+
+function colorBg(c: string): string {
+  const hex = (COLOR_HEX as Record<string, string>)[c];
+  if (hex && hex.startsWith("linear")) return `background: ${hex}`;
+  if (hex) return `background-color: ${hex}`;
+  return "background: repeating-conic-gradient(#e5e7eb 0 25%, transparent 0 50%) 50% / 8px 8px";
+}
 ---
 
 <form method="POST" class="space-y-5">
@@ -123,20 +136,67 @@ const currentKind = values.kind ?? "filament";
       </label>
     </div>
 
-    <label class="block">
-      <span class="text-sm font-medium">Colores</span>
-      <input
-        type="text"
-        name="colors"
-        maxlength={200}
-        value={values.colors ?? ""}
-        placeholder="Ej: negro, blanco, verde"
-        class={fieldClass}
-      />
-      <p class="text-xs text-gray-500 mt-1">
-        Separados por coma. Se usan para filtrar ventas de insumos.
+    <div>
+      <span class="text-sm font-medium block">Colores</span>
+      <p class="text-xs text-gray-500 mt-1 mb-2">
+        Se usan para filtrar ventas de insumos. Agregá uno por uno, o varios separados por coma.
       </p>
-    </label>
+
+      <div
+        class="flex flex-wrap gap-2 mb-2 min-h-[2rem]"
+        data-color-chips
+        aria-live="polite"
+      >
+        {initialColors.map((c) => (
+          <span
+            class="inline-flex items-center gap-1.5 px-2 py-1 border-2 border-brand/30 rounded-md text-sm bg-white"
+            data-color-chip={c}
+          >
+            <span
+              class="inline-block w-4 h-4 rounded border border-brand/20 shrink-0"
+              style={colorBg(c)}
+              aria-hidden="true"
+            ></span>
+            <span>{c}</span>
+            <button
+              type="button"
+              class="text-gray-400 hover:text-red-600 ml-1 leading-none cursor-pointer text-base font-bold"
+              data-color-remove={c}
+              aria-label={`Quitar ${c}`}
+            >×</button>
+          </span>
+        ))}
+        {initialColors.length === 0 && (
+          <span class="text-xs text-gray-400 italic self-center" data-color-empty>
+            Sin colores cargados.
+          </span>
+        )}
+      </div>
+
+      <input
+        type="hidden"
+        name="colors"
+        data-colors-hidden
+        value={initialColors.join(", ")}
+      />
+
+      <div class="flex gap-2">
+        <input
+          type="text"
+          data-color-new
+          placeholder="Ej: negro"
+          maxlength={30}
+          class={fieldClass + " mt-0 flex-1"}
+        />
+        <button
+          type="button"
+          data-color-add
+          class="px-3 py-2 border-2 border-brand text-brand rounded-md text-sm font-medium hover:bg-brand hover:text-white transition-colors whitespace-nowrap"
+        >
+          + Agregar
+        </button>
+      </div>
+    </div>
 
     <label class="inline-flex items-center gap-2 cursor-pointer">
       <input
@@ -234,6 +294,124 @@ const currentKind = values.kind ?? "filament";
   costEl?.addEventListener("input", updateMargin);
   sellEl?.addEventListener("input", updateMargin);
   updateMargin();
+
+  // ─── Color chips ───
+  // Hex map duplicado client-side. Incluye los colores del enum Color del
+  // sistema (ver lib/types.ts) + extras comunes para materials (rosa,
+  // marron, etc.) ya que el usuario puede tipear cualquier color libre.
+  const CHIP_HEX: Record<string, string> = {
+    blanco: "#ffffff",
+    negro: "#1a1a1a",
+    gris: "#9ca3af",
+    azul: "#2563eb",
+    rojo: "#dc2626",
+    verde: "#16a34a",
+    amarillo: "#facc15",
+    naranja: "#f97316",
+    morado: "#9333ea",
+    transparente: "linear-gradient(45deg,#fff 0%,#f3f4f6 50%,#fff 100%)",
+    celeste: "#7dd3fc",
+    rosa: "#ec4899",
+    marron: "#92400e",
+    dorado: "#d4af37",
+    plateado: "#c0c0c0",
+    beige: "#f5deb3",
+    turquesa: "#06b6d4",
+    fucsia: "#d946ef",
+  };
+
+  function chipBg(c: string): string {
+    const hex = CHIP_HEX[c];
+    if (hex && hex.startsWith("linear")) return `background: ${hex}`;
+    if (hex) return `background-color: ${hex}`;
+    return "background: repeating-conic-gradient(#e5e7eb 0 25%, transparent 0 50%) 50% / 8px 8px";
+  }
+
+  const chipsContainer = document.querySelector<HTMLElement>("[data-color-chips]");
+  const hiddenInput = document.querySelector<HTMLInputElement>("[data-colors-hidden]");
+  const newInput = document.querySelector<HTMLInputElement>("[data-color-new]");
+  const addBtn = document.querySelector<HTMLButtonElement>("[data-color-add]");
+
+  if (chipsContainer && hiddenInput && newInput && addBtn) {
+    let colors: string[] = (hiddenInput.value || "")
+      .split(",")
+      .map((c) => c.trim().toLowerCase())
+      .filter(Boolean);
+
+    function render() {
+      chipsContainer!.replaceChildren();
+
+      if (colors.length === 0) {
+        const empty = document.createElement("span");
+        empty.className = "text-xs text-gray-400 italic self-center";
+        empty.textContent = "Sin colores cargados.";
+        chipsContainer!.appendChild(empty);
+        hiddenInput!.value = "";
+        return;
+      }
+
+      for (const c of colors) {
+        const chip = document.createElement("span");
+        chip.className =
+          "inline-flex items-center gap-1.5 px-2 py-1 border-2 border-brand/30 rounded-md text-sm bg-white";
+
+        const swatch = document.createElement("span");
+        swatch.className = "inline-block w-4 h-4 rounded border border-brand/20 shrink-0";
+        swatch.setAttribute("aria-hidden", "true");
+        swatch.style.cssText = chipBg(c);
+
+        const name = document.createElement("span");
+        name.textContent = c;
+
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className =
+          "text-gray-400 hover:text-red-600 ml-1 leading-none cursor-pointer text-base font-bold";
+        removeBtn.setAttribute("aria-label", `Quitar ${c}`);
+        removeBtn.textContent = "×";
+        removeBtn.addEventListener("click", () => {
+          colors = colors.filter((x) => x !== c);
+          render();
+        });
+
+        chip.append(swatch, name, removeBtn);
+        chipsContainer!.appendChild(chip);
+      }
+
+      hiddenInput!.value = colors.join(", ");
+    }
+
+    function addFromInput() {
+      const raw = newInput!.value;
+      if (!raw.trim()) return;
+      const toAdd = raw
+        .split(",")
+        .map((c) => c.trim().toLowerCase())
+        .filter(Boolean);
+      let added = false;
+      for (const c of toAdd) {
+        if (c.length > 30) continue;
+        if (!colors.includes(c)) {
+          colors.push(c);
+          added = true;
+        }
+      }
+      newInput!.value = "";
+      if (added) render();
+    }
+
+    addBtn.addEventListener("click", addFromInput);
+    newInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        addFromInput();
+      }
+    });
+
+    // Render inicial — reemplaza los chips SSR para que toda la UI viva del
+    // mismo estado JS (evita drift entre lo renderizado y lo manipulable).
+    render();
+  }
 
   // Confirm dialogs handled globally in AdminLayout
 </script>

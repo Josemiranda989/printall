@@ -36,6 +36,19 @@ function parsePrice(raw: string): { value: number; error: string | null } {
   return { value: parsed, error: null };
 }
 
+/** Normaliza un CSV de colores: trim + lowercase + dedupe, devuelve "" si vacío. */
+function normalizeColors(raw: string): string {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of raw.split(",")) {
+    const c = part.trim().toLowerCase();
+    if (!c || seen.has(c)) continue;
+    seen.add(c);
+    out.push(c);
+  }
+  return out.join(", ");
+}
+
 export function extractMaterialFromForm(form: FormData): ExtractMaterialResult {
   const errors: Record<string, string> = {};
 
@@ -43,6 +56,7 @@ export function extractMaterialFromForm(form: FormData): ExtractMaterialResult {
   const kindRaw = str(form, "kind");
   const costRaw = str(form, "cost_price");
   const sellRaw = str(form, "sell_price");
+  const colors = normalizeColors(str(form, "colors"));
   const active = checkbox(form, "active");
 
   if (!name) {
@@ -76,6 +90,7 @@ export function extractMaterialFromForm(form: FormData): ExtractMaterialResult {
       kind,
       cost_price: costParsed.value,
       sell_price: sellParsed.value,
+      colors,
       active,
     },
     errors,
