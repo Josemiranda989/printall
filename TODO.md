@@ -1,6 +1,6 @@
 # Pendientes — Print All
 
-> Última actualización: 2026-05-12 (suite 402/402 + 4 PRs cerrados: inline editing, fix test, security audit, E2E orders)
+> Última actualización: 2026-05-18 (release v0.1.0 — auditoría Playwright E2E del admin, 3 commits de fixes deployed, workflow PR setup)
 
 ## 🧪 Mejoras de carga de productos (admin) — pendientes nivel 2 y 3
 
@@ -40,7 +40,7 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 
 **Pendientes Nivel 3 (próximas sesiones)**:
 
-- [ ] Vista de producto en preview interno (sin tener que abrir el sitio público) — único que queda del scope original
+- ~~Vista de producto en preview interno~~ ✅ implementado en `frontend/src/pages/admin/productos/[id]/preview.astro`
 
 ## 🐛 Conocidos / aceptados
 
@@ -81,6 +81,18 @@ Quedan dos niveles más si la carga manual se vuelve tediosa:
 - ✅ Warning `ts(6133)` en `productos/[slug].astro` silenciado (refactor del frontmatter para evitar el falso positivo del plugin Astro check)
 - ✅ **Lighthouse mobile HOME 100/100/100/100** (commit `6813d48`). Tras enrutar los thumbnails de productos vía Cloudflare Image Resizing (`/cdn-cgi/image/format=auto,...`), el browser negocia AVIF/WebP y todas las auditorías de imágenes pasan. Ejemplo medido: thumb 400x400 cae de 53 KB JPEG → 25 KB AVIF (−52%). LCP 1.9 s, CLS 0, TBT 0 ms, FCP 1.0 s, SI 1.6 s. Cambio mínimo: rewrite de `getFileUrl()` en `frontend/src/lib/pocketbase.ts` + nueva env var `PUBLIC_SITE_URL` + 3 tests nuevos (suite 41 passing). Requiere Image Transformations habilitado en la zona de Cloudflare (`same-zone`).
 - ✅ **Lighthouse mobile** anterior (pre-CDN): HOME `perf 90 / a11y 100 / bp 100 / seo 100` · DETAIL `perf 97 / a11y 100 / bp 100 / seo 100`. Mejoras de esa fase: PNG→WebP (mascot −74%, logo −72%), preload del LCP, fonts self-hosted vía `@fontsource`, contraste WCAG AA (token nuevo `--color-accent-strong: #9a3412`), heading order corregido, WhatsApp button usa `accent-hover`.
+
+### Cerrado 2026-05-18 — release v0.1.0 (auditoría Playwright E2E del admin)
+
+- ✅ **Auditoría exhaustiva del admin con Playwright en producción** — 19 páginas smoke-tested (todas 200), 11 entidades CRUD verificadas, APIs PATCH + bulk + Ctrl+K + responsive 375px. Reporte completo en GitHub Release v0.1.0.
+- ✅ **Fix crítico: materials/colors no se guardaban** — `extractMaterialFromForm` + `materiales/nuevo.astro` POST no incluían el campo. Bonus UX: input CSV reemplazado por chips con swatch de color + "+ Agregar". Commit `9b7968c`.
+- ✅ **Fix crítico: clientes/nuevo tags no se guardaban** — mismo patrón que materials/colors (create omitía el campo, update sí lo tenía). Bonus UX: tags también como chips. Commits `f1bc1e2` + `6795b05`.
+- ✅ **Fix crítico: quotes/convert fallaba con 500** — `order_date` es required schema-level, el hook PB que lo autocompleta corre después de la validation. Fix: pasar explícito en `convert.ts`. Commit `f1bc1e2`.
+- ✅ **`mapPBErrorToString` mejorado** — prependa el field cuando el code es `validation_required`. "Este campo es obligatorio." → "order_date: Este campo es obligatorio.". Habilitó el diagnóstico del bug de convert. Commit `f1bc1e2`.
+- ✅ **Confirm modal con variants** — `AdminLayout` soporta `data-confirm-variant` ("danger" rojo default | "primary" emerald) + `data-confirm-label` custom. Convert quote dejó de usar `window.confirm()`. Commit `6795b05`.
+- ✅ **Cobranzas: fallback WhatsApp client.whatsapp ↔ customer_whatsapp** — varios pedidos viejos quedaron sin snapshot tras el backfill de la collection clients. Fix defensivo en `admin-pending.ts`. Commit `6795b05`.
+- ✅ **Workflow PR + branch protection** — main bloquea push directo, requiere PR + CI verde (Frontend tests + type check + PocketBase migrations + GitGuardian) + squash merge only + auto-delete branches. PR template en `.github/`. Estrenado en PR #52.
+- ✅ **Tag v0.1.0 + GitHub Release** — primer release etiquetado del admin. Notas detalladas con los 3 commits del audit.
 
 ### Cerrado post-2026-05-06 (módulo de pedidos + cierre de admin custom)
 
