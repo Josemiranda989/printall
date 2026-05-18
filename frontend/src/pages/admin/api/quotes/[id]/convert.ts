@@ -60,6 +60,9 @@ export const POST: APIRoute = async ({ locals, params }) => {
       units_done: 0,
       paid_amount: 0,
       is_paid: false,
+      // order_date es required schema-level: la validación de PB corre antes
+      // del hook que lo autocompleta, así que tenemos que pasarlo explícito.
+      order_date: new Date().toISOString(),
       notes: [String(quote.description ?? ""), String(quote.notes ?? "")]
         .filter(Boolean)
         .join("\n\n"),

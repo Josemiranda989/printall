@@ -149,7 +149,17 @@ export function mapPBErrorToString(err: unknown, fallback: string): string {
   if (firstEntry) {
     const [field, info] = firstEntry;
     const msg = lookupFieldMessage(field, info ?? {});
-    if (msg) return msg;
+    if (msg) {
+      // Prependeamos el field SOLO para errores genéricos donde el mensaje
+      // por sí solo no identifica el campo (típico de validation_required:
+      // "Este campo es obligatorio." sin contexto). Para otros códigos el
+      // mensaje suele incluir info específica del campo o del valor.
+      const isGenericRequired = info?.code === "validation_required";
+      if (isGenericRequired && field && field !== "_global") {
+        return `${field}: ${msg}`;
+      }
+      return msg;
+    }
   }
 
   const raw = e?.message ?? "";

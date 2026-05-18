@@ -55,6 +55,7 @@ if (Astro.request.method === "POST") {
         whatsapp_norm: wnorm,
         name_norm: nnorm,
         notes: result.data.notes,
+        tags: result.data.tags,
       });
 
       const toastName = encodeURIComponent(result.data.name || "sin nombre");
