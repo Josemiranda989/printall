@@ -204,6 +204,9 @@ const isConverted = values.status === "converted";
           type="button"
           data-convert-quote
           data-quote-id={quoteId}
+          data-confirm="¿Convertir esta cotización en un pedido? Se crea un pedido nuevo con los datos."
+          data-confirm-variant="primary"
+          data-confirm-label="Convertir"
           class="px-4 py-2 bg-emerald-600 text-white rounded-md text-sm font-medium hover:bg-emerald-700 transition-colors"
         >
           ⇨ Convertir a pedido
@@ -238,7 +241,8 @@ const isConverted = values.status === "converted";
     btn.addEventListener("click", async () => {
       const id = btn.dataset.quoteId ?? "";
       if (!id) return;
-      if (!confirm("¿Convertir esta cotización en un pedido? Se crea un pedido nuevo con los datos.")) return;
+      // La confirmación la maneja el modal global de AdminLayout vía
+      // data-confirm en el botón (variant="primary", label="Convertir").
 
       btn.disabled = true;
       try {

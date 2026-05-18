@@ -38,17 +38,23 @@ export type PendingPayment = {
  * scope. Si tampoco hay, queda null.
  */
 export async function fetchPendingPayments(pb: PocketBase): Promise<PendingPayment[]> {
+  // Expandimos `client` en orders y supply_sales porque varios pedidos viejos
+  // (sobre todo los creados antes del backfill de la collection clients) tienen
+  // `customer_whatsapp` vacío pero sí tienen relación al cliente. Sin el expand,
+  // la pantalla muestra "sin tel" aunque el WhatsApp existe en la relación.
   const [orders, sales, materials, allTemplates] = await Promise.all([
     pb.collection("orders").getFullList({
       filter: "is_paid = false && status != 'cancelled'",
       sort: "-created",
       batch: 500,
-    }) as unknown as Promise<Order[]>,
+      expand: "client",
+    }) as unknown as Promise<(Order & { expand?: { client?: { whatsapp?: string } } })[]>,
     pb.collection("supply_sales").getFullList({
       filter: "is_paid = false && status != 'cancelado'",
       sort: "-created",
       batch: 500,
-    }) as unknown as Promise<SupplySale[]>,
+      expand: "client",
+    }) as unknown as Promise<(SupplySale & { expand?: { client?: { whatsapp?: string } } })[]>,
     pb.collection("materials").getFullList({
       fields: "id,name",
       batch: 500,
@@ -57,6 +63,15 @@ export async function fetchPendingPayments(pb: PocketBase): Promise<PendingPayme
       sort: "name",
     }) as unknown as Promise<WhatsAppTemplate[]>,
   ]);
+
+  /** Snapshot tiene prioridad; fallback al WhatsApp del cliente relacionado. */
+  function resolveWhatsApp(
+    snapshot: string | undefined,
+    expand: { client?: { whatsapp?: string } } | undefined,
+  ): string {
+    if (snapshot && snapshot.trim() !== "") return snapshot;
+    return expand?.client?.whatsapp ?? "";
+  }
 
   // Elegir un template "default" para recordatorio en cada contexto.
   // Preferimos los que tengan "pago" o "recordatorio" en el nombre.
@@ -100,13 +115,14 @@ export async function fetchPendingPayments(pb: PocketBase): Promise<PendingPayme
     if (saldo <= 0) continue;
     const total = (o.unit_price ?? 0) * (o.units_ordered ?? 0);
     const paid = o.paid_amount ?? 0;
+    const whatsapp = resolveWhatsApp(o.customer_whatsapp, o.expand);
     const ctx = getOrderContext(o);
-    const reminder = buildReminder(orderTemplate, ctx, o.customer_whatsapp);
+    const reminder = buildReminder(orderTemplate, ctx, whatsapp);
     items.push({
       type: "order",
       id: o.id,
       customer_name: o.customer_name,
-      customer_whatsapp: o.customer_whatsapp ?? "",
+      customer_whatsapp: whatsapp,
       label: o.project_name,
       total,
       paid,
@@ -125,13 +141,14 @@ export async function fetchPendingPayments(pb: PocketBase): Promise<PendingPayme
     const saldo = Math.max(0, total - paid);
     if (saldo <= 0) continue;
     const materialName = materialById.get(s.item) ?? "Insumo";
+    const whatsapp = resolveWhatsApp(s.customer_whatsapp, s.expand);
     const ctx = getSaleContext(s, { item_name: materialName });
-    const reminder = buildReminder(saleTemplate, ctx, s.customer_whatsapp);
+    const reminder = buildReminder(saleTemplate, ctx, whatsapp);
     items.push({
       type: "sale",
       id: s.id,
       customer_name: s.customer_name,
-      customer_whatsapp: s.customer_whatsapp ?? "",
+      customer_whatsapp: whatsapp,
       label: materialName,
       total,
       paid,

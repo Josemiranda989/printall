@@ -30,6 +30,11 @@ const whatsappUrl =
   phone && values.name
     ? getWhatsAppUrl(phone.replace(/^\+/, ""), `¡Hola ${values.name}! 👋`)
     : null;
+
+const initialTags = (values.tags ?? "")
+  .split(",")
+  .map((t) => t.trim().toLowerCase())
+  .filter(Boolean);
 ---
 
 <form method="POST" class="space-y-5">
@@ -85,26 +90,65 @@ const whatsappUrl =
       )}
     </label>
 
-    <label class="block">
-      <div class="flex items-center justify-between gap-2">
-        <span class="text-sm font-medium">Etiquetas</span>
-        <span class="text-xs text-gray-500">Separadas por coma</span>
-      </div>
-      <input
-        type="text"
-        name="tags"
-        maxlength="200"
-        value={values.tags ?? ""}
-        placeholder="vip, mayorista, moroso"
-        class={fieldClass + " font-mono text-sm"}
-      />
-      <p class="text-xs text-gray-500 mt-1">
-        Se guardan en minúscula y sin duplicados. Útil para filtrar después.
+    <div>
+      <span class="text-sm font-medium block">Etiquetas</span>
+      <p class="text-xs text-gray-500 mt-1 mb-2">
+        Agregá uno por uno o varios separados por coma. Se guardan en minúscula y sin duplicados.
       </p>
+
+      <div
+        class="flex flex-wrap gap-2 mb-2 min-h-[2rem]"
+        data-tag-chips
+        aria-live="polite"
+      >
+        {initialTags.map((t) => (
+          <span
+            class="inline-flex items-center gap-1.5 px-2 py-1 border-2 border-brand/30 rounded-md text-sm bg-white"
+            data-tag-chip={t}
+          >
+            <span>{t}</span>
+            <button
+              type="button"
+              class="text-gray-400 hover:text-red-600 ml-1 leading-none cursor-pointer text-base font-bold"
+              data-tag-remove={t}
+              aria-label={`Quitar ${t}`}
+            >×</button>
+          </span>
+        ))}
+        {initialTags.length === 0 && (
+          <span class="text-xs text-gray-400 italic self-center">
+            Sin etiquetas cargadas.
+          </span>
+        )}
+      </div>
+
+      <input
+        type="hidden"
+        name="tags"
+        data-tags-hidden
+        value={initialTags.join(", ")}
+      />
+
+      <div class="flex gap-2">
+        <input
+          type="text"
+          data-tag-new
+          placeholder="Ej: vip"
+          maxlength={30}
+          class={fieldClass + " mt-0 flex-1"}
+        />
+        <button
+          type="button"
+          data-tag-add
+          class="px-3 py-2 border-2 border-brand text-brand rounded-md text-sm font-medium hover:bg-brand hover:text-white transition-colors whitespace-nowrap"
+        >
+          + Agregar
+        </button>
+      </div>
       {errorMsg("tags") && (
         <p class="text-xs text-red-600 mt-1">{errorMsg("tags")}</p>
       )}
-    </label>
+    </div>
 
     <label class="block">
       <span class="text-sm font-medium">Notas</span>
@@ -153,3 +197,87 @@ const whatsappUrl =
     </div>
   </div>
 </form>
+
+<script>
+  // ─── Tag chips ───
+  // Mismo patrón que MaterialForm con colores, pero sin swatch (los tags
+  // no tienen color asociado). Persiste como CSV string en un hidden input.
+  const chipsContainer = document.querySelector<HTMLElement>("[data-tag-chips]");
+  const hiddenInput = document.querySelector<HTMLInputElement>("[data-tags-hidden]");
+  const newInput = document.querySelector<HTMLInputElement>("[data-tag-new]");
+  const addBtn = document.querySelector<HTMLButtonElement>("[data-tag-add]");
+
+  if (chipsContainer && hiddenInput && newInput && addBtn) {
+    let tags: string[] = (hiddenInput.value || "")
+      .split(",")
+      .map((t) => t.trim().toLowerCase())
+      .filter(Boolean);
+
+    function render() {
+      chipsContainer!.replaceChildren();
+
+      if (tags.length === 0) {
+        const empty = document.createElement("span");
+        empty.className = "text-xs text-gray-400 italic self-center";
+        empty.textContent = "Sin etiquetas cargadas.";
+        chipsContainer!.appendChild(empty);
+        hiddenInput!.value = "";
+        return;
+      }
+
+      for (const t of tags) {
+        const chip = document.createElement("span");
+        chip.className =
+          "inline-flex items-center gap-1.5 px-2 py-1 border-2 border-brand/30 rounded-md text-sm bg-white";
+
+        const name = document.createElement("span");
+        name.textContent = t;
+
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className =
+          "text-gray-400 hover:text-red-600 ml-1 leading-none cursor-pointer text-base font-bold";
+        removeBtn.setAttribute("aria-label", `Quitar ${t}`);
+        removeBtn.textContent = "×";
+        removeBtn.addEventListener("click", () => {
+          tags = tags.filter((x) => x !== t);
+          render();
+        });
+
+        chip.append(name, removeBtn);
+        chipsContainer!.appendChild(chip);
+      }
+
+      hiddenInput!.value = tags.join(", ");
+    }
+
+    function addFromInput() {
+      const raw = newInput!.value;
+      if (!raw.trim()) return;
+      const toAdd = raw
+        .split(",")
+        .map((t) => t.trim().toLowerCase())
+        .filter(Boolean);
+      let added = false;
+      for (const t of toAdd) {
+        if (t.length > 30) continue;
+        if (!tags.includes(t)) {
+          tags.push(t);
+          added = true;
+        }
+      }
+      newInput!.value = "";
+      if (added) render();
+    }
+
+    addBtn.addEventListener("click", addFromInput);
+    newInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        addFromInput();
+      }
+    });
+
+    render();
+  }
+</script>
