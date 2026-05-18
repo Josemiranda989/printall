@@ -1,7 +1,26 @@
 ---
-return Astro.redirect(
-  "/?categoria=" +
-    (Astro.params.slug ?? "").replace(/[^a-zA-Z0-9\-_]/g, "") +
-    "#catalogo",
-);
+import { getCategories } from "../../lib/pocketbase";
+
+// Esta ruta es legacy. La intención original era usarla como atajo a la home
+// filtrada por categoría (`/productos/filamentos` → `/?categoria=filamentos`).
+// Pero antes redirigía cualquier slug sin validar, lo que daba experiencias
+// raras cuando alguien tipeaba mal o seguía un link viejo.
+//
+// Ahora validamos que el slug corresponda a una categoría existente:
+//   - Match → redirect 301 a la home filtrada
+//   - No match → 404 (que renderiza la 404 default de Astro)
+const slug = (Astro.params.slug ?? "").toLowerCase().replace(/[^a-z0-9\-_]/g, "");
+
+if (!slug) {
+  return Astro.redirect("/", 301);
+}
+
+const categories = await getCategories();
+const isCategory = categories.some((c) => c.slug.toLowerCase() === slug);
+
+if (!isCategory) {
+  return new Response(null, { status: 404 });
+}
+
+return Astro.redirect(`/?categoria=${slug}#catalogo`, 301);
 ---

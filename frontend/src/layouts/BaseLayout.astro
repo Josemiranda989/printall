@@ -12,9 +12,13 @@ export interface Props {
   title: string;
   description?: string;
   ogImage?: string;
+  /** Por defecto "website". Pasar "product" en páginas de detalle de producto. */
+  ogType?: string;
+  /** URL canónica de la página — evita contenido duplicado en SEO. */
+  canonical?: string;
   preloadImage?: string;
 }
-const { title, description, ogImage, preloadImage } = Astro.props;
+const { title, description, ogImage, ogType = "website", canonical, preloadImage } = Astro.props;
 const fullTitle = `${title} | Print All`;
 ---
 
@@ -25,10 +29,11 @@ const fullTitle = `${title} | Print All`;
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{fullTitle}</title>
     <meta name="description" content={description || "Catálogo online de Print All — impresión 3D en Aguilares, Tucumán. Filamentos, mates, vasos, llaveros y más."} />
+    {canonical && <link rel="canonical" href={canonical} />}
 
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description || "Impresión 3D en Aguilares, Tucumán."} />
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={ogType} />
     {ogImage && <meta property="og:image" content={ogImage} />}
     {preloadImage && <link rel="preload" as="image" href={preloadImage} fetchpriority="high" />}
 
